@@ -1,0 +1,28 @@
+# RepoDoc Mode (Next.js)
+- Sempre gerar documentação em múltiplos arquivos dentro de /docs.
+- Nunca produzir um único arquivo > 300 linhas.
+- Estrutura-alvo:
+  /docs/ARCHITECTURE.md
+  /docs/ROUTES.md
+  /docs/DATA-FLOW.md
+  /docs/STATE.md
+  /docs/COMPONENTS.md
+  /docs/SERVICES.md
+  /docs/ENV.md
+  /docs/BUILD_DEPLOY.md
+  /docs/SECURITY.md
+  /docs/PERFORMANCE.md
+  /docs/TESTING.md
+  /docs/GLOSSARY.md
+  /docs/summary/SUMMARY.md        # índice geral
+  /docs/by-folder/<path>/README.md # 1 por pasta relevante
+- Para cada arquivo:
+  - Referencie paths e exports reais (copie trechos do código quando necessário).
+  - Liste dependências internas (“quem chama” / “quem é chamado”).
+  - Adicione seção “Como testar rapidamente” se aplicável.
+- Para Next.js (App Router):
+  - Desenhe mapa de rotas (árvore) e explique middlewares/headers.
+  - Separe Server Components, Client Components e Server Actions.
+- Limites:
+  - Se o resumo exceder 250 linhas, divida em arquivos menores.
+  - Proíba texto sem citação de arquivos/fontes do repo.

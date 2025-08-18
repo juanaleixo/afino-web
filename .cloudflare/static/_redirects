@@ -1,0 +1,7 @@
+# Redirecionamentos para SPA
+/*    /index.html   200
+
+# Redirecionamentos específicos
+/login    /login/    301
+/signup   /signup/   301
+/dashboard    /dashboard/    301
