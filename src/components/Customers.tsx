@@ -1,22 +1,22 @@
 import React from "react";
 import {
-  AiOutlineDiscord,
-  AiTwotoneBug,
-  AiTwotoneExperiment,
-  AiOutlineTaobao,
-  AiOutlineSpotify,
-  AiOutlineCode,
-  AiOutlineCiCircle,
-} from "react-icons/ai";
+  Bug,
+  TestTube,
+  Code,
+  MessageSquare,
+  ShoppingCart,
+  Music,
+  Circle,
+} from "lucide-react";
 
 const icons = [
-  { Icon: AiTwotoneBug },
-  { Icon: AiOutlineDiscord },
-  { Icon: AiTwotoneExperiment },
-  { Icon: AiOutlineTaobao },
-  { Icon: AiOutlineSpotify },
-  { Icon: AiOutlineCode },
-  { Icon: AiOutlineCiCircle },
+  { Icon: Bug },
+  { Icon: MessageSquare },
+  { Icon: TestTube },
+  { Icon: ShoppingCart },
+  { Icon: Music },
+  { Icon: Code },
+  { Icon: Circle },
 ];
 
 const Customers: React.FC = () => {

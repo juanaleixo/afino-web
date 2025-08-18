@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { FaApple, FaGooglePlay } from "react-icons/fa";
+import { Apple, Play } from "lucide-react";
 
 const Download: React.FC = () => (
   <section className="container mx-auto py-24 px-4 md:px-6">
@@ -27,14 +27,14 @@ const Download: React.FC = () => (
               href="#"
               className="download-button bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-md text-base flex items-center space-x-2 transition-colors duration-200"
             >
-              <FaApple className="text-2xl" />
+              <Apple className="text-2xl" />
               <span>App Store</span>
             </Link>
             <Link
               href="#"
               className="download-button bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-md text-base flex items-center space-x-2 transition-colors duration-200"
             >
-              <FaGooglePlay className="text-2xl" />
+              <Play className="text-2xl" />
               <span>Google Play</span>
             </Link>
           </div>

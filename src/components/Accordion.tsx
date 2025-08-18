@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FaChevronDown } from "react-icons/fa";
+import { ChevronDown } from "lucide-react";
 
 interface AccordionItemProps {
   title: string;
@@ -21,7 +21,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, content, isOpen, t
         <button className="w-full text-left p-4 flex justify-between items-center" onClick={toggleOpen}>
           <span className="text-xl font-semibold text-white dark:text-white">{title}</span>
           <span className={`transform transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}>
-            <FaChevronDown className="text-2xl text-white" />
+            <ChevronDown className="text-2xl text-white" />
           </span>
         </button>
         <div

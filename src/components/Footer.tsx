@@ -1,4 +1,4 @@
-import { AiOutlineFacebook, AiOutlineX, AiOutlineGithub, AiOutlineLinkedin, AiOutlineInstagram } from "react-icons/ai";
+import { Facebook, X, Github, Linkedin, Instagram } from "lucide-react";
 import Image from "next/image";
 
 const Footer = () => {
@@ -19,19 +19,19 @@ const Footer = () => {
         </div>
         <div className="flex space-x-4 mt-2 mr-4 sm:mt-0">
           <a href="#" aria-label="Facebook" className="hover:text-gray-300">
-            <AiOutlineFacebook className="w-5 h-5" />
+            <Facebook className="w-5 h-5" />
           </a>
           <a href="#" aria-label="LinkedIn" className="hover:text-gray-300">
-            <AiOutlineLinkedin className="w-5 h-5" />
+            <Linkedin className="w-5 h-5" />
           </a>
           <a href="#" aria-label="Instagram" className="hover:text-gray-300">
-            <AiOutlineInstagram className="w-5 h-5" />
+            <Instagram className="w-5 h-5" />
           </a>
           <a href="#" aria-label="X (formerly Twitter)" className="hover:text-gray-300">
-            <AiOutlineX className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </a>
           <a href="#" aria-label="GitHub" className="hover:text-gray-300">
-            <AiOutlineGithub className="w-5 h-5" />
+            <Github className="w-5 h-5" />
           </a>
         </div>
       </div>
