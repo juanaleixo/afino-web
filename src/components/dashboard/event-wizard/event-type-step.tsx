@@ -7,7 +7,8 @@ import {
   ShoppingCart, 
   TrendingDown,
   RefreshCw,
-  DollarSign 
+  DollarSign,
+  type LucideIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -17,7 +18,7 @@ interface EventTypeOption {
   kind: EventKind
   title: string
   description: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   color: string
   forCurrency?: boolean
   forAssets?: boolean

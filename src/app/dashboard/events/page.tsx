@@ -10,6 +10,9 @@ import { AssetBadge } from "@/components/ui/asset-badge"
 import { DataFilters } from "@/components/ui/data-filters"
 import { EventTableRow } from "@/components/dashboard/event-table-row"
 import { useDebounce } from "@/hooks/useDebounce"
+import { EventsTimeline } from "@/components/dashboard/events-timeline"
+import { AdvancedFilters } from "@/components/dashboard/advanced-filters"
+import { useUserPlan } from "@/hooks/useUserPlan"
 
 interface EventWithRelations {
   id: string
@@ -50,24 +53,51 @@ export default function EventsPage() {
   const [cashAssetId, setCashAssetId] = useState<string | null>(null)
   const [cashToday, setCashToday] = useState<number | null>(null)
   const [portfolioToday, setPortfolioToday] = useState<number | null>(null)
+  const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
+  const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
+  const { isPremium } = useUserPlan()
+  
+  // Advanced filters state
+  const [advancedFilters, setAdvancedFilters] = useState({
+    searchTerm: '',
+    kind: 'all' as 'all' | 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation',
+    assetClass: 'all' as 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund',
+    account: 'all' as string,
+    dateFrom: null as Date | null,
+    dateTo: null as Date | null,
+    amountRange: 'all' as 'all' | 'small' | 'medium' | 'large',
+    sortBy: 'date' as 'date' | 'amount' | 'asset',
+    sortOrder: 'desc' as 'asc' | 'desc',
+    showOnlyPositive: false,
+    showOnlyNegative: false
+  })
 
   const loadEvents = useCallback(async () => {
     if (!user) return
 
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          global_assets(symbol, class),
-          accounts(label)
-        `)
-        .eq('user_id', user.id)
-        .order('tstamp', { ascending: false })
-        .limit(100)
+      const [eventsRes, accountsRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select(`
+            *,
+            global_assets(symbol, class),
+            accounts(label)
+          `)
+          .eq('user_id', user.id)
+          .order('tstamp', { ascending: false })
+          .limit(200),
+        supabase
+          .from('accounts')
+          .select('id, label')
+          .eq('user_id', user.id)
+      ])
 
-      if (error) throw error
-      setEvents(data || [])
+      if (eventsRes.error) throw eventsRes.error
+      if (accountsRes.error) console.warn('Erro ao carregar contas:', accountsRes.error)
+      
+      setEvents(eventsRes.data || [])
+      setAccounts(accountsRes.data || [])
     } catch (error) {
       console.error('Erro ao carregar eventos:', error)
       toast.error('Erro ao carregar eventos')
@@ -137,30 +167,123 @@ export default function EventsPage() {
   const filteredEvents = useMemo(() => {
     let filtered = events
     
-    // Busca por texto (usando debounced value)
-    if (debouncedSearchTerm) {
+    // Use advanced filters if available
+    const searchTerm = advancedFilters.searchTerm || debouncedSearchTerm
+    const kind = advancedFilters.kind !== 'all' ? advancedFilters.kind : filterKind
+    const assetClass = advancedFilters.assetClass !== 'all' ? advancedFilters.assetClass : filterClass
+    
+    // Text search
+    if (searchTerm) {
       filtered = filtered.filter(event => 
-        event.global_assets?.symbol.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        event.accounts?.label.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        event.kind.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+        event.global_assets?.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.accounts?.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.kind.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
     
-    // Filtro por classe de ativo
-    const byClassFilter = filtered.filter(e => {
-      const sym = e.global_assets?.symbol?.toUpperCase?.()
-      const isCash = e.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
-      if (filterClass === 'all') return true
-      return filterClass === 'currency' ? isCash : !isCash
-    })
+    // Asset class filter
+    if (assetClass !== 'all') {
+      filtered = filtered.filter(e => {
+        const sym = e.global_assets?.symbol?.toUpperCase?.()
+        const isCash = e.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
+        
+        if (assetClass === 'currency') return isCash
+        if (assetClass === 'noncurrency') return !isCash
+        return e.global_assets?.class === assetClass
+      })
+    }
     
-    // Filtro por tipo de evento
-    const byKindFilter = byClassFilter.filter(e => {
-      return filterKind === 'all' ? true : e.kind === filterKind
-    })
+    // Event kind filter
+    if (kind !== 'all') {
+      filtered = filtered.filter(e => e.kind === kind)
+    }
     
-    return byKindFilter.sort((a, b) => new Date(b.tstamp).getTime() - new Date(a.tstamp).getTime())
-  }, [events, debouncedSearchTerm, filterClass, filterKind])
+    // Premium filters (only if user is premium)
+    if (isPremium) {
+      // Account filter
+      if (advancedFilters.account !== 'all') {
+        filtered = filtered.filter(e => e.account_id === advancedFilters.account)
+      }
+      
+      // Date range filter
+      if (advancedFilters.dateFrom) {
+        filtered = filtered.filter(e => new Date(e.tstamp) >= advancedFilters.dateFrom!)
+      }
+      if (advancedFilters.dateTo) {
+        const endDate = new Date(advancedFilters.dateTo)
+        endDate.setHours(23, 59, 59, 999)
+        filtered = filtered.filter(e => new Date(e.tstamp) <= endDate)
+      }
+      
+      // Amount range filter
+      if (advancedFilters.amountRange !== 'all') {
+        filtered = filtered.filter(e => {
+          const value = getEventValue(e)
+          if (value === null) return true
+          
+          const absValue = Math.abs(value)
+          switch (advancedFilters.amountRange) {
+            case 'small': return absValue <= 1000
+            case 'medium': return absValue > 1000 && absValue <= 10000
+            case 'large': return absValue > 10000
+            default: return true
+          }
+        })
+      }
+      
+      // Value direction filters
+      if (advancedFilters.showOnlyPositive) {
+        filtered = filtered.filter(e => {
+          const value = getEventValue(e)
+          return value !== null && value > 0
+        })
+      }
+      if (advancedFilters.showOnlyNegative) {
+        filtered = filtered.filter(e => {
+          const value = getEventValue(e)
+          return value !== null && value < 0
+        })
+      }
+    }
+    
+    // Sorting
+    const sortBy = advancedFilters.sortBy
+    const sortOrder = advancedFilters.sortOrder
+    
+    return filtered.sort((a, b) => {
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.tstamp).getTime() - new Date(b.tstamp).getTime()
+          break
+        case 'amount':
+          const valueA = getEventValue(a) || 0
+          const valueB = getEventValue(b) || 0
+          comparison = Math.abs(valueA) - Math.abs(valueB)
+          break
+        case 'asset':
+          const assetA = a.global_assets?.symbol || ''
+          const assetB = b.global_assets?.symbol || ''
+          comparison = assetA.localeCompare(assetB)
+          break
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+  }, [events, debouncedSearchTerm, filterClass, filterKind, advancedFilters, isPremium])
+  
+  // Helper function to get event value
+  const getEventValue = (ev: EventWithRelations) => {
+    const isCash = ev.global_assets?.class === 'currency' || ev.global_assets?.symbol?.toUpperCase() === 'BRL'
+    if (isCash && typeof ev.units_delta === 'number') {
+      return ev.units_delta
+    }
+    if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
+      return ev.units_delta * ev.price_close
+    }
+    return null
+  }
 
   // Contar filtros ativos
   const activeFiltersCount = useMemo(() => {
@@ -317,6 +440,22 @@ export default function EventsPage() {
       ]}
       actions={
         <div className="flex items-center gap-2">
+          <div className="flex items-center border border-border rounded-lg p-1 bg-muted/50">
+            <Button
+              variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('timeline')}
+            >
+              Timeline
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+            >
+              Tabela
+            </Button>
+          </div>
           {cashAssetId && (
             <Button asChild variant="secondary">
               <Link href={`/dashboard/events/new?kind=deposit&asset_id=${cashAssetId}`}>
@@ -379,40 +518,60 @@ export default function EventsPage() {
           </Card>
         </div>
 
-        <DataFilters
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Buscar por ativo, conta ou tipo..."
-          filters={filterOptions}
-          activeFiltersCount={activeFiltersCount}
-          onClearFilters={clearFilters}
-          isFilterOpen={isFilterOpen}
-          onFilterToggle={() => setIsFilterOpen(!isFilterOpen)}
+        <AdvancedFilters
+          events={events}
+          filters={advancedFilters}
+          onFiltersChange={(newFilters) => setAdvancedFilters(prev => ({ ...prev, ...newFilters }))}
+          onReset={() => setAdvancedFilters({
+            searchTerm: '',
+            kind: 'all',
+            assetClass: 'all',
+            account: 'all',
+            dateFrom: null,
+            dateTo: null,
+            amountRange: 'all',
+            sortBy: 'date',
+            sortOrder: 'desc',
+            showOnlyPositive: false,
+            showOnlyNegative: false
+          })}
+          isPremium={isPremium}
+          accounts={accounts}
         />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Eventos</CardTitle>
-            <CardDescription>
-              {filteredEvents.length} de {events.length} eventos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {events.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Nenhum evento encontrado</h3>
-                <p className="text-muted-foreground mb-4">
-                  Você ainda não tem eventos registrados.
-                </p>
-                <Button asChild>
-                  <Link href="/dashboard/events/new">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Primeiro Evento
-                  </Link>
-                </Button>
-              </div>
-            ) : (
+        {events.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum evento encontrado</h3>
+              <p className="text-muted-foreground mb-4">
+                Você ainda não tem eventos registrados.
+              </p>
+              <Button asChild>
+                <Link href="/dashboard/events/new">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Evento
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'timeline' ? (
+          <EventsTimeline
+            events={filteredEvents}
+            onDeleteEvent={deleteEvent}
+            deletingEventId={deletingEventId}
+            formatBRL={formatBRL}
+            isPremium={isPremium}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de Eventos</CardTitle>
+              <CardDescription>
+                {filteredEvents.length} de {events.length} eventos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -443,9 +602,9 @@ export default function EventsPage() {
                   ))}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
     </DashboardLayout>
   )
 } 

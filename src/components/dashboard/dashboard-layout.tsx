@@ -37,12 +37,12 @@ const DashboardLayout = React.forwardRef<HTMLDivElement, DashboardLayoutProps>(
         <div className={cn("min-h-screen bg-background", className)} ref={ref} {...props}>
           <PageHeader
             title={title}
-            description={description}
-            icon={icon}
-            backHref={backHref}
-            backLabel={backLabel}
-            breadcrumbs={breadcrumbs}
-            actions={actions}
+            {...(description && { description })}
+            {...(icon && { icon })}
+            {...(backHref && { backHref })}
+            {...(backLabel && { backLabel })}
+            {...(breadcrumbs && { breadcrumbs })}
+            {...(actions && { actions })}
           />
           
           <main className="dashboard-page">

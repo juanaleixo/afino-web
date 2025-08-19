@@ -9,9 +9,9 @@ import { Calendar } from "lucide-react"
 function NewEventInner() {
   const searchParams = useSearchParams()
   
-  const preselectedAssetId = searchParams.get('asset_id') || undefined
-  const preselectedKind = searchParams.get('kind') as any || undefined
-  const preselectedAccountId = searchParams.get('account_id') || undefined
+  const preselectedAssetId = searchParams.get('asset_id') ?? undefined
+  const preselectedKind = searchParams.get('kind') as any ?? undefined
+  const preselectedAccountId = searchParams.get('account_id') ?? undefined
 
   return (
     <DashboardLayout
@@ -27,9 +27,9 @@ function NewEventInner() {
     >
       <div className="flex justify-center">
         <EventWizard
-          preselectedAssetId={preselectedAssetId}
-          preselectedKind={preselectedKind}
-          preselectedAccountId={preselectedAccountId}
+          {...(preselectedAssetId && { preselectedAssetId })}
+          {...(preselectedKind && { preselectedKind })}
+          {...(preselectedAccountId && { preselectedAccountId })}
         />
       </div>
     </DashboardLayout>

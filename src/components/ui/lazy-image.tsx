@@ -22,12 +22,13 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState(false)
     const [isInView, setIsInView] = useState(false)
-    const imgRef = useRef<HTMLImageElement>(null)
+    const [imgElement, setImgElement] = useState<HTMLImageElement | null>(null)
 
     useEffect(() => {
       const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
+        (entries) => {
+          const entry = entries[0]
+          if (entry && entry.isIntersecting) {
             setIsInView(true)
             observer.disconnect()
           }
@@ -35,12 +36,12 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         { threshold: 0.1 }
       )
 
-      if (imgRef.current) {
-        observer.observe(imgRef.current)
+      if (imgElement) {
+        observer.observe(imgElement)
       }
 
       return () => observer.disconnect()
-    }, [])
+    }, [imgElement])
 
     const handleLoad = () => {
       setIsLoading(false)
@@ -79,7 +80,7 @@ const LazyImage = React.forwardRef<HTMLImageElement, LazyImageProps>(
         <img
           {...props}
           ref={(node) => {
-            imgRef.current = node
+            setImgElement(node)
             if (typeof ref === 'function') {
               ref(node)
             } else if (ref) {

@@ -93,11 +93,11 @@ export default function DashboardPage() {
       badge: "info",
     },
     {
-      title: "Portfolio",
-      description: "Evolução do patrimônio",
-      icon: PieChart,
-      href: "/dashboard/portfolio",
-      badge: "warning",
+      title: "Timeline",
+      description: "Linha do tempo patrimonial",
+      icon: TrendingUp,
+      href: "/dashboard/timeline",
+      badge: null,
     },
   ]
 
