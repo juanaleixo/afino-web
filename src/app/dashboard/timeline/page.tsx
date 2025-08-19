@@ -16,9 +16,15 @@ import PortfolioChart from "@/components/PortfolioChart"
 import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-portfolio-chart"
 import AdvancedFilters from "@/components/dashboard/timeline/advanced-filters"
 import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
+import MultiAssetTradingView from "@/components/dashboard/timeline/multi-asset-tradingview"
 import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
 import AssetDrillDown from "@/components/dashboard/timeline/asset-drill-down"
 import { benchmarkService } from "@/lib/benchmarks"
+
+const ASSET_COLORS = [
+  '#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', 
+  '#db2777', '#0891b2', '#65a30d', '#c2410c', '#4338ca'
+]
 
 interface TimelineFilters {
   period: '1M' | '3M' | '6M' | '1Y' | '2Y' | 'ALL' | 'CUSTOM'
@@ -41,8 +47,8 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true)
   const [portfolioData, setPortfolioData] = useState<any>(null)
   const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
-  const [assets, setAssets] = useState<Array<{ id: string; symbol: string; class: string }>>([])
-  const [view, setView] = useState<'chart' | 'table' | 'advanced' | 'tradingview' | 'analytics' | 'drill-down'>('chart')
+  const [assets, setAssets] = useState<Array<{ id: string; symbol: string; class: string; label?: string }>>([])
+  const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [assetBreakdownData, setAssetBreakdownData] = useState<any>(null)
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
@@ -204,7 +210,7 @@ export default function TimelinePage() {
       const dailyPositions = await portfolioService.getDailyPositionsByAsset(assetId, from, to)
       setAssetDailyPositions(dailyPositions)
       setSelectedAssetForDrillDown(assetId)
-      setView('drill-down')
+      setView('assets')
     } catch (error) {
       console.error('Erro ao carregar dados do ativo:', error)
       toast.error('Erro ao carregar dados do ativo')
@@ -285,66 +291,27 @@ export default function TimelinePage() {
         { label: "Linha do Tempo" },
       ]}
       actions={
-        <div className="flex items-center space-x-2">
-          {!isPremium && (
-            <Badge variant="secondary" className="flex items-center space-x-1">
-              <Eye className="h-3 w-3" />
-              <span>Básico</span>
-            </Badge>
-          )}
-          {isPremium && (
+        <div className="flex items-center space-x-3">
+          {isPremium ? (
             <Badge variant="default" className="flex items-center space-x-1">
               <Crown className="h-3 w-3" />
               <span>Premium</span>
             </Badge>
+          ) : (
+            <Badge variant="secondary" className="flex items-center space-x-1">
+              <Eye className="h-3 w-3" />
+              <span>Plano Básico</span>
+            </Badge>
           )}
-          <div className="flex items-center space-x-1 bg-background border rounded-md">
-            <Button
-              variant={view === 'chart' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setView('chart')}
-              title="Gráfico Simples"
-            >
-              <BarChart3 className="h-4 w-4" />
-            </Button>
-            {isPremium && (
-              <>
-                <Button
-                  variant={view === 'advanced' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setView('advanced')}
-                  title="Gráfico Avançado"
-                >
-                  <Zap className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={view === 'analytics' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setView('analytics')}
-                  title="Analytics Premium"
-                  disabled={filters.granularity !== 'daily'}
-                >
-                  <Target className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={view === 'tradingview' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setView('tradingview')}
-                  title="TradingView Professional"
-                >
-                  <Monitor className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-            <Button
-              variant={view === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setView('table')}
-              title="Visualização em Tabela"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          </div>
+          <Select value={filters.granularity} onValueChange={(value: 'daily' | 'monthly') => handleFiltersChange({ granularity: value })}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Mensal</SelectItem>
+              {isPremium && <SelectItem value="daily">Diário</SelectItem>}
+            </SelectContent>
+          </Select>
         </div>
       }
     >
@@ -483,59 +450,88 @@ export default function TimelinePage() {
           </div>
         )}
 
-        {/* Conteúdo Principal */}
+        {/* Navegação Simplificada */}
         <Tabs value={view} onValueChange={(value) => setView(value as any)}>
-          <TabsList className={`grid w-full ${isPremium ? 'grid-cols-6' : 'grid-cols-2'}`}>
-            <TabsTrigger value="chart" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Simples</span>
+          <TabsList className={`grid w-full ${isPremium ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsTrigger value="overview" className="flex items-center space-x-2">
+              <TrendingUp className="h-4 w-4" />
+              <span>Visão Geral</span>
             </TabsTrigger>
             {isPremium && (
-              <>
-                <TabsTrigger value="advanced" className="flex items-center space-x-2">
-                  <Zap className="h-4 w-4" />
-                  <span>Avançado</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="analytics" 
-                  className="flex items-center space-x-2"
-                  disabled={filters.granularity !== 'daily'}
-                >
-                  <Target className="h-4 w-4" />
-                  <span>Analytics</span>
-                </TabsTrigger>
-                <TabsTrigger value="tradingview" className="flex items-center space-x-2">
-                  <Monitor className="h-4 w-4" />
-                  <span>Professional</span>
-                </TabsTrigger>
-                <TabsTrigger value="drill-down" className="flex items-center space-x-2">
-                  <Activity className="h-4 w-4" />
-                  <span>Drill-Down</span>
-                </TabsTrigger>
-              </>
+              <TabsTrigger value="assets" className="flex items-center space-x-2">
+                <PieChart className="h-4 w-4" />
+                <span>Por Ativos</span>
+              </TabsTrigger>
             )}
-            <TabsTrigger value="table" className="flex items-center space-x-2">
-              <Eye className="h-4 w-4" />
-              <span>Dados</span>
+            <TabsTrigger value="details" className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4" />
+              <span>Detalhes</span>
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="chart" className="space-y-4">
+          {/* ABA 1: VISÃO GERAL - Gráfico principal + resumo */}
+          <TabsContent value="overview" className="space-y-6">
             {loading ? (
               <Card>
                 <CardContent className="flex items-center justify-center h-64">
                   <div className="flex items-center space-x-2">
                     <Loader2 className="h-8 w-8 animate-spin" />
-                    <span>Carregando timeline...</span>
+                    <span>Carregando sua timeline...</span>
                   </div>
                 </CardContent>
               </Card>
             ) : portfolioData?.monthlySeries ? (
-              <PortfolioChart
-                monthlyData={portfolioData.monthlySeries}
-                dailyData={portfolioData.dailySeries}
-                isLoading={loading}
-              />
+              <div className="space-y-4">
+                {/* Gráfico principal baseado na granularidade */}
+                {isPremium && filters.granularity === 'daily' ? (
+                  <AdvancedPortfolioChart
+                    monthlyData={portfolioData?.monthlySeries || []}
+                    dailyData={portfolioData?.dailySeries}
+                    assetBreakdown={assetBreakdownData}
+                    isLoading={loading}
+                    showAssetBreakdown={filters.showAssetBreakdown}
+                    granularity={filters.granularity}
+                  />
+                ) : (
+                  <PortfolioChart
+                    monthlyData={portfolioData.monthlySeries}
+                    dailyData={portfolioData.dailySeries}
+                    isLoading={loading}
+                  />
+                )}
+                
+                {/* Analytics Premium inline quando diário */}
+                {isPremium && filters.granularity === 'daily' && performanceAnalysis.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Target className="h-5 w-5 text-blue-600" />
+                        <span>Resumo de Performance</span>
+                        <Badge variant="default">Premium</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Top 3 performers */}
+                        {performanceAnalysis
+                          .sort((a, b) => b.totalReturnPercent - a.totalReturnPercent)
+                          .slice(0, 3)
+                          .map((asset, index) => (
+                            <div key={asset.asset_id} className="text-center p-3 border rounded-lg">
+                              <div className="text-sm text-muted-foreground mb-1">
+                                {index === 0 ? '🥇 Melhor' : index === 1 ? '🥈 2º Lugar' : '🥉 3º Lugar'}
+                              </div>
+                              <div className="font-semibold">{asset.asset_symbol}</div>
+                              <div className={`text-lg font-bold ${asset.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {asset.totalReturnPercent >= 0 ? '+' : ''}{asset.totalReturnPercent.toFixed(1)}%
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             ) : (
               <Card>
                 <CardContent className="flex items-center justify-center h-64">
@@ -550,70 +546,46 @@ export default function TimelinePage() {
             )}
           </TabsContent>
 
-          {/* Gráfico Avançado Premium */}
+          {/* ABA 2: POR ATIVOS - Análise multi-ativos (Premium) */}
           {isPremium && (
-            <TabsContent value="advanced" className="space-y-4">
-              {loading ? (
+            <TabsContent value="assets" className="space-y-6">
+              {filters.granularity === 'daily' ? (
+                <div className="space-y-6">
+                  {/* Multi-Asset Chart */}
+                  <MultiAssetTradingView
+                    assetsData={performanceAnalysis.map((asset, index) => ({
+                      asset_id: asset.asset_id,
+                      asset_symbol: asset.asset_symbol,
+                      asset_class: asset.asset_class,
+                      daily_values: asset.daily_values || [],
+                      color: ASSET_COLORS[index % ASSET_COLORS.length] || '#2563eb'
+                    }))}
+                    portfolioData={portfolioData}
+                    isPremium={isPremium}
+                    isLoading={loading}
+                  />
+                  
+                  {/* Performance Analysis */}
+                  <PremiumAnalytics
+                    performanceData={performanceAnalysis}
+                    benchmarkData={benchmarkData}
+                    isLoading={loading}
+                    period={{ from: getDateRange().from, to: getDateRange().to }}
+                  />
+                </div>
+              ) : (
                 <Card>
                   <CardContent className="flex items-center justify-center h-64">
-                    <div className="flex items-center space-x-2">
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                      <span>Carregando gráfico avançado...</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <AdvancedPortfolioChart
-                  monthlyData={portfolioData?.monthlySeries || []}
-                  dailyData={portfolioData?.dailySeries}
-                  assetBreakdown={assetBreakdownData}
-                  isLoading={loading}
-                  showAssetBreakdown={filters.showAssetBreakdown}
-                  granularity={filters.granularity}
-                />
-              )}
-            </TabsContent>
-          )}
-
-          {/* Analytics Premium */}
-          {isPremium && (
-            <TabsContent value="analytics" className="space-y-4">
-              <PremiumAnalytics
-                performanceData={performanceAnalysis}
-                benchmarkData={benchmarkData}
-                isLoading={loading}
-                period={{ from: getDateRange().from, to: getDateRange().to }}
-              />
-            </TabsContent>
-          )}
-
-          {/* Drill-Down Premium */}
-          {isPremium && (
-            <TabsContent value="drill-down" className="space-y-4">
-              {view === 'drill-down' && selectedAssetForDrillDown ? (
-                <AssetDrillDown
-                  assetId={selectedAssetForDrillDown}
-                  assetSymbol={getSelectedAssetInfo()?.symbol || undefined}
-                  assetClass={getSelectedAssetInfo()?.class || undefined}
-                  dailyPositions={assetDailyPositions}
-                  accounts={accounts}
-                  onLoadAccountData={handleLoadAccountAssetData}
-                  onBack={() => setView('advanced')}
-                  isLoading={loading}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center h-64">
                     <div className="text-center space-y-4">
-                      <Activity className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <PieChart className="h-12 w-12 mx-auto text-muted-foreground" />
                       <div>
-                        <h3 className="font-semibold mb-2">Análise Individual de Ativos</h3>
+                        <h3 className="font-semibold mb-2">Análise por Ativos</h3>
                         <p className="text-muted-foreground mb-4">
-                          Selecione um ativo no gráfico avançado para ver análise detalhada
+                          Altere para <strong>dados diários</strong> para ver análise detalhada por ativo
                         </p>
                       </div>
-                      <Button onClick={() => setView('advanced')}>
-                        Ir para Gráfico Avançado
+                      <Button onClick={() => handleFiltersChange({ granularity: 'daily' })}>
+                        Ativar Dados Diários
                       </Button>
                     </div>
                   </CardContent>
@@ -622,19 +594,8 @@ export default function TimelinePage() {
             </TabsContent>
           )}
 
-          {/* TradingView Professional */}
-          {isPremium && (
-            <TabsContent value="tradingview" className="space-y-4">
-              <TradingViewChart
-                portfolioData={portfolioData || {}}
-                theme="dark"
-                height={600}
-                isPremium={isPremium}
-              />
-            </TabsContent>
-          )}
-          
-          <TabsContent value="table" className="space-y-4">
+          {/* ABA 3: DETALHES - Tabela de dados */}
+          <TabsContent value="details" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Dados Históricos</CardTitle>
@@ -706,54 +667,26 @@ export default function TimelinePage() {
           </TabsContent>
         </Tabs>
 
-        {/* Upgrade para Premium */}
+        {/* Upgrade Simples para Premium */}
         {!isPremium && (
-          <Card className="border-gradient-to-r from-yellow-200 to-orange-200 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
+          <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Crown className="h-6 w-6 text-yellow-600" />
+                <div className="flex items-center space-x-4">
+                  <Crown className="h-8 w-8 text-yellow-600" />
+                  <div>
                     <h3 className="font-bold text-lg text-yellow-800 dark:text-yellow-200">
-                      Desbloqueie o Poder Completo da Timeline
+                      Desbloqueie Análise por Ativos
                     </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <Target className="h-4 w-4" />
-                      <span>Analytics Premium com métricas avançadas</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <Activity className="h-4 w-4" />
-                      <span>Drill-down individual por ativo</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <BarChart3 className="h-4 w-4" />
-                      <span>Dados diários granulares</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <PieChart className="h-4 w-4" />
-                      <span>Análise de risco e volatilidade</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <Filter className="h-4 w-4" />
-                      <span>Filtros avançados por conta/ativo</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>Comparação com benchmarks</span>
-                    </div>
+                    <p className="text-yellow-700 dark:text-yellow-300">
+                      📊 Dados diários • 📈 Múltiplos ativos • 🎯 Analytics avançados
+                    </p>
                   </div>
                 </div>
-                <div className="text-center">
-                  <Button className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0">
-                    <Crown className="h-4 w-4 mr-2" />
-                    Fazer Upgrade
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Análise profissional completa
-                  </p>
-                </div>
+                <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0">
+                  <Crown className="h-4 w-4 mr-2" />
+                  Fazer Upgrade
+                </Button>
               </div>
             </CardContent>
           </Card>

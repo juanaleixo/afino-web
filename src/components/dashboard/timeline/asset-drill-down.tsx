@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, TrendingDown, Activity, Target, Crown, Loader2, LineChart, BarChart3, ArrowLeft } from 'lucide-react'
+import { TrendingUp, Activity, Target, Crown, Loader2, LineChart, BarChart3, ArrowLeft } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart } from 'recharts'
 

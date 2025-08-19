@@ -27,7 +27,7 @@ interface AdvancedFiltersProps {
   }
   onFiltersChange: (filters: any) => void
   accounts: Array<{ id: string; label: string }>
-  assets: Array<{ id: string; symbol: string; class: string }>
+  assets: Array<{ id: string; symbol: string; class: string; label?: string }>
   isPremium: boolean
   isOpen: boolean
   onToggle: () => void
@@ -36,7 +36,7 @@ interface AdvancedFiltersProps {
 const ASSET_CLASSES = [
   { value: 'currency', label: 'Moeda', icon: '💰' },
   { value: 'stock', label: 'Ações', icon: '📈' },
-  { value: 'crypto', label: 'Crypto', icon: '₿' },
+  { value: 'crypto', label: 'Cripto', icon: '₿' },
   { value: 'fund', label: 'Fundos', icon: '🏦' },
   { value: 'commodity', label: 'Commodities', icon: '🥇' },
 ]
@@ -301,7 +301,7 @@ export default function AdvancedFilters({
                       onCheckedChange={() => handleAssetToggle(asset.id)}
                     />
                     <Label htmlFor={`asset-${asset.id}`} className="text-sm">
-                      {asset.symbol}
+                      {asset.label || asset.symbol}
                     </Label>
                   </div>
                 ))}

@@ -30,6 +30,7 @@ export interface Asset {
   created_at: string
   connector?: string
   external_account_id?: string
+  label_ptbr?: string
 }
 
 export interface Event {

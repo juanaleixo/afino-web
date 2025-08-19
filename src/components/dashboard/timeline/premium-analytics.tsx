@@ -56,27 +56,31 @@ export default function PremiumAnalytics({
   }
 
   const getBestPerformer = () => {
+    if (!performanceData || performanceData.length === 0) return null
     return performanceData.reduce((best, current) => 
       current.totalReturnPercent > best.totalReturnPercent ? current : best
-    , performanceData[0] || null)
+    )
   }
 
   const getWorstPerformer = () => {
+    if (!performanceData || performanceData.length === 0) return null
     return performanceData.reduce((worst, current) => 
       current.totalReturnPercent < worst.totalReturnPercent ? current : worst
-    , performanceData[0] || null)
+    )
   }
 
   const getMostVolatile = () => {
+    if (!performanceData || performanceData.length === 0) return null
     return performanceData.reduce((most, current) => 
       current.volatility > most.volatility ? current : most
-    , performanceData[0] || null)
+    )
   }
 
   const getHighestSharpe = () => {
+    if (!performanceData || performanceData.length === 0) return null
     return performanceData.reduce((highest, current) => 
       current.sharpeRatio > highest.sharpeRatio ? current : highest
-    , performanceData[0] || null)
+    )
   }
 
   // Preparar dados para gráfico de pizza (alocação atual)

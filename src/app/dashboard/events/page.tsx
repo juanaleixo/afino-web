@@ -117,7 +117,7 @@ export default function EventsPage() {
       const { data, error } = await supabase
         .from('global_assets')
         .select('id, class, symbol')
-        .eq('class', 'currency')
+        .in('class', ['currency','cash'])
         .order('symbol', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -185,7 +185,7 @@ export default function EventsPage() {
     if (assetClass !== 'all') {
       filtered = filtered.filter(e => {
         const sym = e.global_assets?.symbol?.toUpperCase?.()
-        const isCash = e.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
+        const isCash = e.global_assets?.class === 'currency' || e.global_assets?.class === 'cash' || sym === 'BRL' || sym === 'CASH'
         
         if (assetClass === 'currency') return isCash
         if (assetClass === 'noncurrency') return !isCash

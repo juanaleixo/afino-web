@@ -51,7 +51,7 @@ const assetLabels = {
   currency: "Caixa",
   bond: "Título",
   "real-estate": "Imóvel", 
-  commodity: "Commodity",
+  commodity: "Commodities",
 }
 
 export interface AssetBadgeProps

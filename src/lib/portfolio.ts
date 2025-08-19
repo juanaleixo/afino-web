@@ -226,7 +226,8 @@ export class PortfolioService {
         return data.map((holding: any) => ({
           id: holding.asset_id,
           symbol: holding.symbol,
-          class: holding.class
+          class: holding.class,
+          label: holding.label_ptbr || holding.symbol
         }))
       }
     } catch (rpcError) {
@@ -244,10 +245,15 @@ export class PortfolioService {
         if (ids.length) {
           const { data: ga } = await supabase
             .from('global_assets')
-            .select('id, symbol, class')
+            .select('id, symbol, class, label_ptbr')
             .in('id', ids)
           const map = new Map<string, any>((ga || []).map((a: any) => [a.id, a]))
-          return ids.map(id => ({ id, symbol: map.get(id)?.symbol || id, class: map.get(id)?.class || 'unknown' }))
+          return ids.map(id => ({ 
+            id, 
+            symbol: map.get(id)?.symbol || id, 
+            class: map.get(id)?.class || 'unknown',
+            label: map.get(id)?.label_ptbr || map.get(id)?.symbol || id
+          }))
         }
       }
     } catch (e) {
@@ -257,7 +263,7 @@ export class PortfolioService {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('asset_id, global_assets(symbol, class)')
+        .select('asset_id, global_assets(symbol, class, label_ptbr)')
         .eq('user_id', this.userId)
         .not('global_assets', 'is', null)
       if (error) throw error
@@ -265,7 +271,8 @@ export class PortfolioService {
         const asset = {
           id: item.asset_id,
           symbol: item.global_assets?.symbol || item.asset_id,
-          class: item.global_assets?.class || 'unknown'
+          class: item.global_assets?.class || 'unknown',
+          label: item.global_assets?.label_ptbr || item.global_assets?.symbol || item.asset_id
         }
         if (!acc.find(a => a.id === asset.id)) acc.push(asset)
         return acc

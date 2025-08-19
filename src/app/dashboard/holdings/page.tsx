@@ -62,11 +62,37 @@ export default function HoldingsPage() {
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rows
-    if (filter === 'cash') return rows.filter(r => r.class === 'currency')
-    return rows.filter(r => r.class !== 'currency')
+    if (filter === 'cash') return rows.filter(r => r.class === 'currency' || r.class === 'cash')
+    return rows.filter(r => !(r.class === 'currency' || r.class === 'cash'))
   }, [rows, filter])
 
   const total = filtered.reduce((s,r)=> s + (r.value||0), 0)
+
+  const getAssetClassLabel = (assetClass: string) => {
+    switch (assetClass) {
+      case 'stock': return 'Ação'
+      case 'bond': return 'Título'
+      case 'fund': return 'Fundo'
+      case 'crypto': return 'Cripto'
+      case 'currency': return 'Caixa'
+      case 'commodity': return 'Commodities'
+      case 'real_estate': return 'Imóvel'
+      default: return assetClass
+    }
+  }
+
+  const getAssetClassColor = (assetClass: string) => {
+    switch (assetClass) {
+      case 'stock': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'bond': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'fund': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'crypto': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+      case 'currency': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+      case 'commodity': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+      case 'real_estate': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
+  }
 
   return (
     <ProtectedRoute>
@@ -142,15 +168,21 @@ export default function HoldingsPage() {
                               <td className="py-2">
                                 <div className="flex items-center gap-2">
                                   <span>{r.symbol}</span>
-                                  {r.class === 'currency' && <Badge variant="secondary">Caixa</Badge>}
+                                  {(r.class === 'currency' || r.class === 'cash') && (
+                                    <Badge variant="secondary">Caixa</Badge>
+                                  )}
                                 </div>
                               </td>
-                              <td className="py-2">{r.class}</td>
+                              <td className="py-2">
+                                <Badge className={getAssetClassColor(r.class)}>
+                                  {getAssetClassLabel(r.class)}
+                                </Badge>
+                              </td>
                               <td className="py-2 text-right">{r.units.toLocaleString('pt-BR')}</td>
                               <td className="py-2 text-right font-medium">{formatBRL(r.value)}</td>
                               <td className="py-2">
                                 <div className="flex items-center justify-end gap-2">
-                                  {r.class === 'currency' ? (
+                                  {(r.class === 'currency' || r.class === 'cash') ? (
                                     <>
                                       <Button asChild size="sm" variant="secondary">
                                         <Link href={`/dashboard/events/new?kind=deposit&asset_id=${r.asset_id}`}>

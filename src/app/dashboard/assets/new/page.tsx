@@ -136,7 +136,7 @@ export default function NewAssetPage() {
                             <SelectItem value="fund">Fundo</SelectItem>
                             <SelectItem value="crypto">Criptomoeda</SelectItem>
                             <SelectItem value="currency">Moeda</SelectItem>
-                            <SelectItem value="commodity">Commodity</SelectItem>
+                            <SelectItem value="commodity">Commodities</SelectItem>
                             <SelectItem value="real_estate">Imóvel</SelectItem>
                             <SelectItem value="other">Outro</SelectItem>
                           </SelectContent>
