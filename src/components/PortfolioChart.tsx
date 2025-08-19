@@ -13,7 +13,8 @@ import {
 } from 'recharts'
 import { useMemo } from 'react'
 import { FadeIn } from '@/components/ui/fade-in'
-import { ChartSkeleton } from '@/components/ui/skeleton-loader'
+import { ChartSkeleton } from "@/components/ui/skeleton-loader"
+import { useTheme } from "@/hooks/use-theme"
 
 interface PortfolioChartProps {
   monthlyData: Array<{ month_eom: string; total_value: number }>

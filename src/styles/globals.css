@@ -365,3 +365,35 @@
     animation: draw-line 2s ease-out;
   }
 }
+
+/* Enhanced dark mode for better contrast and UX */
+.dark {
+  /* Improved background contrast for better readability */
+  --background: 220 13% 9% !important;
+  --card: 220 13% 11% !important;
+  --popover: 220 13% 11% !important;
+  
+  /* Better border visibility in dark mode */
+  --border: 220 13% 20% !important;
+  --input: 220 13% 20% !important;
+  
+  /* Improved muted colors for better hierarchy */
+  --muted: 220 13% 15% !important;
+  --secondary: 220 13% 15% !important;
+  --accent: 220 13% 15% !important;
+}
+
+/* Dark mode specific enhancements */
+.dark .card-hover:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* Better dark mode charts */
+.dark .recharts-tooltip-wrapper {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
