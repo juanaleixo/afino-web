@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Crown, BarChart3, LineChart, TrendingUp, Settings, Eye, Layers, PieChart, CandlestickChart } from 'lucide-react'
+import { Crown, LineChart, TrendingUp, Layers, PieChart, CandlestickChart } from 'lucide-react'
 import { createChart, ColorType, LineStyle, LineSeries, CandlestickSeries } from 'lightweight-charts'
+import { FadeIn, Stagger } from '@/components/ui/fade-in'
+import { ChartSkeleton } from '@/components/ui/skeleton-loader'
 
 interface AssetData {
   asset_id: string
@@ -66,10 +67,29 @@ export default function MultiAssetTradingView({
   isLoading 
 }: MultiAssetTradingViewProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<any>(null)
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null)
   const [chartType, setChartType] = useState<'lines' | 'candles' | 'percentage'>('lines')
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
   const [showPortfolio, setShowPortfolio] = useState(true)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'))
+    }
+    
+    checkDarkMode()
+    
+    // Listen for theme changes
+    const observer = new MutationObserver(checkDarkMode)
+    observer.observe(document.documentElement, { 
+      attributes: true, 
+      attributeFilter: ['class'] 
+    })
+    
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (assetsData.length > 0 && selectedAssets.length === 0) {
@@ -86,14 +106,14 @@ export default function MultiAssetTradingView({
       
       setSelectedAssets(sortedAssets)
     }
-  }, [assetsData, chartType])
+  }, [assetsData, chartType, selectedAssets.length])
 
   // Limit assets when switching to candles mode
   useEffect(() => {
     if (chartType === 'candles' && selectedAssets.length > 5) {
       setSelectedAssets(prev => prev.slice(0, 5))
     }
-  }, [chartType])
+  }, [chartType, selectedAssets.length])
 
   useEffect(() => {
     if (!chartContainerRef.current || !isPremium || isLoading) return
@@ -107,42 +127,42 @@ export default function MultiAssetTradingView({
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#64748b',
+        textColor: isDarkMode ? '#e2e8f0' : '#64748b',
         fontSize: 12,
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,
       rightPriceScale: {
-        borderColor: '#e2e8f0',
+        borderColor: isDarkMode ? '#374151' : '#e2e8f0',
         scaleMargins: {
           top: 0.1,
           bottom: 0.1,
         },
       },
       timeScale: {
-        borderColor: '#e2e8f0',
+        borderColor: isDarkMode ? '#374151' : '#e2e8f0',
         timeVisible: true,
         secondsVisible: false,
       },
       crosshair: {
         mode: 1,
         vertLine: {
-          color: '#64748b',
+          color: isDarkMode ? '#9ca3af' : '#64748b',
           width: 1,
           style: LineStyle.Dashed,
         },
         horzLine: {
-          color: '#64748b',
+          color: isDarkMode ? '#9ca3af' : '#64748b',
           width: 1,
           style: LineStyle.Dashed,
         },
       },
       grid: {
         vertLines: {
-          color: '#f1f5f9',
+          color: isDarkMode ? '#1f2937' : '#f1f5f9',
         },
         horzLines: {
-          color: '#f1f5f9',
+          color: isDarkMode ? '#1f2937' : '#f1f5f9',
         },
       },
     })
@@ -272,7 +292,7 @@ export default function MultiAssetTradingView({
         chartRef.current = null
       }
     }
-  }, [assetsData, selectedAssets, chartType, showPortfolio, portfolioData, isPremium, isLoading])
+  }, [assetsData, selectedAssets, chartType, showPortfolio, portfolioData, isPremium, isLoading, isDarkMode])
 
   // Handle resize
   useEffect(() => {
@@ -323,9 +343,9 @@ export default function MultiAssetTradingView({
   }
 
   return (
-    <div className="space-y-4">
+    <FadeIn className="space-y-4">
       {/* Controls */}
-      <Card>
+      <Card className="card-hover">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -341,6 +361,7 @@ export default function MultiAssetTradingView({
                 variant={chartType === 'lines' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setChartType('lines')}
+                className="transition-all duration-200"
               >
                 <LineChart className="h-4 w-4 mr-1" />
                 Linhas
@@ -349,6 +370,7 @@ export default function MultiAssetTradingView({
                 variant={chartType === 'candles' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setChartType('candles')}
+                className="transition-all duration-200"
               >
                 <CandlestickChart className="h-4 w-4 mr-1" />
                 Candles
@@ -357,6 +379,7 @@ export default function MultiAssetTradingView({
                 variant={chartType === 'percentage' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setChartType('percentage')}
+                className="transition-all duration-200"
               >
                 <TrendingUp className="h-4 w-4 mr-1" />
                 %
@@ -367,6 +390,7 @@ export default function MultiAssetTradingView({
                 onClick={() => setShowPortfolio(!showPortfolio)}
                 disabled={chartType === 'candles'}
                 title={chartType === 'candles' ? 'Portfolio não disponível em modo candles' : 'Mostrar/ocultar linha do portfolio'}
+                className="transition-all duration-200"
               >
                 <PieChart className="h-4 w-4 mr-1" />
                 Portfolio
@@ -378,21 +402,23 @@ export default function MultiAssetTradingView({
           <div className="space-y-4">
             {/* Chart Type Info */}
             {chartType === 'candles' && (
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <div className="flex items-center space-x-2 text-blue-800 dark:text-blue-200">
-                  <CandlestickChart className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    Modo Candles: Mostra abertura, máxima, mínima e fechamento para análise técnica avançada
-                  </span>
+              <FadeIn>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 animate-fade-in-up">
+                  <div className="flex items-center space-x-2 text-blue-800 dark:text-blue-200">
+                    <CandlestickChart className="h-4 w-4" />
+                    <span className="text-sm">
+                      Visualização em candles mostra a variação completa de cada período
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </FadeIn>
             )}
             
             {/* Asset Selection */}
             <div>
               <h4 className="text-sm font-medium mb-2">Ativos Selecionados ({selectedAssets.length}/{chartType === 'candles' ? '5' : '10'})</h4>
-              <div className="flex flex-wrap gap-2">
-                {assetsData.slice(0, 20).map((asset, index) => {
+              <Stagger staggerDelay={0.05} className="flex flex-wrap gap-2">
+                {assetsData.slice(0, 20).map((asset) => {
                   const isSelected = selectedAssets.includes(asset.asset_id)
                   const color = ASSET_COLORS[selectedAssets.indexOf(asset.asset_id) % ASSET_COLORS.length]
                   
@@ -403,11 +429,11 @@ export default function MultiAssetTradingView({
                       size="sm"
                       onClick={() => toggleAsset(asset.asset_id)}
                       disabled={!isSelected && selectedAssets.length >= (chartType === 'candles' ? 5 : 10)}
-                      className={isSelected ? 'border-2' : ''}
+                      className={`${isSelected ? 'border-2' : ''} transition-all duration-200 hover:scale-105`}
                       style={isSelected ? { borderColor: color, backgroundColor: color + '20' } : {}}
                     >
                       <div 
-                        className="w-2 h-2 rounded-full mr-2" 
+                        className="w-2 h-2 rounded-full mr-2 transition-colors duration-200" 
                         style={{ backgroundColor: isSelected ? color : '#94a3b8' }}
                       />
                       {asset.asset_symbol}
@@ -417,65 +443,77 @@ export default function MultiAssetTradingView({
                     </Button>
                   )
                 })}
-              </div>
+              </Stagger>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Chart */}
-      <Card>
-        <CardContent className="p-0">
-          <div 
-            ref={chartContainerRef} 
-            className="w-full"
-            style={{ minHeight: '400px' }}
-          />
-        </CardContent>
-      </Card>
+      <FadeIn delay={100}>
+        <Card className="card-hover">
+          <CardContent className="p-0">
+            {isLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div 
+                ref={chartContainerRef} 
+                className="w-full animate-fade-in-up"
+                style={{ minHeight: '400px' }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </FadeIn>
 
       {/* Legend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Legenda dos Ativos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {showPortfolio && (
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-gray-800 rounded" />
-                <span className="text-sm font-medium">Portfolio Total</span>
-              </div>
-            )}
-            {assetsData
-              .filter(asset => selectedAssets.includes(asset.asset_id))
-              .map((asset, index) => {
-                const color = ASSET_COLORS[selectedAssets.indexOf(asset.asset_id) % ASSET_COLORS.length]
-                const lastValue = asset.daily_values[asset.daily_values.length - 1]?.value || 0
-                
-                return (
-                  <div key={asset.asset_id} className="flex items-center justify-between space-x-2">
-                    <div className="flex items-center space-x-2">
-                      <div 
-                        className="w-3 h-3 rounded" 
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="text-sm font-medium">{asset.asset_symbol}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                      }).format(lastValue)}
-                    </span>
+      <FadeIn delay={200}>
+        <Card className="card-hover">
+          <CardHeader>
+            <CardTitle className="text-sm">Legenda dos Ativos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {showPortfolio && (
+                <FadeIn>
+                  <div className="flex items-center space-x-2 hover:bg-muted/50 p-2 rounded transition-colors">
+                    <div className="w-3 h-3 bg-gray-800 rounded" />
+                    <span className="text-sm font-medium">Portfolio Total</span>
                   </div>
-                )
-              })}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                </FadeIn>
+              )}
+              <Stagger staggerDelay={0.05}>
+                {assetsData
+                  .filter(asset => selectedAssets.includes(asset.asset_id))
+                  .map((asset) => {
+                    const color = ASSET_COLORS[selectedAssets.indexOf(asset.asset_id) % ASSET_COLORS.length]
+                    const lastValue = asset.daily_values[asset.daily_values.length - 1]?.value || 0
+                    
+                    return (
+                      <div key={asset.asset_id} className="flex items-center justify-between space-x-2 hover:bg-muted/50 p-2 rounded transition-colors">
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded transition-transform hover:scale-110" 
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="text-sm font-medium">{asset.asset_symbol}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          }).format(lastValue)}
+                        </span>
+                      </div>
+                    )
+                  })}
+              </Stagger>
+            </div>
+          </CardContent>
+        </Card>
+      </FadeIn>
+    </FadeIn>
   )
 }

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Breadcrumbs } from "@/components/ui/breadcrumbs"
 import { ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
+import ThemeSwitch from "@/components/ThemeSwitch"
 
 interface BreadcrumbItem {
   label: string
@@ -62,11 +63,10 @@ const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
               </div>
             </div>
             
-            {actions && (
-              <div className="flex items-center space-x-2">
-                {actions}
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              <ThemeSwitch />
+              {actions && actions}
+            </div>
           </div>
         </div>
       </header>

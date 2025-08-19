@@ -12,6 +12,8 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { useMemo } from 'react'
+import { FadeIn } from '@/components/ui/fade-in'
+import { ChartSkeleton } from '@/components/ui/skeleton-loader'
 
 interface PortfolioChartProps {
   monthlyData: Array<{ month_eom: string; total_value: number }>
@@ -64,57 +66,61 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <TrendingUp className="h-5 w-5" />
-          <span>Evolução do Patrimônio</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            <span className="ml-2">Carregando gráfico...</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">Valor atual: {currencyFormatter.format(latestValue)}</div>
-            {/* Linha do tempo */}
-            <div className="w-full h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(v) => new Date(v).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}
-                    className="fill-muted-foreground text-xs"
-                  />
-                  <YAxis
-                    tickFormatter={(v) => currencyFormatter.format(v)}
-                    width={80}
-                    className="fill-muted-foreground text-xs"
-                  />
-                  <Tooltip
-                    formatter={(value: number) => currencyFormatter.format(value)}
-                    labelFormatter={(label: string) => new Date(label).toLocaleDateString('pt-BR')}
-                    contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '0.5rem', color: 'white' }}
-                    wrapperStyle={{ outline: 'none' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <FadeIn>
+      <Card className="card-hover">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>Evolução do Patrimônio</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <ChartSkeleton />
+          ) : (
+            <FadeIn delay={200} className="space-y-4">
+              <div className="text-sm text-muted-foreground value-change">Valor atual: {currencyFormatter.format(latestValue)}</div>
+              {/* Linha do tempo */}
+              <div className="w-full h-72 chart-container chart-entering">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(v) => new Date(v).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}
+                      className="fill-muted-foreground text-xs"
+                    />
+                    <YAxis
+                      tickFormatter={(v) => currencyFormatter.format(v)}
+                      width={80}
+                      className="fill-muted-foreground text-xs"
+                    />
+                    <Tooltip
+                      formatter={(value: number) => currencyFormatter.format(value)}
+                      labelFormatter={(label: string) => new Date(label).toLocaleDateString('pt-BR')}
+                      contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '0.5rem', color: 'white' }}
+                      wrapperStyle={{ outline: 'none' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                      strokeDasharray="5 5"
+                      strokeDashoffset="0"
+                      style={{
+                        animation: 'draw-line 1.5s ease-out forwards'
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </FadeIn>
+          )}
+        </CardContent>
+      </Card>
+    </FadeIn>
   )
 }

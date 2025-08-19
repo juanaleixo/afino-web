@@ -29,6 +29,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
 import PlanStatus from "@/components/PlanStatus"
+import ThemeSwitch from "@/components/ThemeSwitch"
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -127,6 +128,7 @@ export default function DashboardPage() {
                 <Badge variant="secondary">
                   {user?.email}
                 </Badge>
+                <ThemeSwitch />
                 <Button
                   variant="outline"
                   size="sm"

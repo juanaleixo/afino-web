@@ -20,6 +20,8 @@ import MultiAssetTradingView from "@/components/dashboard/timeline/multi-asset-t
 import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
 import AssetDrillDown from "@/components/dashboard/timeline/asset-drill-down"
 import { benchmarkService } from "@/lib/benchmarks"
+import { FadeIn, Stagger } from "@/components/ui/fade-in"
+import { ChartSkeleton, CardSkeleton } from "@/components/ui/skeleton-loader"
 
 const ASSET_COLORS = [
   '#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', 
@@ -303,7 +305,14 @@ export default function TimelinePage() {
               <span>Plano Básico</span>
             </Badge>
           )}
-          <Select value={filters.granularity} onValueChange={(value: 'daily' | 'monthly') => handleFiltersChange({ granularity: value })}>
+          <Select value={filters.granularity} onValueChange={(value: 'daily' | 'monthly') => {
+            const newFilters: Partial<TimelineFilters> = { granularity: value }
+            // Silently optimize to 1M for daily data without interrupting user
+            if (value === 'daily' && !['1M', '3M'].includes(filters.period)) {
+              newFilters.period = '1M'
+            }
+            handleFiltersChange(newFilters)
+          }}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -388,9 +397,9 @@ export default function TimelinePage() {
         />
 
         {/* Cards de Resumo */}
-        {portfolioData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+        {portfolioData ? (
+          <Stagger staggerDelay={0.1} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -403,7 +412,7 @@ export default function TimelinePage() {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Retorno Total</CardTitle>
                 <TrendingUp className={`h-4 w-4 ${totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`} />
@@ -418,7 +427,7 @@ export default function TimelinePage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Última Variação</CardTitle>
                 <TrendingUp className={`h-4 w-4 ${periodReturn >= 0 ? 'text-green-600' : 'text-red-600'}`} />
@@ -433,7 +442,7 @@ export default function TimelinePage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Pontos de Dados</CardTitle>
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -447,6 +456,13 @@ export default function TimelinePage() {
                 </p>
               </CardContent>
             </Card>
+          </Stagger>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
           </div>
         )}
 
@@ -472,16 +488,11 @@ export default function TimelinePage() {
           {/* ABA 1: VISÃO GERAL - Gráfico principal + resumo */}
           <TabsContent value="overview" className="space-y-6">
             {loading ? (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                    <span>Carregando sua timeline...</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <FadeIn>
+                <ChartSkeleton />
+              </FadeIn>
             ) : portfolioData?.monthlySeries ? (
-              <div className="space-y-4">
+              <FadeIn className="space-y-4">
                 {/* Gráfico principal baseado na granularidade */}
                 {isPremium && filters.granularity === 'daily' ? (
                   <AdvancedPortfolioChart
@@ -500,49 +511,37 @@ export default function TimelinePage() {
                   />
                 )}
                 
-                {/* Analytics Premium inline quando diário */}
+                {/* Simple performance hint when daily data is available */}
                 {isPremium && filters.granularity === 'daily' && performanceAnalysis.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Target className="h-5 w-5 text-blue-600" />
-                        <span>Resumo de Performance</span>
-                        <Badge variant="default">Premium</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Top 3 performers */}
-                        {performanceAnalysis
-                          .sort((a, b) => b.totalReturnPercent - a.totalReturnPercent)
-                          .slice(0, 3)
-                          .map((asset, index) => (
-                            <div key={asset.asset_id} className="text-center p-3 border rounded-lg">
-                              <div className="text-sm text-muted-foreground mb-1">
-                                {index === 0 ? '🥇 Melhor' : index === 1 ? '🥈 2º Lugar' : '🥉 3º Lugar'}
-                              </div>
-                              <div className="font-semibold">{asset.asset_symbol}</div>
-                              <div className={`text-lg font-bold ${asset.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {asset.totalReturnPercent >= 0 ? '+' : ''}{asset.totalReturnPercent.toFixed(1)}%
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <FadeIn delay={200}>
+                    <Card className="border-dashed card-hover">
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            Dados detalhados por ativo disponíveis na aba "Por Ativos"
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {performanceAnalysis.length} ativos com dados diários
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </FadeIn>
                 )}
-              </div>
+              </FadeIn>
             ) : (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-2">Nenhum dado disponível</p>
-                    <p className="text-sm text-muted-foreground">
-                      Adicione alguns eventos para ver a evolução do seu patrimônio
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <FadeIn>
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <p className="text-muted-foreground mb-2">Nenhum dado disponível</p>
+                      <p className="text-sm text-muted-foreground">
+                        Adicione alguns eventos para ver a evolução do seu patrimônio
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </FadeIn>
             )}
           </TabsContent>
 
@@ -550,7 +549,7 @@ export default function TimelinePage() {
           {isPremium && (
             <TabsContent value="assets" className="space-y-6">
               {filters.granularity === 'daily' ? (
-                <div className="space-y-6">
+                <FadeIn className="space-y-6">
                   {/* Multi-Asset Chart */}
                   <MultiAssetTradingView
                     assetsData={performanceAnalysis.map((asset, index) => ({
@@ -565,131 +564,139 @@ export default function TimelinePage() {
                     isLoading={loading}
                   />
                   
-                  {/* Performance Analysis */}
-                  <PremiumAnalytics
-                    performanceData={performanceAnalysis}
-                    benchmarkData={benchmarkData}
-                    isLoading={loading}
-                    period={{ from: getDateRange().from, to: getDateRange().to }}
-                  />
-                </div>
+                  {/* Performance Analysis - Naturally flows below */}
+                  <FadeIn delay={300}>
+                    <PremiumAnalytics
+                      performanceData={performanceAnalysis}
+                      benchmarkData={benchmarkData}
+                      isLoading={loading}
+                      period={{ from: getDateRange().from, to: getDateRange().to }}
+                    />
+                  </FadeIn>
+                </FadeIn>
               ) : (
-                <Card>
-                  <CardContent className="flex items-center justify-center h-64">
-                    <div className="text-center space-y-4">
-                      <PieChart className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <div>
-                        <h3 className="font-semibold mb-2">Análise por Ativos</h3>
-                        <p className="text-muted-foreground mb-4">
-                          Altere para <strong>dados diários</strong> para ver análise detalhada por ativo
-                        </p>
+                <FadeIn>
+                  <Card className="card-hover">
+                    <CardContent className="flex items-center justify-center h-64">
+                      <div className="text-center space-y-4">
+                        <PieChart className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <div>
+                          <h3 className="font-semibold mb-2">Análise Individual por Ativo</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Para comparar ativos individuais, use a visualização diária
+                          </p>
+                        </div>
+                        <Button onClick={() => handleFiltersChange({ granularity: 'daily' })}>
+                          Alternar para Dados Diários
+                        </Button>
                       </div>
-                      <Button onClick={() => handleFiltersChange({ granularity: 'daily' })}>
-                        Ativar Dados Diários
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </FadeIn>
               )}
             </TabsContent>
           )}
 
           {/* ABA 3: DETALHES - Tabela de dados */}
           <TabsContent value="details" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Dados Históricos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    Carregando dados...
-                  </div>
-                ) : getActiveSeries().length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-2">Data</th>
-                          <th className="text-right p-2">Valor Total</th>
-                          <th className="text-right p-2">Variação</th>
-                          {isPremium && <th className="text-right p-2">% Crescimento</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getActiveSeries().map((item: any, index: number, arr: any[]) => {
-                          const previousValue = index > 0 ? arr[index - 1].total_value : 0
-                          const change = item.total_value - previousValue
-                          const percentChange = previousValue > 0 ? (change / previousValue) * 100 : 0
-                          
-                          return (
-                            <tr key={index} className="border-b">
-                              <td className="p-2">
-                                {new Date(item.date).toLocaleDateString('pt-BR', 
-                                  isPremium && filters.granularity === 'daily'
-                                    ? { day: '2-digit', month: 'short', year: 'numeric' }
-                                    : { month: 'long', year: 'numeric' }
-                                )}
-                              </td>
-                              <td className="p-2 text-right font-mono">
-                                {formatCurrency(item.total_value)}
-                              </td>
-                              <td className={`p-2 text-right font-mono ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {index > 0 ? (
-                                  <>
-                                    {change >= 0 ? '+' : ''}{formatCurrency(change)}
-                                  </>
-                                ) : '-'}
-                              </td>
-                              {isPremium && (
-                                <td className={`p-2 text-right font-mono ${percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <FadeIn>
+              <Card className="card-hover">
+                <CardHeader>
+                  <CardTitle>Dados Históricos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Carregando dados...
+                    </div>
+                  ) : getActiveSeries().length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-2">Data</th>
+                            <th className="text-right p-2">Valor Total</th>
+                            <th className="text-right p-2">Variação</th>
+                            {isPremium && <th className="text-right p-2">% Crescimento</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getActiveSeries().map((item: any, index: number, arr: any[]) => {
+                            const previousValue = index > 0 ? arr[index - 1].total_value : 0
+                            const change = item.total_value - previousValue
+                            const percentChange = previousValue > 0 ? (change / previousValue) * 100 : 0
+                            
+                            return (
+                              <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
+                                <td className="p-2">
+                                  {new Date(item.date).toLocaleDateString('pt-BR', 
+                                    isPremium && filters.granularity === 'daily'
+                                      ? { day: '2-digit', month: 'short', year: 'numeric' }
+                                      : { month: 'long', year: 'numeric' }
+                                  )}
+                                </td>
+                                <td className="p-2 text-right font-mono">
+                                  {formatCurrency(item.total_value)}
+                                </td>
+                                <td className={`p-2 text-right font-mono ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {index > 0 ? (
                                     <>
-                                      {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(2)}%
+                                      {change >= 0 ? '+' : ''}{formatCurrency(change)}
                                     </>
                                   ) : '-'}
                                 </td>
-                              )}
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhum dado disponível para o período selecionado
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                                {isPremium && (
+                                  <td className={`p-2 text-right font-mono ${percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {index > 0 ? (
+                                      <>
+                                        {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(2)}%
+                                      </>
+                                    ) : '-'}
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Nenhum dado disponível para o período selecionado
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </FadeIn>
           </TabsContent>
         </Tabs>
 
-        {/* Upgrade Simples para Premium */}
+        {/* Premium Upgrade */}
         {!isPremium && (
-          <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Crown className="h-8 w-8 text-yellow-600" />
-                  <div>
-                    <h3 className="font-bold text-lg text-yellow-800 dark:text-yellow-200">
-                      Desbloqueie Análise por Ativos
-                    </h3>
-                    <p className="text-yellow-700 dark:text-yellow-300">
-                      📊 Dados diários • 📈 Múltiplos ativos • 🎯 Analytics avançados
-                    </p>
+          <FadeIn delay={400}>
+            <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950 card-hover">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Crown className="h-8 w-8 text-yellow-600" />
+                    <div>
+                      <h3 className="font-bold text-lg text-yellow-800 dark:text-yellow-200">
+                        Análise Avançada de Ativos
+                      </h3>
+                      <p className="text-yellow-700 dark:text-yellow-300">
+                        Compare ativos individuais, visualize candles e acesse dados diários
+                      </p>
+                    </div>
                   </div>
+                  <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0">
+                    <Crown className="h-4 w-4 mr-2" />
+                    Fazer Upgrade
+                  </Button>
                 </div>
-                <Button size="lg" className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0">
-                  <Crown className="h-4 w-4 mr-2" />
-                  Fazer Upgrade
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </FadeIn>
         )}
       </div>
     </DashboardLayout>
