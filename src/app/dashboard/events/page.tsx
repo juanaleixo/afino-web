@@ -1,9 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { LoadingState } from "@/components/ui/loading-state"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { AssetBadge } from "@/components/ui/asset-badge"
+import { DataFilters } from "@/components/ui/data-filters"
+import { EventTableRow } from "@/components/dashboard/event-table-row"
+import { useDebounce } from "@/hooks/useDebounce"
 
 interface EventWithRelations {
   id: string
@@ -27,7 +33,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Calendar, TrendingUp, TrendingDown, Loader2, ArrowLeft, Trash2, Filter, Shuffle } from "lucide-react"
+import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -36,8 +42,11 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
   const [filterClass, setFilterClass] = useState<'all'|'currency'|'noncurrency'>('all')
   const [filterKind, setFilterKind] = useState<EventWithRelations['kind'] | 'all'>('all')
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [cashAssetId, setCashAssetId] = useState<string | null>(null)
   const [cashToday, setCashToday] = useState<number | null>(null)
   const [portfolioToday, setPortfolioToday] = useState<number | null>(null)
@@ -126,14 +135,77 @@ export default function EventsPage() {
   }
 
   const filteredEvents = useMemo(() => {
-    return events.filter(e => {
+    let filtered = events
+    
+    // Busca por texto (usando debounced value)
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter(event => 
+        event.global_assets?.symbol.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        event.accounts?.label.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        event.kind.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      )
+    }
+    
+    // Filtro por classe de ativo
+    const byClassFilter = filtered.filter(e => {
       const sym = e.global_assets?.symbol?.toUpperCase?.()
       const isCash = e.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
-      const byClass = filterClass === 'all' ? true : (filterClass === 'currency' ? isCash : !isCash)
-      const byKind = filterKind === 'all' ? true : e.kind === filterKind
-      return byClass && byKind
+      if (filterClass === 'all') return true
+      return filterClass === 'currency' ? isCash : !isCash
     })
-  }, [events, filterClass, filterKind])
+    
+    // Filtro por tipo de evento
+    const byKindFilter = byClassFilter.filter(e => {
+      return filterKind === 'all' ? true : e.kind === filterKind
+    })
+    
+    return byKindFilter.sort((a, b) => new Date(b.tstamp).getTime() - new Date(a.tstamp).getTime())
+  }, [events, debouncedSearchTerm, filterClass, filterKind])
+
+  // Contar filtros ativos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (filterClass !== 'all') count++
+    if (filterKind !== 'all') count++
+    return count
+  }, [filterClass, filterKind])
+
+  // Limpar filtros
+  const clearFilters = () => {
+    setSearchTerm("")
+    setFilterClass('all')
+    setFilterKind('all')
+  }
+
+  // Opções de filtro
+  const filterOptions = [
+    {
+      key: 'class',
+      label: 'Tipo de Ativo',
+      value: filterClass,
+      onValueChange: (value: string) => setFilterClass(value as any),
+      options: [
+        { label: 'Todos', value: 'all' },
+        { label: 'Dinheiro/Caixa', value: 'currency' },
+        { label: 'Investimentos', value: 'noncurrency' },
+      ],
+    },
+    {
+      key: 'kind',
+      label: 'Tipo de Evento',
+      value: filterKind,
+      onValueChange: (value: string) => setFilterKind(value as any),
+      options: [
+        { label: 'Todos', value: 'all' },
+        { label: 'Depósito', value: 'deposit' },
+        { label: 'Saque', value: 'withdraw' },
+        { label: 'Compra', value: 'buy' },
+        { label: 'Venda', value: 'sell' },
+        { label: 'Transferência', value: 'transfer' },
+        { label: 'Avaliação', value: 'valuation' },
+      ],
+    },
+  ]
 
   const formatBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
 
@@ -218,108 +290,114 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <span>Carregando eventos...</span>
-          </div>
-        </div>
-      </ProtectedRoute>
+      <DashboardLayout
+        title="Eventos"
+        description="Histórico de transações financeiras"
+        icon={<Activity className="h-6 w-6" />}
+        backHref="/dashboard"
+        breadcrumbs={[
+          { label: "Painel", href: "/dashboard" },
+          { label: "Eventos" },
+        ]}
+      >
+        <LoadingState variant="page" message="Carregando eventos..." />
+      </DashboardLayout>
     )
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Link href="/dashboard">
-                  <Button variant="ghost" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Voltar
-                  </Button>
-                </Link>
-                <nav aria-label="Trilha de navegação" className="text-sm text-muted-foreground">
-                  <ol className="flex items-center gap-1">
-                    <li>
-                      <Link href="/dashboard" className="hover:text-foreground">Painel</Link>
-                    </li>
-                    <li className="mx-1">/</li>
-                    <li className="text-foreground flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-primary" />
-                      <span className="text-base font-semibold">Eventos</span>
-                    </li>
-                  </ol>
-                </nav>
-              </div>
-              <div className="flex items-center gap-2">
-                {cashAssetId && (
-                  <Button asChild variant="secondary">
-                    <Link href={`/dashboard/events/new?kind=deposit&asset_id=${cashAssetId}`}>
-                      <Plus className="h-4 w-4 mr-2" /> Depósito em Caixa
-                    </Link>
-                  </Button>
-                )}
-                <Button asChild>
-                  <Link href="/dashboard/events/new">
-                    <Plus className="h-4 w-4 mr-2" /> Novo Evento
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
+    <DashboardLayout
+      title="Eventos"
+      description="Histórico de transações e movimentações financeiras"
+      icon={<Activity className="h-6 w-6" />}
+      backHref="/dashboard"
+      breadcrumbs={[
+        { label: "Painel", href: "/dashboard" },
+        { label: "Eventos" },
+      ]}
+      actions={
+        <div className="flex items-center gap-2">
+          {cashAssetId && (
+            <Button asChild variant="secondary">
+              <Link href={`/dashboard/events/new?kind=deposit&asset_id=${cashAssetId}`}>
+                <Plus className="h-4 w-4 mr-2" /> Depósito
+              </Link>
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/dashboard/events/new">
+              <Plus className="h-4 w-4 mr-2" /> Novo Evento
+            </Link>
+          </Button>
+        </div>
+      }
+    >
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
+        {/* Summary cards */}
+        <div className="stats-grid mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{events.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {filteredEvents.length !== events.length && `${filteredEvents.length} filtrados`}
+              </p>
+            </CardContent>
+          </Card>
 
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Saldo de Caixa</CardTitle>
+              <StatusBadge variant="success" size="sm">Hoje</StatusBadge>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {cashToday !== null ? formatBRL(cashToday) : '—'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Disponível em caixa
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Valor do Portfólio</CardTitle>
+              <StatusBadge variant="info" size="sm">Hoje</StatusBadge>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {portfolioToday !== null ? formatBRL(portfolioToday || 0) : '—'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total investido
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <DataFilters
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Buscar por ativo, conta ou tipo..."
+          filters={filterOptions}
+          activeFiltersCount={activeFiltersCount}
+          onClearFilters={clearFilters}
+          isFilterOpen={isFilterOpen}
+          onFilterToggle={() => setIsFilterOpen(!isFilterOpen)}
+        />
+
+        <Card>
           <CardHeader>
             <CardTitle>Histórico de Eventos</CardTitle>
             <CardDescription>
-              Todos os eventos e transações da sua carteira
+              {filteredEvents.length} de {events.length} eventos
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Summary cards */}
-            <div className="grid gap-4 md:grid-cols-2 mb-4">
-              <div className="rounded-lg border p-4">
-                <div className="text-sm text-muted-foreground">Saldo de Caixa (hoje)</div>
-                <div className="text-2xl font-semibold">{cashToday !== null ? formatBRL(cashToday) : '—'}</div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="text-sm text-muted-foreground">Valor do Portfólio (hoje)</div>
-                <div className="text-2xl font-semibold">{portfolioToday !== null ? formatBRL(portfolioToday || 0) : '—'}</div>
-              </div>
-            </div>
-            {/* Filtros */}
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <div className="flex items-center gap-2">
-                <Button variant={filterClass==='all'?'default':'outline'} size="sm" onClick={()=>setFilterClass('all')}>Todos</Button>
-                <Button variant={filterClass==='currency'?'default':'outline'} size="sm" onClick={()=>setFilterClass('currency')}>Caixa</Button>
-                <Button variant={filterClass==='noncurrency'?'default':'outline'} size="sm" onClick={()=>setFilterClass('noncurrency')}>Ativos</Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <select
-                  className="h-9 rounded-md border px-2 text-sm bg-background"
-                  value={filterKind}
-                  onChange={(e)=>setFilterKind(e.target.value as any)}
-                >
-                  <option value="all">Todos os tipos</option>
-                  <option value="deposit">Depósito</option>
-                  <option value="withdraw">Saque</option>
-                  <option value="buy">Compra</option>
-                  <option value="sell">Venda</option>
-                  <option value="transfer">Transferência</option>
-                  <option value="valuation">Avaliação</option>
-                </select>
-              </div>
-            </div>
             {events.length === 0 ? (
               <div className="text-center py-8">
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -350,83 +428,24 @@ export default function EventsPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredEvents.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell>
-                        {new Date(event.tstamp).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {getEventIcon(event.kind)}
-                          <Badge variant="outline">
-                            {getEventLabel(event.kind)}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>{getAssetDisplay(event)}</span>
-                          {isCashAsset(event) && (
-                            <Badge variant="secondary">Caixa</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {event.accounts?.label || 'N/D'}
-                      </TableCell>
-                      <TableCell>
-                        {event.units_delta ? (
-                          <span className={event.units_delta > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {event.units_delta > 0 ? '+' : ''}{event.units_delta}
-                          </span>
-                        ) : 'N/D'}
-                      </TableCell>
-                      <TableCell>
-                        {getDisplayPrice(event)}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          if (isCashAsset(event) && typeof event.units_delta === 'number') {
-                            const val = event.units_delta
-                            return (
-                              <span className={val >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {formatBRL(val)}
-                              </span>
-                            )
-                          }
-                          if ((event.kind === 'buy' || event.kind === 'sell') && typeof event.units_delta === 'number' && typeof event.price_close === 'number') {
-                            const val = event.units_delta * event.price_close
-                            return (
-                              <span className={val >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {formatBRL(val)}
-                              </span>
-                            )
-                          }
-                          return '—'
-                        })()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteEvent(event.id)}
-                          disabled={deletingEventId === event.id}
-                        >
-                          {deletingEventId === event.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <EventTableRow
+                      key={event.id}
+                      event={event}
+                      onDelete={deleteEvent}
+                      isDeleting={deletingEventId === event.id}
+                      getEventIcon={getEventIcon}
+                      getEventLabel={getEventLabel}
+                      isCashAsset={isCashAsset}
+                      getAssetDisplay={getAssetDisplay}
+                      getDisplayPrice={getDisplayPrice}
+                      formatBRL={formatBRL}
+                    />
                   ))}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </DashboardLayout>
   )
 } 

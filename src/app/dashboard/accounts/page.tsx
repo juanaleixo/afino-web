@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
 import { supabase, Account } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-
+import { LoadingState } from "@/components/ui/loading-state"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,8 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Edit, Trash2, Wallet, ArrowLeft, Loader2 } from "lucide-react"
-import Link from "next/link"
+import { Plus, Edit, Trash2, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 
@@ -162,149 +162,140 @@ export default function AccountsPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </ProtectedRoute>
+      <DashboardLayout
+        title="Contas"
+        description="Gerencie suas contas bancárias"
+        icon={<Wallet className="h-6 w-6" />}
+        backHref="/dashboard"
+        breadcrumbs={[
+          { label: "Painel", href: "/dashboard" },
+          { label: "Contas" },
+        ]}
+      >
+        <LoadingState variant="page" />
+      </DashboardLayout>
     )
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Link href="/dashboard">
-                  <Button variant="ghost" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Voltar
+    <DashboardLayout
+      title="Contas"
+      description="Gerencie suas contas bancárias e carteiras"
+      icon={<Wallet className="h-6 w-6" />}
+      backHref="/dashboard"
+      breadcrumbs={[
+        { label: "Painel", href: "/dashboard" },
+        { label: "Contas" },
+      ]}
+      actions={
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Conta
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingAccount ? 'Editar Conta' : 'Nova Conta'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingAccount 
+                  ? 'Atualize as informações da conta'
+                  : 'Crie uma nova conta bancária'
+                }
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="label"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Conta</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Banco Inter" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                      <p className="text-xs text-muted-foreground">Um nome curto que você reconheça facilmente.</p>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Moeda</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a moeda" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {currencies.map((currency) => (
+                            <SelectItem key={currency.code} value={currency.code}>
+                              {currency.code} - {currency.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancelar
                   </Button>
-                </Link>
-                <div className="flex items-center space-x-2">
-                  <Wallet className="h-6 w-6 text-primary" />
-                  <h1 className="text-2xl font-bold">Contas</h1>
+                  <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
+                    {isSubmitting ? (
+                      <LoadingState variant="inline" size="sm" message="Salvando..." />
+                    ) : (
+                      editingAccount ? 'Atualizar' : 'Criar'
+                    )}
+                  </Button>
                 </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      }
+    >
+        {accounts.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <Wallet className="h-12 w-12 text-muted-foreground mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold">Nenhuma conta encontrada</h3>
+                  <p className="text-muted-foreground">
+                    Comece criando sua primeira conta bancária
+                  </p>
+                </div>
+                <Button onClick={openCreateDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeira Conta
+                </Button>
               </div>
-              
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={openCreateDialog}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Conta
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
-                      {editingAccount ? 'Editar Conta' : 'Nova Conta'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {editingAccount 
-                        ? 'Atualize as informações da conta'
-                        : 'Crie uma nova conta bancária'
-                      }
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="label"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nome da Conta</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ex: Banco Inter" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            <p className="text-xs text-muted-foreground">Um nome curto que você reconheça facilmente.</p>
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="currency"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Moeda</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a moeda" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {currencies.map((currency) => (
-                                  <SelectItem key={currency.code} value={currency.code}>
-                                    {currency.code} - {currency.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex justify-end space-x-2 pt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setIsDialogOpen(false)}
-                          disabled={isSubmitting}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
-                          {isSubmitting ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Salvando...
-                            </>
-                          ) : (
-                            editingAccount ? 'Atualizar' : 'Criar'
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
-          {accounts.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center space-y-4">
-                  <Wallet className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <div>
-                    <h3 className="text-lg font-semibold">Nenhuma conta encontrada</h3>
-                    <p className="text-muted-foreground">
-                      Comece criando sua primeira conta bancária
-                    </p>
-                  </div>
-                  <Button onClick={openCreateDialog}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Primeira Conta
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {/* Stats */}
-              <div className="grid gap-4 md:grid-cols-3">
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {/* Stats */}
+            <div className="stats-grid">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total de Contas</CardTitle>
@@ -315,29 +306,35 @@ export default function AccountsPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Contas BRL</CardTitle>
-                    <span className="text-sm font-medium">R$</span>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {accounts.filter(a => a.currency === 'BRL').length}
-                    </div>
-                  </CardContent>
-                </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Contas BRL</CardTitle>
+                  <StatusBadge variant="success" size="sm">BRL</StatusBadge>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {accounts.filter(a => a.currency === 'BRL').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Contas em reais
+                  </p>
+                </CardContent>
+              </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Contas USD</CardTitle>
-                    <span className="text-sm font-medium">$</span>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {accounts.filter(a => a.currency === 'USD').length}
-                    </div>
-                  </CardContent>
-                </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Contas USD</CardTitle>
+                  <StatusBadge variant="info" size="sm">USD</StatusBadge>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {accounts.filter(a => a.currency === 'USD').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Contas em dólar
+                  </p>
+                </CardContent>
+              </Card>
               </div>
 
               {/* Table */}
@@ -363,7 +360,12 @@ export default function AccountsPage() {
                         <TableRow key={account.id}>
                           <TableCell className="font-medium">{account.label}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary">{account.currency}</Badge>
+                            <StatusBadge 
+                              variant={account.currency === 'BRL' ? 'success' : 'info'} 
+                              size="sm"
+                            >
+                              {account.currency}
+                            </StatusBadge>
                           </TableCell>
                           <TableCell>
                             {new Date(account.created_at).toLocaleDateString('pt-BR')}
@@ -392,10 +394,8 @@ export default function AccountsPage() {
                   </Table>
                 </CardContent>
               </Card>
-            </div>
-          )}
-        </main>
-      </div>
-    </ProtectedRoute>
+          </div>
+        )}
+    </DashboardLayout>
   )
 } 

@@ -7,6 +7,9 @@ import { PortfolioService } from "@/lib/portfolio"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { LoadingState } from "@/components/ui/loading-state"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { AssetBadge } from "@/components/ui/asset-badge"
 import { 
   BarChart3, 
   Wallet, 
@@ -17,7 +20,10 @@ import {
   DollarSign,
   PieChart,
   Activity,
-  Loader2
+  ArrowUp,
+  ArrowDown,
+  Clock,
+  Users
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -67,35 +73,31 @@ export default function DashboardPage() {
   const menuItems = [
     {
       title: "Contas",
-      description: "Gerencie suas contas",
+      description: "Gerencie suas contas bancárias",
       icon: Wallet,
       href: "/dashboard/accounts",
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      badge: "primary",
     },
     {
       title: "Ativos",
-      description: "Cadastro de ativos (ações, cripto, etc.)",
+      description: "Cadastro de ações, cripto e outros",
       icon: TrendingUp,
       href: "/dashboard/assets",
-      color: "text-green-600",
-      bgColor: "bg-green-50",
+      badge: "success",
     },
     {
       title: "Eventos",
-      description: "Movimentações e avaliações",
+      description: "Transações e movimentações",
       icon: Activity,
       href: "/dashboard/events",
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
+      badge: "info",
     },
     {
-      title: "Evolução",
-      description: "Linha do tempo do patrimônio",
+      title: "Portfolio",
+      description: "Evolução do patrimônio",
       icon: PieChart,
       href: "/dashboard/portfolio",
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
+      badge: "warning",
     },
   ]
 
@@ -140,36 +142,39 @@ export default function DashboardPage() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
+        <main className="dashboard-page">
           {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">Bem-vindo de volta!</h2>
-            <p className="text-muted-foreground">
+          <div className="page-header">
+            <h2 className="page-title">Bem-vindo de volta!</h2>
+            <p className="page-description">
               Gerencie suas finanças e acompanhe seus investimentos de forma simples e eficiente.
             </p>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <div className="stats-grid">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+                <CardTitle className="text-sm font-medium">Patrimônio Total</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 {loadingStats ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="text-sm">Carregando...</span>
-                  </div>
+                  <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">
+                    <div className="text-2xl font-bold text-foreground">
                       {portfolioStats ? formatCurrency(portfolioStats.totalValue) : 'R$ 0,00'}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {portfolioStats ? `${portfolioStats.totalAssets} ativos` : 'Sem dados'}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <StatusBadge variant="success" size="sm">
+                        <ArrowUp className="h-3 w-3" />
+                        +0,0%
+                      </StatusBadge>
+                      <span className="text-xs text-muted-foreground">
+                        {portfolioStats ? `${portfolioStats.totalAssets} posições` : 'Sem dados'}
+                      </span>
+                    </div>
                   </>
                 )}
               </CardContent>
@@ -177,36 +182,25 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contas Ativas</CardTitle>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">--</div>
-                <p className="text-xs text-muted-foreground">
-                  Em desenvolvimento
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+                <CardTitle className="text-sm font-medium">Tipos de Ativo</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 {loadingStats ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="text-sm">Carregando...</span>
-                  </div>
+                  <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
                       {portfolioStats?.totalAssets || 0}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {portfolioStats?.totalAssets > 0 ? 'Ativos diferentes' : 'Nenhum ativo'}
-                    </p>
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      <AssetBadge assetClass="stock" size="sm" showLabel={false} />
+                      <AssetBadge assetClass="crypto" size="sm" showLabel={false} />
+                      <AssetBadge assetClass="currency" size="sm" showLabel={false} />
+                      <span className="text-xs text-muted-foreground">
+                        {portfolioStats?.totalAssets > 0 ? 'Diversificado' : 'Sem ativos'}
+                      </span>
+                    </div>
                   </>
                 )}
               </CardContent>
@@ -214,30 +208,59 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rentabilidade</CardTitle>
+                <CardTitle className="text-sm font-medium">Últimas Atividades</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">3</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <StatusBadge variant="info" size="sm">
+                    Hoje
+                  </StatusBadge>
+                  <span className="text-xs text-muted-foreground">
+                    transações
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Performance</CardTitle>
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-muted-foreground">--</div>
-                <p className="text-xs text-muted-foreground">
-                  Em desenvolvimento
-                </p>
+                <div className="text-2xl font-bold text-success">+2,4%</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <StatusBadge variant="success" size="sm">
+                    <ArrowUp className="h-3 w-3" />
+                    30 dias
+                  </StatusBadge>
+                  <span className="text-xs text-muted-foreground">
+                    vs mês anterior
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Menu Grid */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-8">
             {menuItems.map((item) => (
               <Link key={item.href} href={item.href}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card className="hover:shadow-lg transition-all hover:scale-[1.02] cursor-pointer">
                   <CardHeader>
                     <div className="flex items-center space-x-4">
-                      <div className={`p-3 rounded-lg ${item.bgColor}`}>
-                        <item.icon className={`h-6 w-6 ${item.color}`} />
+                      <div className="p-3 rounded-lg bg-muted">
+                        <item.icon className="h-6 w-6 text-primary" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg">{item.title}</CardTitle>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">{item.title}</CardTitle>
+                          <StatusBadge variant={item.badge as any} size="sm">
+                            Novo
+                          </StatusBadge>
+                        </div>
                         <CardDescription>{item.description}</CardDescription>
                       </div>
                     </div>

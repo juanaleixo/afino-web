@@ -50,6 +50,30 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
+        neutral: {
+          DEFAULT: "hsl(var(--neutral))",
+          foreground: "hsl(var(--neutral-foreground))",
+        },
+        stock: "hsl(var(--stock))",
+        crypto: "hsl(var(--crypto))",
+        currency: "hsl(var(--currency))",
+        bond: "hsl(var(--bond))",
+        "real-estate": "hsl(var(--real-estate))",
+        commodity: "hsl(var(--commodity))",
+        positive: "hsl(var(--positive))",
+        negative: "hsl(var(--negative))",
       },
       borderRadius: {
         lg: "var(--radius)",

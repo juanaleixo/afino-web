@@ -24,6 +24,29 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+    
+    /* Semantic Financial Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222.2 84% 4.9%;
+    --info: 217 91% 60%;
+    --info-foreground: 210 40% 98%;
+    --neutral: 215.4 16.3% 46.9%;
+    --neutral-foreground: 210 40% 98%;
+    
+    /* Financial Asset Classes */
+    --stock: 142 76% 36%; /* Green for stocks */
+    --crypto: 271 81% 56%; /* Purple for crypto */
+    --currency: 38 92% 50%; /* Yellow for cash/currency */
+    --bond: 217 91% 60%; /* Blue for bonds */
+    --real-estate: 25 95% 53%; /* Orange for real estate */
+    --commodity: 16 85% 55%; /* Red-orange for commodities */
+    
+    /* Status Colors */
+    --positive: var(--success);
+    --negative: var(--destructive);
+    --neutral-status: var(--neutral);
   }
 
   .dark {
@@ -46,6 +69,20 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 94.1%;
+    
+    /* Dark mode semantic colors */
+    --success: 142 76% 45%;
+    --warning: 38 92% 60%;
+    --info: 217 91% 70%;
+    --neutral: 215 20.2% 65.1%;
+    
+    /* Dark mode asset classes */
+    --stock: 142 76% 45%;
+    --crypto: 271 81% 66%;
+    --currency: 38 92% 60%;
+    --bond: 217 91% 70%;
+    --real-estate: 25 95% 63%;
+    --commodity: 16 85% 65%;
   }
 }
 
@@ -55,5 +92,75 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Dashboard Layout */
+  .dashboard-page {
+    @apply container mx-auto px-4 py-8;
+  }
+  
+  .page-header {
+    @apply mb-8;
+  }
+  
+  .page-title {
+    @apply text-3xl font-bold mb-2;
+  }
+  
+  .page-description {
+    @apply text-muted-foreground;
+  }
+  
+  .stats-grid {
+    @apply grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8;
+  }
+  
+  /* Navigation */
+  .dashboard-nav {
+    @apply border-b bg-card;
+  }
+  
+  .breadcrumb-nav {
+    @apply text-sm text-muted-foreground;
+  }
+  
+  /* Asset Status */
+  .asset-stock {
+    @apply text-[hsl(var(--stock))] bg-[hsl(var(--stock))]/10;
+  }
+  
+  .asset-crypto {
+    @apply text-[hsl(var(--crypto))] bg-[hsl(var(--crypto))]/10;
+  }
+  
+  .asset-currency {
+    @apply text-[hsl(var(--currency))] bg-[hsl(var(--currency))]/10;
+  }
+  
+  .asset-bond {
+    @apply text-[hsl(var(--bond))] bg-[hsl(var(--bond))]/10;
+  }
+  
+  .asset-real-estate {
+    @apply text-[hsl(var(--real-estate))] bg-[hsl(var(--real-estate))]/10;
+  }
+  
+  .asset-commodity {
+    @apply text-[hsl(var(--commodity))] bg-[hsl(var(--commodity))]/10;
+  }
+  
+  /* Financial Status */
+  .status-positive {
+    @apply text-[hsl(var(--positive))] bg-[hsl(var(--positive))]/10;
+  }
+  
+  .status-negative {
+    @apply text-[hsl(var(--negative))] bg-[hsl(var(--negative))]/10;
+  }
+  
+  .status-neutral {
+    @apply text-[hsl(var(--neutral-status))] bg-[hsl(var(--neutral-status))]/10;
   }
 }
