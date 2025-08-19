@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, TrendingUp, DollarSign, Loader2, ArrowLeft } from "lucide-react"
+import { Plus, TrendingUp, Loader2, ArrowLeft, TrendingDown, Calendar } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -51,7 +51,7 @@ export default function AssetsPage() {
       case 'crypto':
         return 'Cripto'
       case 'currency':
-        return 'Moeda'
+        return 'Caixa'
       default:
         return assetClass
     }
@@ -73,6 +73,8 @@ export default function AssetsPage() {
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     }
   }
+
+  const formatBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
 
   if (loading) {
     return (
@@ -150,7 +152,6 @@ export default function AssetsPage() {
                     <TableHead>Classe</TableHead>
                     <TableHead>Moeda</TableHead>
                     <TableHead>Preço Manual</TableHead>
-                    <TableHead>Conector</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -169,26 +170,47 @@ export default function AssetsPage() {
                         {asset.currency}
                       </TableCell>
                       <TableCell>
-                        {asset.manual_price ? (
-                          <span className="flex items-center">
-                            <DollarSign className="h-4 w-4 mr-1" />
-                            {asset.manual_price.toFixed(2)}
-                          </span>
+                        {typeof asset.manual_price === 'number' ? (
+                          <span>{formatBRL(asset.manual_price)}</span>
                         ) : (
                           <span className="text-muted-foreground">--</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {asset.connector || 'Manual'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
-                            Editar
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Ver Detalhes
-                          </Button>
+                        {/* Ações contextuais por tipo de ativo */}
+                        <div className="flex flex-wrap gap-2">
+                          {asset.class === 'currency' ? (
+                            <>
+                              <Button asChild variant="secondary" size="sm" title="Depósito em Caixa">
+                                <Link href={`/dashboard/events/new?kind=deposit&asset_id=${asset.id}`}>
+                                  <Plus className="h-4 w-4 mr-1" /> Depósito
+                                </Link>
+                              </Button>
+                              <Button asChild variant="outline" size="sm" title="Saque de Caixa">
+                                <Link href={`/dashboard/events/new?kind=withdraw&asset_id=${asset.id}`}>
+                                  <TrendingDown className="h-4 w-4 mr-1" /> Saque
+                                </Link>
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button asChild variant="secondary" size="sm" title="Comprar">
+                                <Link href={`/dashboard/events/new?kind=buy&asset_id=${asset.id}`}>
+                                  <TrendingUp className="h-4 w-4 mr-1" /> Comprar
+                                </Link>
+                              </Button>
+                              <Button asChild variant="outline" size="sm" title="Vender">
+                                <Link href={`/dashboard/events/new?kind=sell&asset_id=${asset.id}`}>
+                                  <TrendingDown className="h-4 w-4 mr-1" /> Vender
+                                </Link>
+                              </Button>
+                              <Button asChild variant="ghost" size="sm" title="Avaliar">
+                                <Link href={`/dashboard/events/new?kind=valuation&asset_id=${asset.id}`}>
+                                  <Calendar className="h-4 w-4 mr-1" /> Avaliar
+                                </Link>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

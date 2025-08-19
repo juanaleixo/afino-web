@@ -1,7 +1,7 @@
 -- Function: trg_events_recalc_acct_del()
 -- Description: Trigger function to recalculate the daily positions after deleting an event.
 
-CREATE FUNCTION public.trg_events_recalc_acct_del() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_events_recalc_acct_del() RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE rec RECORD;
@@ -15,7 +15,6 @@ WHERE user_id IS NOT NULL AND account_id IS NOT NULL AND asset_id IS NOT NULL
 GROUP BY 1,2,3
 LOOP
 PERFORM public.fn_recalc_positions_acct(rec.user_id, rec.account_id, rec.asset_id, rec.from_date);
-PERFORM public.fn_dpa_keep_zero_borders(rec.user_id, rec.account_id, rec.asset_id, rec.from_date, COALESCE(rec.to_date, CURRENT_DATE));
 END LOOP;
 RETURN NULL;
 END$$;

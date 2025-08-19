@@ -106,12 +106,14 @@ export default function NewAssetPage() {
                       <FormItem>
                         <FormLabel>Símbolo</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Ex: PETR4, VALE3, BTC, USD" 
-                            {...field} 
+                          <Input
+                            placeholder="Ex: PETR4, VALE3, BTC, USD"
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                           />
                         </FormControl>
                         <FormMessage />
+                        <p className="text-xs text-muted-foreground">Use o ticker ou código do ativo. Será convertido para maiúsculas.</p>
                       </FormItem>
                     )}
                   />
@@ -187,6 +189,7 @@ export default function NewAssetPage() {
                           />
                         </FormControl>
                         <FormMessage />
+                        <p className="text-xs text-muted-foreground">Se preenchido, será usado como preço do ativo quando aplicável.</p>
                       </FormItem>
                     )}
                   />
@@ -204,12 +207,13 @@ export default function NewAssetPage() {
                           />
                         </FormControl>
                         <FormMessage />
+                        <p className="text-xs text-muted-foreground">Integração para cotação automática (se disponível).</p>
                       </FormItem>
                     )}
                   />
 
                   <div className="flex space-x-4">
-                    <Button type="submit" disabled={isSubmitting} className="flex-1">
+                    <Button type="submit" disabled={isSubmitting || !form.formState.isValid} className="flex-1">
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

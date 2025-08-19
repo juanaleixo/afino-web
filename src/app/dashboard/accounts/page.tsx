@@ -222,6 +222,7 @@ export default function AccountsPage() {
                               <Input placeholder="Ex: Banco Inter" {...field} />
                             </FormControl>
                             <FormMessage />
+                            <p className="text-xs text-muted-foreground">Um nome curto que você reconheça facilmente.</p>
                           </FormItem>
                         )}
                       />
@@ -247,6 +248,7 @@ export default function AccountsPage() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
+                            <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
                           </FormItem>
                         )}
                       />
@@ -260,7 +262,7 @@ export default function AccountsPage() {
                         >
                           Cancelar
                         </Button>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
                           {isSubmitting ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

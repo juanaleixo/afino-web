@@ -30,6 +30,10 @@ DECLARE
   month_end date;
   exists_row boolean;
 BEGIN
+  -- Skip when bulk jobs set this flag to avoid per-row overhead
+  IF current_setting('afino.skip_agg', true) = '1' THEN
+    RETURN NULL;
+  END IF;
   -- Helper inlined logic to avoid nested procedures (not supported)
   -- Performs upsert/delete for detailed, daily_acct, daily, and monthly aggregates
 

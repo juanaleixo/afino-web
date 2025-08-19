@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const menuItems = [
     {
       title: "Contas",
-      description: "Gerencie suas contas bancárias",
+      description: "Gerencie suas contas",
       icon: Wallet,
       href: "/dashboard/accounts",
       color: "text-blue-600",
@@ -75,43 +75,27 @@ export default function DashboardPage() {
     },
     {
       title: "Ativos",
-      description: "Catálogo de ativos e investimentos",
+      description: "Cadastro de ativos (ações, cripto, etc.)",
       icon: TrendingUp,
       href: "/dashboard/assets",
       color: "text-green-600",
       bgColor: "bg-green-50",
     },
     {
-      title: "Transações",
-      description: "Histórico de compras e vendas",
+      title: "Eventos",
+      description: "Movimentações e avaliações",
       icon: Activity,
       href: "/dashboard/events",
       color: "text-purple-600",
       bgColor: "bg-purple-50",
     },
     {
-      title: "Portfólio",
-      description: "Visão geral dos seus investimentos",
+      title: "Evolução",
+      description: "Linha do tempo do patrimônio",
       icon: PieChart,
       href: "/dashboard/portfolio",
       color: "text-orange-600",
       bgColor: "bg-orange-50",
-    },
-    {
-      title: "Relatórios",
-      description: "Análises e relatórios financeiros",
-      icon: BarChart3,
-      href: "/dashboard/reports",
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-    },
-    {
-      title: "Configurações",
-      description: "Preferências e configurações",
-      icon: Settings,
-      href: "/dashboard/settings",
-      color: "text-gray-600",
-      bgColor: "bg-gray-50",
     },
   ]
 

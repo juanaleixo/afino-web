@@ -102,6 +102,7 @@ export default function NewAccountPage() {
                           />
                         </FormControl>
                         <FormMessage />
+                        <p className="text-xs text-muted-foreground">Um nome curto que você reconheça facilmente.</p>
                       </FormItem>
                     )}
                   />
@@ -130,12 +131,13 @@ export default function NewAccountPage() {
                           </SelectContent>
                         </Select>
                         <FormMessage />
+                        <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
                       </FormItem>
                     )}
                   />
 
                   <div className="flex space-x-4">
-                    <Button type="submit" disabled={isSubmitting} className="flex-1">
+                    <Button type="submit" disabled={isSubmitting || !form.formState.isValid} className="flex-1">
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

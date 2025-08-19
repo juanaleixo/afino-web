@@ -1,13 +1,3 @@
--- Funções de sistema e helpers
-
--- Usuário atual (para RLS)
-CREATE OR REPLACE FUNCTION app_current_user() RETURNS uuid
-LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-  RETURN auth.uid();
-END;
-$$;
-
 -- Verifica se o usuário é premium
 CREATE OR REPLACE FUNCTION app_is_premium() RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -18,4 +8,3 @@ BEGIN
   );
 END;
 $$;
-

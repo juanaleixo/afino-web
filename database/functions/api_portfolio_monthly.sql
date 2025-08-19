@@ -5,11 +5,11 @@ CREATE FUNCTION public.api_portfolio_monthly(p_from date, p_to date) RETURNS TAB
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
-SELECT m.month_eom, m.total_value
+SELECT m.month AS month_eom, m.month_value AS total_value
 FROM public.portfolio_value_monthly m
 WHERE m.user_id = app_current_user()
-AND m.month_eom BETWEEN p_from AND p_to
-ORDER BY m.month_eom;
+AND m.month BETWEEN p_from AND p_to
+ORDER BY m.month;
 $$;
 
 ALTER FUNCTION public.api_portfolio_monthly(p_from date, p_to date) OWNER TO postgres;
