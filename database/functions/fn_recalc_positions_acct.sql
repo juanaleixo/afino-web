@@ -163,18 +163,26 @@ AND NOT EXISTS (
   WHERE d.user_id=p_user AND d.date=t.date
 );
 
--- 4) Mensal por usuário (user, month)
+-- 4) Mensal por usuário (user, month) - valor do último dia disponível do mês
 WITH months AS (
   SELECT generate_series(date_trunc('month', v_from::timestamp)::date,
                          date_trunc('month', v_to::timestamp)::date,
                          interval '1 month')::date AS month
+), last_dates AS (
+  SELECT m.month,
+         (
+           SELECT MAX(d.date)
+           FROM public.portfolio_value_daily d
+           WHERE d.user_id = p_user
+             AND d.date >= m.month AND d.date < (m.month + interval '1 month')::date
+         ) AS last_date
+  FROM months m
 )
 INSERT INTO public.portfolio_value_monthly (user_id, month, month_value)
-SELECT p_user, m.month, COALESCE(SUM(pvd.total_value),0)
-FROM months m
-LEFT JOIN public.portfolio_value_daily pvd
-  ON pvd.user_id=p_user AND pvd.date >= m.month AND pvd.date < (m.month + interval '1 month')::date
-GROUP BY 1,2
+SELECT p_user, ld.month, COALESCE(d.total_value, 0)
+FROM last_dates ld
+LEFT JOIN public.portfolio_value_daily d
+  ON d.user_id = p_user AND d.date = ld.last_date
 ON CONFLICT (user_id, month)
 DO UPDATE SET month_value = EXCLUDED.month_value;
 -- remove meses sem dados

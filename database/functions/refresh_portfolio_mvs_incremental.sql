@@ -96,7 +96,7 @@ BEGIN
       WHERE user_id=n_user AND date=n_date;
     END IF;
 
-    -- monthly
+    -- monthly (valor do último dia do mês)
     month_start := n_month;
     month_end   := (n_month + INTERVAL '1 month')::date;
     SELECT EXISTS (
@@ -105,10 +105,15 @@ BEGIN
     ) INTO exists_row;
     IF exists_row THEN
       INSERT INTO public.portfolio_value_monthly (user_id, month, month_value)
-      SELECT n_user, month_start, COALESCE(SUM(d.total_value),0)
-      FROM public.portfolio_value_daily d
-      WHERE d.user_id=n_user AND d.date >= month_start AND d.date < month_end
-      GROUP BY 1,2
+      SELECT n_user, month_start,
+             (SELECT d2.total_value
+              FROM public.portfolio_value_daily d2
+              WHERE d2.user_id = n_user
+                AND d2.date = (
+                  SELECT MAX(d3.date)
+                  FROM public.portfolio_value_daily d3
+                  WHERE d3.user_id = n_user AND d3.date >= month_start AND d3.date < month_end
+                ))
       ON CONFLICT (user_id, month)
       DO UPDATE SET month_value = EXCLUDED.month_value;
     ELSE
@@ -175,7 +180,7 @@ BEGIN
       WHERE user_id=o_user AND date=o_date;
     END IF;
 
-    -- monthly (old)
+    -- monthly (old) - valor do último dia do mês
     month_start := o_month;
     month_end   := (o_month + INTERVAL '1 month')::date;
     SELECT EXISTS (
@@ -184,10 +189,15 @@ BEGIN
     ) INTO exists_row;
     IF exists_row THEN
       INSERT INTO public.portfolio_value_monthly (user_id, month, month_value)
-      SELECT o_user, month_start, COALESCE(SUM(d.total_value),0)
-      FROM public.portfolio_value_daily d
-      WHERE d.user_id=o_user AND d.date >= month_start AND d.date < month_end
-      GROUP BY 1,2
+      SELECT o_user, month_start,
+             (SELECT d2.total_value
+              FROM public.portfolio_value_daily d2
+              WHERE d2.user_id = o_user
+                AND d2.date = (
+                  SELECT MAX(d3.date)
+                  FROM public.portfolio_value_daily d3
+                  WHERE d3.user_id = o_user AND d3.date >= month_start AND d3.date < month_end
+                ))
       ON CONFLICT (user_id, month)
       DO UPDATE SET month_value = EXCLUDED.month_value;
     ELSE

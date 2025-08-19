@@ -9,10 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Eye, Crown, Loader2, DollarSign } from "lucide-react"
+import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Eye, Crown, Loader2, DollarSign, Zap, Settings, Monitor, Target, Activity, PieChart } from "lucide-react"
 import { toast } from "sonner"
 import { useUserPlan } from "@/hooks/use-user-plan"
 import PortfolioChart from "@/components/PortfolioChart"
+import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-portfolio-chart"
+import AdvancedFilters from "@/components/dashboard/timeline/advanced-filters"
+import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
+import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
+import AssetDrillDown from "@/components/dashboard/timeline/asset-drill-down"
+import { benchmarkService } from "@/lib/benchmarks"
 
 interface TimelineFilters {
   period: '1M' | '3M' | '6M' | '1Y' | '2Y' | 'ALL' | 'CUSTOM'
@@ -20,8 +26,13 @@ interface TimelineFilters {
   customTo?: string
   accountIds: string[]
   assetClasses: string[]
+  selectedAssets: string[]
   showCashOnly: boolean
   showProjections: boolean
+  granularity: 'daily' | 'monthly'
+  showAssetBreakdown: boolean
+  benchmark?: string | undefined
+  excludeZeroValues: boolean
 }
 
 export default function TimelinePage() {
@@ -30,14 +41,26 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true)
   const [portfolioData, setPortfolioData] = useState<any>(null)
   const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
-  const [view, setView] = useState<'chart' | 'table'>('chart')
+  const [assets, setAssets] = useState<Array<{ id: string; symbol: string; class: string }>>([])
+  const [view, setView] = useState<'chart' | 'table' | 'advanced' | 'tradingview' | 'analytics' | 'drill-down'>('chart')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [assetBreakdownData, setAssetBreakdownData] = useState<any>(null)
+  const [benchmarkData, setBenchmarkData] = useState<any>(null)
+  const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
+  const [selectedAssetForDrillDown, setSelectedAssetForDrillDown] = useState<string | null>(null)
+  const [assetDailyPositions, setAssetDailyPositions] = useState<any[]>([])
   
   const [filters, setFilters] = useState<TimelineFilters>({
     period: '1Y',
     accountIds: [],
     assetClasses: [],
+    selectedAssets: [],
     showCashOnly: false,
-    showProjections: false
+    showProjections: false,
+    granularity: 'monthly',
+    showAssetBreakdown: false,
+    benchmark: undefined,
+    excludeZeroValues: false
   })
 
   const getDateRange = useCallback(() => {
@@ -80,14 +103,38 @@ export default function TimelinePage() {
       setLoading(true)
       const { from, to } = getDateRange()
       
-      const portfolioService = new PortfolioService(user.id)
+      const portfolioService = new PortfolioService(user.id, { assumedPlan: isPremium ? 'premium' : 'free' })
+      // Garantir que o serviço sabe o plano do usuário antes de chamadas premium
+      await portfolioService.initialize()
       
-      // Carregar dados básicos
-      const [monthlyData, dailyData, holdingsData] = await Promise.all([
+      // Carregar dados básicos reais
+      const [monthlyData, dailyData, holdingsData, accountsData, assetsData] = await Promise.all([
         portfolioService.getMonthlySeries(from, to),
-        isPremium ? portfolioService.getDailySeries(from, to).catch(() => null) : Promise.resolve(null),
-        portfolioService.getHoldingsAt(to)
+        isPremium && filters.granularity === 'daily' ? portfolioService.getDailySeries(from, to).catch(() => null) : Promise.resolve(null),
+        portfolioService.getHoldingsAt(to),
+        portfolioService.getAccounts().catch(() => []),
+        portfolioService.getUniqueAssets(to).catch(() => [])
       ])
+
+      // Carregar dados por ativo se solicitado (Premium) - DADOS REAIS
+      let assetBreakdown = null
+      if (isPremium && filters.showAssetBreakdown) {
+        try {
+          assetBreakdown = await portfolioService.getAssetBreakdown(from, to)
+        } catch (error) {
+          console.error('Erro ao carregar breakdown por ativo:', error)
+          // Fallback para dados baseados nos holdings atuais
+          const totalValue = holdingsData?.reduce((sum: number, h: any) => sum + h.value, 0) || 0
+          assetBreakdown = holdingsData?.map((holding: any) => ({
+            date: to,
+            asset_id: holding.asset_id,
+            asset_symbol: holding.symbol || holding.asset_id,
+            asset_class: holding.class || 'unknown',
+            value: holding.value,
+            percentage: totalValue > 0 ? (holding.value / totalValue) * 100 : 0
+          })) || []
+        }
+      }
 
       setPortfolioData({
         monthlySeries: monthlyData,
@@ -96,13 +143,47 @@ export default function TimelinePage() {
         period: { from, to }
       })
       
+      setAssetBreakdownData(assetBreakdown)
+      
+      // Usar contas reais do banco
+      setAccounts(accountsData)
+      
+      // Usar ativos reais do banco
+      setAssets(assetsData)
+
+      // Carregar dados de benchmark se selecionado (Premium)
+      if (isPremium && filters.benchmark) {
+        try {
+          const benchmarkResult = await benchmarkService.getBenchmarkData(filters.benchmark, from, to)
+          setBenchmarkData(benchmarkResult)
+        } catch (error) {
+          console.error('Erro ao carregar benchmark:', error)
+          setBenchmarkData(null)
+        }
+      } else {
+        setBenchmarkData(null)
+      }
+
+      // Carregar análise de performance avançada se Premium e dados diários ativados
+      if (isPremium && filters.granularity === 'daily') {
+        try {
+          const performanceData = await portfolioService.getAssetPerformanceAnalysis(from, to)
+          setPerformanceAnalysis(performanceData)
+        } catch (error) {
+          console.error('Erro ao carregar análise de performance:', error)
+          setPerformanceAnalysis([])
+        }
+      } else {
+        setPerformanceAnalysis([])
+      }
+      
     } catch (error) {
       console.error('Erro ao carregar timeline:', error)
       toast.error('Erro ao carregar dados da timeline')
     } finally {
       setLoading(false)
     }
-  }, [user?.id, getDateRange, isPremium])
+  }, [user?.id, getDateRange, isPremium, filters.showAssetBreakdown, filters.benchmark, filters.granularity])
 
   useEffect(() => {
     loadTimelineData()
@@ -112,34 +193,78 @@ export default function TimelinePage() {
     setFilters(prev => ({ ...prev, ...newFilters }))
   }
 
+  const handleAssetDrillDown = async (assetId: string) => {
+    if (!user?.id || !isPremium) return
+
+    try {
+      setLoading(true)
+      const { from, to } = getDateRange()
+      const portfolioService = new PortfolioService(user.id)
+      
+      const dailyPositions = await portfolioService.getDailyPositionsByAsset(assetId, from, to)
+      setAssetDailyPositions(dailyPositions)
+      setSelectedAssetForDrillDown(assetId)
+      setView('drill-down')
+    } catch (error) {
+      console.error('Erro ao carregar dados do ativo:', error)
+      toast.error('Erro ao carregar dados do ativo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLoadAccountAssetData = async (accountId: string, assetId: string) => {
+    if (!user?.id || !isPremium) return []
+
+    const { from, to } = getDateRange()
+    const portfolioService = new PortfolioService(user.id)
+    return await portfolioService.getDailyPositionsByAccountAsset(accountId, assetId, from, to)
+  }
+
+  const getSelectedAssetInfo = () => {
+    if (!selectedAssetForDrillDown) return null
+    const asset = assets.find(a => a.id === selectedAssetForDrillDown)
+    return asset || null
+  }
+
   const calculateTotalValue = () => {
     if (!portfolioData?.holdingsAt) return 0
-    return portfolioData.holdingsAt.reduce((total: number, holding: any) => total + holding.value, 0)
+    return portfolioData.holdingsAt.reduce((total: number, holding: any) => total + Number(holding.value || 0), 0)
+  }
+
+  // Determinar série ativa conforme granularidade
+  const getActiveSeries = () => {
+    const dailyActive = isPremium && filters.granularity === 'daily' && portfolioData?.dailySeries?.length
+      ? (portfolioData?.dailySeries || [])
+      : null
+    if (dailyActive) {
+      const arr = dailyActive.map((d: any) => ({ date: d.date, total_value: d.total_value }))
+      return filters.excludeZeroValues ? arr.filter((x: any) => x.total_value > 0) : arr
+    }
+    const monthlyActive = portfolioData?.monthlySeries || []
+    const arr = monthlyActive.map((m: any) => ({ date: m.month_eom, total_value: m.total_value }))
+    return filters.excludeZeroValues ? arr.filter((x: any) => x.total_value > 0) : arr
   }
 
   const calculateReturns = () => {
-    if (!portfolioData?.monthlySeries || portfolioData.monthlySeries.length < 2) {
-      return { totalReturn: 0, totalReturnPercent: 0, monthlyReturn: 0 }
+    const active = getActiveSeries()
+    if (!active || active.length < 2) {
+      return { totalReturn: 0, totalReturnPercent: 0, periodReturn: 0 }
     }
-    
-    const series = portfolioData.monthlySeries
-    const initial = series[0].total_value
-    const final = series[series.length - 1].total_value
+
+    const initial = active[0].total_value
+    const final = active[active.length - 1].total_value
     const totalReturn = final - initial
     const totalReturnPercent = initial > 0 ? (totalReturn / initial) * 100 : 0
-    
-    // Retorno mensal (últimos dois pontos)
-    if (series.length >= 2) {
-      const previousMonth = series[series.length - 2].total_value
-      const currentMonth = series[series.length - 1].total_value
-      const monthlyReturn = previousMonth > 0 ? ((currentMonth - previousMonth) / previousMonth) * 100 : 0
-      return { totalReturn, totalReturnPercent, monthlyReturn }
-    }
-    
-    return { totalReturn, totalReturnPercent, monthlyReturn: 0 }
+
+    // Retorno do último intervalo (dia/mês conforme granularidade)
+    const prev = active[active.length - 2].total_value
+    const current = active[active.length - 1].total_value
+    const periodReturn = prev > 0 ? ((current - prev) / prev) * 100 : 0
+    return { totalReturn, totalReturnPercent, periodReturn }
   }
 
-  const { totalReturn, totalReturnPercent, monthlyReturn } = calculateReturns()
+  const { totalReturn, totalReturnPercent, periodReturn } = calculateReturns()
   const totalValue = calculateTotalValue()
 
   const formatCurrency = (value: number) => {
@@ -178,13 +303,44 @@ export default function TimelinePage() {
               variant={view === 'chart' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setView('chart')}
+              title="Gráfico Simples"
             >
               <BarChart3 className="h-4 w-4" />
             </Button>
+            {isPremium && (
+              <>
+                <Button
+                  variant={view === 'advanced' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setView('advanced')}
+                  title="Gráfico Avançado"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={view === 'analytics' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setView('analytics')}
+                  title="Analytics Premium"
+                  disabled={filters.granularity !== 'daily'}
+                >
+                  <Target className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={view === 'tradingview' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setView('tradingview')}
+                  title="TradingView Professional"
+                >
+                  <Monitor className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <Button
               variant={view === 'table' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setView('table')}
+              title="Visualização em Tabela"
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -193,18 +349,18 @@ export default function TimelinePage() {
       }
     >
       <div className="space-y-6">
-        {/* Filtros de Período */}
+        {/* Filtros Básicos de Período */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Filter className="h-5 w-5" />
-              <span>Filtros de Timeline</span>
+              <span>Período</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium">Período:</span>
+                <span className="text-sm font-medium">Selecionar:</span>
                 <div className="flex space-x-1">
                   {['1M', '3M', '6M', '1Y', '2Y', 'ALL'].map((period) => (
                     <Button
@@ -253,6 +409,17 @@ export default function TimelinePage() {
           </CardContent>
         </Card>
 
+        {/* Filtros Avançados Premium */}
+        <AdvancedFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          accounts={accounts}
+          assets={assets}
+          isPremium={isPremium}
+          isOpen={showAdvancedFilters}
+          onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        />
+
         {/* Cards de Resumo */}
         {portfolioData && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -287,14 +454,14 @@ export default function TimelinePage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Última Variação</CardTitle>
-                <TrendingUp className={`h-4 w-4 ${monthlyReturn >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                <TrendingUp className={`h-4 w-4 ${periodReturn >= 0 ? 'text-green-600' : 'text-red-600'}`} />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${monthlyReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {monthlyReturn >= 0 ? '+' : ''}{monthlyReturn.toFixed(2)}%
+                <div className={`text-2xl font-bold ${periodReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {periodReturn >= 0 ? '+' : ''}{periodReturn.toFixed(2)}%
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Último período
+                  Último {isPremium && filters.granularity === 'daily' ? 'dia' : 'mês'}
                 </p>
               </CardContent>
             </Card>
@@ -306,10 +473,10 @@ export default function TimelinePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {portfolioData?.monthlySeries?.length || 0}
+                  {getActiveSeries().length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {isPremium && portfolioData?.dailySeries ? 'Dados diários' : 'Dados mensais'}
+                  {isPremium && filters.granularity === 'daily' && portfolioData?.dailySeries ? 'Dados diários' : 'Dados mensais'}
                 </p>
               </CardContent>
             </Card>
@@ -317,15 +484,39 @@ export default function TimelinePage() {
         )}
 
         {/* Conteúdo Principal */}
-        <Tabs value={view} onValueChange={(value) => setView(value as 'chart' | 'table')}>
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={view} onValueChange={(value) => setView(value as any)}>
+          <TabsList className={`grid w-full ${isPremium ? 'grid-cols-6' : 'grid-cols-2'}`}>
             <TabsTrigger value="chart" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
-              <span>Gráfico</span>
+              <span>Simples</span>
             </TabsTrigger>
+            {isPremium && (
+              <>
+                <TabsTrigger value="advanced" className="flex items-center space-x-2">
+                  <Zap className="h-4 w-4" />
+                  <span>Avançado</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="analytics" 
+                  className="flex items-center space-x-2"
+                  disabled={filters.granularity !== 'daily'}
+                >
+                  <Target className="h-4 w-4" />
+                  <span>Analytics</span>
+                </TabsTrigger>
+                <TabsTrigger value="tradingview" className="flex items-center space-x-2">
+                  <Monitor className="h-4 w-4" />
+                  <span>Professional</span>
+                </TabsTrigger>
+                <TabsTrigger value="drill-down" className="flex items-center space-x-2">
+                  <Activity className="h-4 w-4" />
+                  <span>Drill-Down</span>
+                </TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="table" className="flex items-center space-x-2">
               <Eye className="h-4 w-4" />
-              <span>Tabela</span>
+              <span>Dados</span>
             </TabsTrigger>
           </TabsList>
           
@@ -358,6 +549,90 @@ export default function TimelinePage() {
               </Card>
             )}
           </TabsContent>
+
+          {/* Gráfico Avançado Premium */}
+          {isPremium && (
+            <TabsContent value="advanced" className="space-y-4">
+              {loading ? (
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                      <span>Carregando gráfico avançado...</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AdvancedPortfolioChart
+                  monthlyData={portfolioData?.monthlySeries || []}
+                  dailyData={portfolioData?.dailySeries}
+                  assetBreakdown={assetBreakdownData}
+                  isLoading={loading}
+                  showAssetBreakdown={filters.showAssetBreakdown}
+                  granularity={filters.granularity}
+                />
+              )}
+            </TabsContent>
+          )}
+
+          {/* Analytics Premium */}
+          {isPremium && (
+            <TabsContent value="analytics" className="space-y-4">
+              <PremiumAnalytics
+                performanceData={performanceAnalysis}
+                benchmarkData={benchmarkData}
+                isLoading={loading}
+                period={{ from: getDateRange().from, to: getDateRange().to }}
+              />
+            </TabsContent>
+          )}
+
+          {/* Drill-Down Premium */}
+          {isPremium && (
+            <TabsContent value="drill-down" className="space-y-4">
+              {view === 'drill-down' && selectedAssetForDrillDown ? (
+                <AssetDrillDown
+                  assetId={selectedAssetForDrillDown}
+                  assetSymbol={getSelectedAssetInfo()?.symbol || undefined}
+                  assetClass={getSelectedAssetInfo()?.class || undefined}
+                  dailyPositions={assetDailyPositions}
+                  accounts={accounts}
+                  onLoadAccountData={handleLoadAccountAssetData}
+                  onBack={() => setView('advanced')}
+                  isLoading={loading}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center h-64">
+                    <div className="text-center space-y-4">
+                      <Activity className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <div>
+                        <h3 className="font-semibold mb-2">Análise Individual de Ativos</h3>
+                        <p className="text-muted-foreground mb-4">
+                          Selecione um ativo no gráfico avançado para ver análise detalhada
+                        </p>
+                      </div>
+                      <Button onClick={() => setView('advanced')}>
+                        Ir para Gráfico Avançado
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          )}
+
+          {/* TradingView Professional */}
+          {isPremium && (
+            <TabsContent value="tradingview" className="space-y-4">
+              <TradingViewChart
+                portfolioData={portfolioData || {}}
+                theme="dark"
+                height={600}
+                isPremium={isPremium}
+              />
+            </TabsContent>
+          )}
           
           <TabsContent value="table" className="space-y-4">
             <Card>
@@ -370,30 +645,31 @@ export default function TimelinePage() {
                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
                     Carregando dados...
                   </div>
-                ) : portfolioData?.monthlySeries ? (
+                ) : getActiveSeries().length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2">Período</th>
+                          <th className="text-left p-2">Data</th>
                           <th className="text-right p-2">Valor Total</th>
                           <th className="text-right p-2">Variação</th>
                           {isPremium && <th className="text-right p-2">% Crescimento</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {portfolioData.monthlySeries.map((item: any, index: number) => {
-                          const previousValue = index > 0 ? portfolioData.monthlySeries[index - 1].total_value : 0
+                        {getActiveSeries().map((item: any, index: number, arr: any[]) => {
+                          const previousValue = index > 0 ? arr[index - 1].total_value : 0
                           const change = item.total_value - previousValue
                           const percentChange = previousValue > 0 ? (change / previousValue) * 100 : 0
                           
                           return (
                             <tr key={index} className="border-b">
                               <td className="p-2">
-                                {new Date(item.month_eom).toLocaleDateString('pt-BR', { 
-                                  month: 'long', 
-                                  year: 'numeric' 
-                                })}
+                                {new Date(item.date).toLocaleDateString('pt-BR', 
+                                  isPremium && filters.granularity === 'daily'
+                                    ? { day: '2-digit', month: 'short', year: 'numeric' }
+                                    : { month: 'long', year: 'numeric' }
+                                )}
                               </td>
                               <td className="p-2 text-right font-mono">
                                 {formatCurrency(item.total_value)}
@@ -432,21 +708,52 @@ export default function TimelinePage() {
 
         {/* Upgrade para Premium */}
         {!isPremium && (
-          <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
+          <Card className="border-gradient-to-r from-yellow-200 to-orange-200 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
-                    Desbloqueie mais recursos da Timeline
-                  </h3>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                    Com o plano Premium você tem acesso a dados diários, períodos personalizados, filtros avançados por conta e classe de ativo, projeções e muito mais.
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Crown className="h-6 w-6 text-yellow-600" />
+                    <h3 className="font-bold text-lg text-yellow-800 dark:text-yellow-200">
+                      Desbloqueie o Poder Completo da Timeline
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <Target className="h-4 w-4" />
+                      <span>Analytics Premium com métricas avançadas</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <Activity className="h-4 w-4" />
+                      <span>Drill-down individual por ativo</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Dados diários granulares</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <PieChart className="h-4 w-4" />
+                      <span>Análise de risco e volatilidade</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <Filter className="h-4 w-4" />
+                      <span>Filtros avançados por conta/ativo</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-yellow-700 dark:text-yellow-300">
+                      <TrendingUp className="h-4 w-4" />
+                      <span>Comparação com benchmarks</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <Button className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0">
+                    <Crown className="h-4 w-4 mr-2" />
+                    Fazer Upgrade
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Análise profissional completa
                   </p>
                 </div>
-                <Button variant="outline" className="border-yellow-300 hover:bg-yellow-100">
-                  <Crown className="h-4 w-4 mr-2" />
-                  Fazer Upgrade
-                </Button>
               </div>
             </CardContent>
           </Card>
