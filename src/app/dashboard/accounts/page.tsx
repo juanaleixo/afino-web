@@ -73,9 +73,27 @@ export default function AccountsPage() {
     if (!user) return
 
     setIsSubmitting(true)
+    
+    const optimisticAccount = {
+      id: editingAccount?.id || crypto.randomUUID(),
+      user_id: user.id,
+      label: data.label,
+      currency: data.currency,
+      created_at: editingAccount?.created_at || new Date().toISOString(),
+    }
+
     try {
       if (editingAccount) {
-        // Editar conta existente
+        // Optimistic update: Atualizar imediatamente na UI
+        setAccounts(prev => 
+          prev.map(acc => 
+            acc.id === editingAccount.id 
+              ? { ...acc, label: data.label, currency: data.currency }
+              : acc
+          )
+        )
+
+        // Editar conta existente no servidor
         const { error } = await supabase
           .from('accounts')
           .update({
@@ -85,26 +103,51 @@ export default function AccountsPage() {
           .eq('id', editingAccount.id)
           .eq('user_id', user.id)
 
-        if (error) throw error
+        if (error) {
+          // Rollback em caso de erro
+          setAccounts(prev => 
+            prev.map(acc => 
+              acc.id === editingAccount.id 
+                ? editingAccount  // Restaurar valores originais
+                : acc
+            )
+          )
+          throw error
+        }
         toast.success('Conta atualizada com sucesso!')
       } else {
-        // Criar nova conta
-        const { error } = await supabase
+        // Optimistic update: Adicionar imediatamente à lista
+        setAccounts(prev => [optimisticAccount, ...prev])
+
+        // Criar nova conta no servidor
+        const { data: newAccount, error } = await supabase
           .from('accounts')
           .insert({
             user_id: user.id,
             label: data.label,
             currency: data.currency,
           })
+          .select()
+          .single()
 
-        if (error) throw error
+        if (error) {
+          // Rollback em caso de erro
+          setAccounts(prev => prev.filter(acc => acc.id !== optimisticAccount.id))
+          throw error
+        }
+
+        // Substituir pela conta real do servidor (com ID correto)
+        setAccounts(prev => 
+          prev.map(acc => 
+            acc.id === optimisticAccount.id ? newAccount : acc
+          )
+        )
         toast.success('Conta criada com sucesso!')
       }
 
       setIsDialogOpen(false)
       setEditingAccount(null)
       form.reset()
-      loadAccounts()
     } catch (error) {
       console.error('Erro ao salvar conta:', error)
       toast.error('Erro ao salvar conta')
@@ -117,16 +160,32 @@ export default function AccountsPage() {
   const deleteAccount = async (accountId: string) => {
     if (!user || !confirm('Tem certeza que deseja excluir esta conta?')) return
 
+    // Guardar a conta para rollback se necessário
+    const accountToDelete = accounts.find(acc => acc.id === accountId)
+    if (!accountToDelete) return
+
     try {
+      // Optimistic update: Remover imediatamente da UI
+      setAccounts(prev => prev.filter(acc => acc.id !== accountId))
+
       const { error } = await supabase
         .from('accounts')
         .delete()
         .eq('id', accountId)
         .eq('user_id', user.id)
 
-      if (error) throw error
+      if (error) {
+        // Rollback em caso de erro - restaurar a conta na posição original
+        setAccounts(prev => {
+          const newAccounts = [...prev]
+          const originalIndex = accounts.findIndex(acc => acc.id === accountId)
+          newAccounts.splice(originalIndex, 0, accountToDelete)
+          return newAccounts
+        })
+        throw error
+      }
+      
       toast.success('Conta excluída com sucesso!')
-      loadAccounts()
     } catch (error) {
       console.error('Erro ao excluir conta:', error)
       toast.error('Erro ao excluir conta')

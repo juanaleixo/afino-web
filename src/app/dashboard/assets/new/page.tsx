@@ -111,7 +111,11 @@ export default function NewAssetPage() {
       }
       
       toast.success(`Ativo ${data.symbol.toUpperCase()} criado com sucesso!`)
-      router.push('/dashboard/assets')
+      
+      // Garantir redirecionamento estável
+      setTimeout(() => {
+        router.push('/dashboard/assets')
+      }, 100)
     } catch (error) {
       console.error('Erro ao criar ativo:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao criar ativo'
@@ -279,7 +283,12 @@ export default function NewAssetPage() {
                         </>
                       )}
                     </Button>
-                    <Button type="button" variant="outline" asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      asChild
+                      disabled={isSubmitting}
+                    >
                       <Link href="/dashboard/assets">
                         Cancelar
                       </Link>

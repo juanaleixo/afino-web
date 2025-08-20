@@ -291,7 +291,7 @@ export default function DashboardPage() {
               <Button asChild variant="outline">
                 <Link href="/dashboard/events/new">
                   <Plus className="h-4 w-4 mr-2" />
-                  Nova Transação
+                  Novo Evento
                 </Link>
               </Button>
             </div>

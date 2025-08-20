@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity, Info } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity, Info, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -45,6 +46,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [eventToDelete, setEventToDelete] = useState<EventWithRelations | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterClass, setFilterClass] = useState<'all'|'currency'|'noncurrency'>('all')
   const [filterKind, setFilterKind] = useState<EventWithRelations['kind'] | 'all'>('all')
@@ -410,25 +412,36 @@ export default function EventsPage() {
     loadSummary()
   }, [user?.id])
 
-  const deleteEvent = async (eventId: string) => {
-    if (!user || !confirm('Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.')) return
+  const openDeleteConfirmation = (eventId: string) => {
+    const event = events.find(e => e.id === eventId)
+    if (event) {
+      setEventToDelete(event)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!user || !eventToDelete) return
 
     try {
-      setDeletingEventId(eventId)
+      setDeletingEventId(eventToDelete.id)
+      
       const { error } = await supabase
         .from('events')
         .delete()
-        .eq('id', eventId)
+        .eq('id', eventToDelete.id)
         .eq('user_id', user.id)
 
       if (error) throw error
       
       // Atualização otimista: remover do estado imediatamente
-      setEvents(prev => prev.filter(e => e.id !== eventId))
+      setEvents(prev => prev.filter(e => e.id !== eventToDelete.id))
       
       toast.success('Evento excluído com sucesso!')
       
-      // Recarregar a lista para garantir consistência
+      // Fechar modal
+      setEventToDelete(null)
+      
+      // Recarregar a lista para garantir consistência e atualizar contadores
       await loadEvents()
     } catch (error) {
       console.error('Erro ao excluir evento:', error)
@@ -439,6 +452,13 @@ export default function EventsPage() {
       setDeletingEventId(null)
     }
   }
+
+  const cancelDelete = () => {
+    setEventToDelete(null)
+  }
+
+  // Função mantida para compatibilidade com componentes existentes
+  const deleteEvent = openDeleteConfirmation
 
   if (loading) {
     return (
@@ -509,9 +529,9 @@ export default function EventsPage() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{events.length}</div>
+              <div className="text-2xl font-bold">{filteredEvents.length}</div>
               <p className="text-xs text-muted-foreground">
-                {filteredEvents.length !== events.length && `${filteredEvents.length} filtrados`}
+                {filteredEvents.length !== events.length ? `${filteredEvents.length} de ${events.length} eventos` : 'Total de eventos'}
               </p>
             </CardContent>
           </Card>
@@ -649,6 +669,69 @@ export default function EventsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Modal de confirmação de exclusão */}
+        <Dialog open={!!eventToDelete} onOpenChange={cancelDelete}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Confirmar Exclusão
+              </DialogTitle>
+              <DialogDescription>
+                Esta ação não pode ser desfeita. O evento será permanentemente removido do seu histórico.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {eventToDelete && (
+              <div className="py-4">
+                <div className="bg-muted p-4 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      {eventToDelete.kind === 'buy' ? 'Compra' :
+                       eventToDelete.kind === 'sell' ? 'Venda' :
+                       eventToDelete.kind === 'deposit' ? 'Depósito' :
+                       eventToDelete.kind === 'withdraw' ? 'Saque' :
+                       eventToDelete.kind === 'transfer' ? 'Transferência' :
+                       'Avaliação'}
+                    </Badge>
+                    <span className="font-medium">{eventToDelete.global_assets?.symbol}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(eventToDelete.tstamp).toLocaleString('pt-BR')}
+                  </div>
+                  {eventToDelete.accounts && (
+                    <div className="text-sm">
+                      Conta: {eventToDelete.accounts.label}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-yellow-600 mt-0.5" />
+                    <div className="text-sm text-yellow-800">
+                      <strong>Impacto:</strong> Os saldos e contadores serão recalculados automaticamente após a exclusão.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={cancelDelete} disabled={!!deletingEventId}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmDelete}
+                disabled={!!deletingEventId}
+              >
+                {deletingEventId ? 'Excluindo...' : 'Excluir Evento'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </DashboardLayout>
   )
 } 
