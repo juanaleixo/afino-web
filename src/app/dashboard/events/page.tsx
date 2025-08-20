@@ -13,6 +13,13 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { EventsTimeline } from "@/components/dashboard/events-timeline"
 import { AdvancedFilters } from "@/components/dashboard/advanced-filters"
 import { useUserPlan } from "@/hooks/useUserPlan"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
 
 interface EventWithRelations {
   id: string
@@ -32,13 +39,6 @@ interface EventWithRelations {
     label: string
   }
 }
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity } from "lucide-react"
-import Link from "next/link"
-import { toast } from "sonner"
 
 export default function EventsPage() {
   const { user } = useAuth()
@@ -334,7 +334,7 @@ export default function EventsPage() {
 
   const isCashAsset = (ev: EventWithRelations) => {
     const sym = ev.global_assets?.symbol?.toUpperCase?.()
-    return ev.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
+    return ev.global_assets?.class === 'currency' || ev.global_assets?.class === 'cash' || sym === 'BRL' || sym === 'CASH'
   }
 
   const getAssetDisplay = (ev: EventWithRelations) => {
@@ -358,29 +358,47 @@ export default function EventsPage() {
       if (!user) return
       try {
         const today = new Date().toISOString().slice(0,10)
-        // portfolio total via RPC (RLS-safe)
-        const [{ data: pd, error: e1 }, { data: assets, error: e2 }] = await Promise.all([
-          supabase.rpc('api_portfolio_daily', { p_from: today, p_to: today }),
-          supabase.from('global_assets').select('id').eq('class','currency')
-        ])
+        const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().slice(0,10)
+
+        // 1) Portfólio total: pegar último valor disponível nos últimos 7 dias
+        const { data: pd, error: e1 } = await supabase.rpc('api_portfolio_daily', { p_from: sevenDaysAgo, p_to: today })
         if (e1) console.warn('api_portfolio_daily error', e1)
+        const lastPortfolio = (pd || []).sort((a:any,b:any)=> (a.date || a.d || '').localeCompare(b.date || b.d || '')).pop()
+        setPortfolioToday(lastPortfolio?.total_value ?? 0)
+
+        // 2) Caixa: considerar classes 'currency' e 'cash' e usar a última data disponível ≤ hoje
+        const { data: assets, error: e2 } = await supabase.from('global_assets').select('id').in('class', ['currency','cash'])
         if (e2) console.warn('global_assets error', e2)
-        setPortfolioToday(pd?.[0]?.total_value ?? 0)
         const currencyIds = (assets || []).map(a => a.id)
-        if (currencyIds.length > 0) {
-          const { data: dpa, error: e3 } = await supabase
-            .from('daily_positions_acct')
-            .select('value, asset_id, date')
-            .eq('user_id', user.id)
-            .eq('date', today)
-            .eq('is_final', true)
-            .in('asset_id', currencyIds)
-          if (e3) console.warn('daily_positions select error', e3)
-          const cash = (dpa || []).reduce((sum, row: any) => sum + (row.value || 0), 0)
-          setCashToday(cash)
-        } else {
+        if (currencyIds.length === 0) {
           setCashToday(0)
+          return
         }
+
+        // Buscar última data com posições de caixa até hoje
+        const { data: lastRow, error: eLast } = await supabase
+          .from('daily_positions_acct')
+          .select('date')
+          .eq('user_id', user.id)
+          .lte('date', today)
+          .in('asset_id', currencyIds)
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (eLast) console.warn('last cash date error', eLast)
+        const lastDate = lastRow?.date
+        if (!lastDate) { setCashToday(0); return }
+
+        const { data: dpa, error: e3 } = await supabase
+          .from('daily_positions_acct')
+          .select('value')
+          .eq('user_id', user.id)
+          .eq('date', lastDate)
+          .eq('is_final', true)
+          .in('asset_id', currencyIds)
+        if (e3) console.warn('daily_positions select error', e3)
+        const cash = (dpa || []).reduce((sum, row: any) => sum + (row.value || 0), 0)
+        setCashToday(cash)
       } catch (err) {
         console.warn('summary error', err)
       }

@@ -54,9 +54,11 @@ export class PortfolioService {
     // Fallback: somar daily_positions_acct por dia
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
-      .select('date, value')
+      .select('date, value, user_id, is_final')
+      .eq('user_id', this.userId)
       .gte('date', from)
       .lte('date', to)
+      .eq('is_final', true)
       .order('date')
     if (error) {
       console.error('Fallback diário via tabela falhou:', error)
@@ -83,25 +85,49 @@ export class PortfolioService {
     } catch (e) {
       console.warn('Falha RPC api_portfolio_monthly, derivando do diário:', e)
     }
-    // Derivar da série diária (último dia de cada mês)
-    let daily: PortfolioDaily[] = []
+    // Fallback: derivar de daily_positions_acct (livre de premium), somando por dia e pegando o último dia de cada mês
     try {
-      daily = await this.getDailySeries(from, to)
-    } catch {
-      daily = []
+      const { data: rows, error } = await supabase
+        .from('daily_positions_acct')
+        .select('date, value, user_id, is_final')
+        .eq('user_id', this.userId)
+        .eq('is_final', true)
+        .gte('date', from)
+        .lte('date', to)
+        .order('date')
+      
+      if (error) {
+        console.error('Fallback mensal via tabela falhou:', error)
+        return []
+      }
+
+      // Agregar valor total por data
+      const totalsByDate = new Map<string, number>()
+      for (const r of rows || []) {
+        const d = (r as any).date as string
+        const v = Number((r as any).value) || 0
+        totalsByDate.set(d, (totalsByDate.get(d) || 0) + v)
+      }
+      if (totalsByDate.size === 0) return []
+
+      // Para cada mês, pegar o último dia disponível e seu total
+      const byMonth = new Map<string, { date: string, total: number }>()
+      const dates = Array.from(totalsByDate.keys()).sort((a,b)=> a.localeCompare(b))
+      for (const d of dates) {
+        const m = new Date(d)
+        const monthKey = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1)).toISOString().slice(0,10)
+        const current = byMonth.get(monthKey)
+        const total = totalsByDate.get(d) || 0
+        if (!current || d > current.date) byMonth.set(monthKey, { date: d, total })
+      }
+
+      return Array.from(byMonth.entries())
+        .sort(([a],[b]) => a.localeCompare(b))
+        .map(([month, obj]) => ({ month_eom: month, total_value: obj.total }))
+    } catch (e) {
+      console.warn('Falha derivação mensal via tabela:', e)
+      return []
     }
-    if (!daily.length) return []
-    const byMonth = new Map<string, { date: string, total: number }>()
-    for (const d of daily) {
-      const m = new Date(d.date)
-      const monthKey = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1)).toISOString().slice(0,10)
-      const current = byMonth.get(monthKey)
-      const total = Number(d.total_value) || 0
-      if (!current || d.date > current.date) byMonth.set(monthKey, { date: d.date, total })
-    }
-    return Array.from(byMonth.entries())
-      .sort(([a],[b]) => a.localeCompare(b))
-      .map(([month, obj]) => ({ month_eom: month, total_value: obj.total }))
   }
 
   // Snapshot por ativo (free/premium)
@@ -115,10 +141,28 @@ export class PortfolioService {
       console.warn('Falha RPC api_holdings_at, tentando tabela:', e)
     }
     // Fallback: agregando daily_positions_acct por asset_id nesse dia
+    // Primeiro, tente achar a última data disponível (<= date) para o usuário
+    let targetDate = date
+    try {
+      const { data: lastRow } = await supabase
+        .from('daily_positions_acct')
+        .select('date, user_id')
+        .eq('user_id', this.userId)
+        .lte('date', date)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (lastRow?.date) targetDate = (lastRow as any).date
+    } catch (e) {
+      console.warn('Falha ao buscar última data disponível, usando data solicitada:', e)
+    }
+
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
-      .select('asset_id, units, value')
-      .eq('date', date)
+      .select('asset_id, units, value, user_id, is_final')
+      .eq('user_id', this.userId)
+      .eq('date', targetDate)
+      .eq('is_final', true)
     if (error) {
       console.error('Fallback holdings via tabela falhou:', error)
       throw new Error('Erro ao carregar posições do portfólio')
@@ -400,10 +444,12 @@ export class PortfolioService {
     // Fallback: tabela daily_positions_acct agregada por data
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
-      .select('date, units, value, asset_id')
+      .select('date, units, value, asset_id, user_id, is_final')
+      .eq('user_id', this.userId)
       .eq('asset_id', assetId)
       .gte('date', from)
       .lte('date', to)
+      .eq('is_final', true)
       .order('date')
     if (error) {
       console.error('Erro fallback positions_by_asset via tabela:', error)
@@ -444,11 +490,13 @@ export class PortfolioService {
     // Fallback: tabela daily_positions_acct
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
-      .select('date, units, value, account_id, asset_id')
+      .select('date, units, value, account_id, asset_id, user_id, is_final')
+      .eq('user_id', this.userId)
       .eq('asset_id', assetId)
       .eq('account_id', accountId)
       .gte('date', from)
       .lte('date', to)
+      .eq('is_final', true)
       .order('date')
     if (error) {
       console.error('Erro fallback positions_by_account via tabela:', error)

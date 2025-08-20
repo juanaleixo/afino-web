@@ -23,6 +23,13 @@ BEGIN
       CONTINUE;
     END;
   END LOOP;
+
+  -- Refresh filled price MV for gap-filling consumers (best-effort)
+  BEGIN
+    PERFORM public.refresh_mv('global_price_daily_filled');
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Falha ao atualizar MV global_price_daily_filled: %', SQLERRM;
+  END;
 END;
 $$;
 
@@ -31,4 +38,3 @@ GRANT ALL ON FUNCTION public.refresh_all_asset_prices() TO anon;
 GRANT ALL ON FUNCTION public.refresh_all_asset_prices() TO authenticated;
 GRANT ALL ON FUNCTION public.refresh_all_asset_prices() TO service_role;
 GRANT ALL ON FUNCTION public.refresh_all_asset_prices() TO supabase_admin;
-

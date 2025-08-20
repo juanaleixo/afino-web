@@ -56,7 +56,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    // Use local scope to avoid remote 403 from /auth/v1/logout?scope=global
+    try {
+      await supabase.auth.signOut({ scope: 'local' as any })
+    } catch (_) {
+      // Ignore; local storage cleanup can fail silently
+    } finally {
+      setUser(null)
+    }
   }
 
   const value = {

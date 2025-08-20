@@ -8,6 +8,7 @@ import { Crown, LineChart, TrendingUp, Layers, PieChart, CandlestickChart } from
 import { createChart, ColorType, LineStyle, LineSeries, CandlestickSeries } from 'lightweight-charts'
 import { FadeIn, Stagger } from '@/components/ui/fade-in'
 import { ChartSkeleton } from '@/components/ui/skeleton-loader'
+import { useTheme } from '@/hooks/use-theme'
 
 interface AssetData {
   asset_id: string
@@ -71,25 +72,7 @@ export default function MultiAssetTradingView({
   const [chartType, setChartType] = useState<'lines' | 'candles' | 'percentage'>('lines')
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
   const [showPortfolio, setShowPortfolio] = useState(true)
-  const [isDarkMode, setIsDarkMode] = useState(false)
-
-  // Detect dark mode
-  useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'))
-    }
-    
-    checkDarkMode()
-    
-    // Listen for theme changes
-    const observer = new MutationObserver(checkDarkMode)
-    observer.observe(document.documentElement, { 
-      attributes: true, 
-      attributeFilter: ['class'] 
-    })
-    
-    return () => observer.disconnect()
-  }, [])
+  const { isDark } = useTheme()
 
   useEffect(() => {
     if (assetsData.length > 0 && selectedAssets.length === 0) {
@@ -127,42 +110,42 @@ export default function MultiAssetTradingView({
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: isDarkMode ? '#e2e8f0' : '#64748b',
+        textColor: isDark ? '#e2e8f0' : '#64748b',
         fontSize: 12,
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,
       rightPriceScale: {
-        borderColor: isDarkMode ? '#374151' : '#e2e8f0',
+        borderColor: isDark ? '#374151' : '#e2e8f0',
         scaleMargins: {
           top: 0.1,
           bottom: 0.1,
         },
       },
       timeScale: {
-        borderColor: isDarkMode ? '#374151' : '#e2e8f0',
+        borderColor: isDark ? '#374151' : '#e2e8f0',
         timeVisible: true,
         secondsVisible: false,
       },
       crosshair: {
         mode: 1,
         vertLine: {
-          color: isDarkMode ? '#9ca3af' : '#64748b',
+          color: isDark ? '#9ca3af' : '#64748b',
           width: 1,
           style: LineStyle.Dashed,
         },
         horzLine: {
-          color: isDarkMode ? '#9ca3af' : '#64748b',
+          color: isDark ? '#9ca3af' : '#64748b',
           width: 1,
           style: LineStyle.Dashed,
         },
       },
       grid: {
         vertLines: {
-          color: isDarkMode ? '#1f2937' : '#f1f5f9',
+          color: isDark ? '#1f2937' : '#f1f5f9',
         },
         horzLines: {
-          color: isDarkMode ? '#1f2937' : '#f1f5f9',
+          color: isDark ? '#1f2937' : '#f1f5f9',
         },
       },
     })
@@ -292,7 +275,7 @@ export default function MultiAssetTradingView({
         chartRef.current = null
       }
     }
-  }, [assetsData, selectedAssets, chartType, showPortfolio, portfolioData, isPremium, isLoading, isDarkMode])
+  }, [assetsData, selectedAssets, chartType, showPortfolio, portfolioData, isPremium, isLoading, isDark])
 
   // Handle resize
   useEffect(() => {
