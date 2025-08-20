@@ -167,7 +167,10 @@ export default function AdvancedFilters({
             <Button 
               variant={isOpen ? 'default' : 'outline'}
               size="sm" 
-              onClick={onToggle}
+              onClick={() => {
+                console.log('AdvancedFilters: Toggle clicked, current isOpen:', isOpen)
+                onToggle()
+              }}
             >
               {isOpen ? 'Ocultar' : 'Mostrar'}
             </Button>

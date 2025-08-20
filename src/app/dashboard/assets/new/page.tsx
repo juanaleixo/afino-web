@@ -18,10 +18,15 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 const assetSchema = z.object({
-  symbol: z.string().min(1, "Símbolo é obrigatório"),
+  symbol: z.string().min(1, "Símbolo é obrigatório").max(20, "Símbolo deve ter no máximo 20 caracteres"),
   class: z.string().min(1, "Classe é obrigatória"),
   currency: z.string().min(1, "Moeda é obrigatória"),
-  manual_price: z.string().optional(),
+  manual_price: z.string().optional().refine((val) => {
+    if (!val || val.trim() === '') return true
+    const normalized = val.replace(',', '.')
+    const num = parseFloat(normalized)
+    return !isNaN(num) && num > 0
+  }, "Preço deve ser um número positivo"),
   connector: z.string().optional(),
 })
 
@@ -48,25 +53,69 @@ export default function NewAssetPage() {
 
     setIsSubmitting(true)
     try {
+      // Validar e normalizar preço manual
+      let manualPrice = null
+      if (data.manual_price && data.manual_price.trim() !== '') {
+        const normalized = data.manual_price.replace(',', '.')
+        const parsed = parseFloat(normalized)
+        if (isNaN(parsed) || parsed <= 0) {
+          toast.error('Preço manual deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+          return
+        }
+        manualPrice = parsed
+      }
+
       const assetData = {
-        symbol: data.symbol.toUpperCase(),
+        symbol: data.symbol.toUpperCase().trim(),
         class: data.class,
         currency: data.currency,
-        manual_price: data.manual_price ? parseFloat(data.manual_price) : null,
-        connector: data.connector || null,
+        manual_price: manualPrice,
+        connector: data.connector?.trim() || null,
       }
 
       const { error } = await supabase
         .from('global_assets')
         .insert(assetData)
 
-      if (error) throw error
+      if (error) {
+        console.error('Erro detalhado ao criar ativo:', error)
+        
+        // Tratamento específico para diferentes tipos de erro
+        if (error.code === '23505') {
+          if (error.message?.includes('ux_global_assets_symbol_ci_class')) {
+            toast.error(`Ativo ${data.symbol.toUpperCase()} na classe "${data.class}" já existe!`)
+            return
+          }
+          if (error.message?.includes('symbol')) {
+            toast.error(`Símbolo ${data.symbol.toUpperCase()} já está em uso!`)
+            return
+          }
+        }
+        
+        if (error.code === '23502') {
+          toast.error('Todos os campos obrigatórios devem ser preenchidos.')
+          return
+        }
+        
+        if (error.code === '23514') {
+          toast.error('Dados inválidos. Verifique os valores inseridos.')
+          return
+        }
+        
+        if (error.message?.includes('permission')) {
+          toast.error('Você não tem permissão para criar ativos. Contate o suporte.')
+          return
+        }
+        
+        throw error
+      }
       
-      toast.success('Ativo criado com sucesso!')
+      toast.success(`Ativo ${data.symbol.toUpperCase()} criado com sucesso!`)
       router.push('/dashboard/assets')
     } catch (error) {
       console.error('Erro ao criar ativo:', error)
-      toast.error('Erro ao criar ativo')
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao criar ativo'
+      toast.error(`Erro ao criar ativo: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -182,14 +231,18 @@ export default function NewAssetPage() {
                         <FormLabel>Preço Manual (Opcional)</FormLabel>
                         <FormControl>
                           <Input 
-                            type="number"
-                            step="0.01"
-                            placeholder="Ex: 25.50" 
-                            {...field} 
+                            type="text"
+                            placeholder="Ex: 25,50 ou 25.50" 
+                            {...field}
+                            onChange={(e) => {
+                              // Permitir apenas números, vírgula e ponto
+                              const value = e.target.value.replace(/[^0-9,.]/g, '')
+                              field.onChange(value)
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
-                        <p className="text-xs text-muted-foreground">Se preenchido, será usado como preço do ativo quando aplicável.</p>
+                        <p className="text-xs text-muted-foreground">Aceita vírgula ou ponto como separador decimal (ex: 25,50 ou 25.50).</p>
                       </FormItem>
                     )}
                   />

@@ -94,6 +94,7 @@ const EventTableRow = React.memo<EventTableRowProps>(({
       </TableCell>
       <TableCell>
         {(() => {
+          // Para ativos de caixa (BRL), o units_delta já representa o impacto no caixa
           if (isCashAsset(event) && typeof event.units_delta === 'number') {
             const val = event.units_delta
             return (
@@ -105,17 +106,25 @@ const EventTableRow = React.memo<EventTableRowProps>(({
               </StatusBadge>
             )
           }
+          
+          // Para compras e vendas, calcular o impacto no caixa
           if ((event.kind === 'buy' || event.kind === 'sell') && typeof event.units_delta === 'number' && typeof event.price_close === 'number') {
-            const val = event.units_delta * event.price_close
+            // Compra: Saída de caixa (negativo) - você gasta dinheiro para comprar o ativo
+            // Venda: Entrada de caixa (positivo) - você recebe dinheiro ao vender o ativo
+            const cashImpact = event.kind === 'buy' 
+              ? -Math.abs(event.units_delta) * event.price_close  // Sempre negativo para compras
+              : Math.abs(event.units_delta) * event.price_close   // Sempre positivo para vendas
+            
             return (
               <StatusBadge 
-                variant={val >= 0 ? 'success' : 'error'}
+                variant={cashImpact >= 0 ? 'success' : 'error'}
                 size="sm"
               >
-                {formatBRL(val)}
+                {formatBRL(cashImpact)}
               </StatusBadge>
             )
           }
+          
           return '—'
         })()}
       </TableCell>

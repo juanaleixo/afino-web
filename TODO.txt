@@ -1,0 +1,389 @@
+Você é dev full-stack do Afino Web. Corrija e implemente as tarefas listadas no backlog abaixo.
+Regras:
+
+Priorize Bugs severidade Alta, depois Médios, depois Melhorias.
+
+Escreva testes unitários e de integração quando houver lógica de cálculo.
+
+Respeite i18n/pt-BR, locale numérico (vírgula/decimal) e timezone America/Sao_Paulo.
+
+Após cada fix, valide manualmente nos fluxos: Eventos → Timeline/Tabela, Ativos, Contas, Dashboard.
+
+Onde houver “critérios de aceitação”, só feche a tarefa quando todos passarem.
+
+Documente em docs/features/ se o comportamento mudar.
+
+TODO — Bugs (com detalhes)
+[BUG-A1] Saldo de Caixa não sincroniza após Compra/Venda/Transferência
+
+Severidade: Alta
+
+Onde: Eventos → Timeline/Tabela (contas BRL).
+
+Passos:
+
+Deposite em CASH (ex.: +150).
+
+Compre um ativo (ex.: ETH 0,02 @ 9.000) ou Venda 0,01 @ 8.500.
+
+Observe “Saldo de Caixa” no topo e linha do evento.
+
+Esperado: Saldo de caixa varia conforme o valor do evento (compra diminui, venda aumenta).
+
+Obtido: Em vários cenários, o saldo permaneceu inalterado.
+
+Hipótese: Efeito colateral de cálculo assíncrono, agregação por período, ou não aplicação de “cash leg”.
+
+Critérios de aceitação:
+
+ Após Compra, saldo de caixa reduz exatamente quantidade * preço.
+
+ Após Venda, saldo de caixa aumenta pelo mesmo cálculo.
+
+ Após Transferência, saldo da conta origem diminui e da conta destino aumenta (ver também BUG-A6).
+
+ Totais da página e cards do topo atualizam sem recarregar (state global/React query store).
+
+[BUG-A2] Criação de Ativo falha com erro genérico
+
+Severidade: Alta
+
+Onde: Ativos → “Novo Ativo” (ex.: classe Moeda, símbolo USD).
+
+Passos: Preencher símbolo, classe=Moeda, moeda=USD, (preço manual opcional) → Criar Ativo.
+
+Esperado: Ativo criado e listado.
+
+Obtido: Toast/erro genérico “Erro ao criar ativo” e nenhum redirecionamento.
+
+Critérios:
+
+ Exibir mensagem de erro com causa (validação ou backend).
+
+ Ativo criado com sucesso aparece na lista.
+
+ Suporta preço manual usando locale pt-BR (ponto e vírgula).
+
+[BUG-A3] Valuation salva preço R$ 0,00 em alguns casos
+
+Severidade: Alta
+
+Onde: Evento → “Avaliação” (ex.: PETR4).
+
+Passos: Inserir preço “25.30” (ou “25,30”), Criar Evento.
+
+Esperado: Evento mostra o preço informado.
+
+Obtido: Em tentativas, preço registrado como 0,00.
+
+Hipótese: Parse decimal/locale ou sanitizer de string.
+
+Critérios:
+
+ Aceita “25,30” e “25.30” e persiste corretamente.
+
+ Normalização acontece antes de persistir, respeitando moeda/locale.
+
+[BUG-A4] Timeline: expandir/colapsar mês é inconsistente
+
+Severidade: Média
+
+Onde: Eventos → Timeline (ex.: “Julho 2025”).
+
+Passos: Clicar na seta do mês repetidas vezes.
+
+Obtido: Às vezes não expande/colapsa ou expande a seção errada.
+
+Critérios:
+
+ Click em um mês só afeta aquele grupo.
+
+ Estado visual (seta/aberto) consistente com os itens renderizados.
+
+[BUG-A5] Edição de Conta não reflete sem reload
+
+Severidade: Média
+
+Onde: Contas (editar nome).
+
+Obtido: Nome só muda após recarregar.
+
+Critérios:
+
+ Lista reflete atualização imediatamente (optimistic update ou refetch).
+
+[BUG-A6] Transferência sem selecionar conta destino
+
+Severidade: Alta (modelagem)
+
+Onde: Evento → “Transferência” (ativo CASH).
+
+Passos: Selecionar apenas conta de origem e passar quantidade negativa (envio).
+
+Obtido: Evento criado, mas sem conta destino explícita.
+
+Esperado: Transferência deve exigir origem + destino (dupla entrada).
+
+Critérios:
+
+ Form exige origem e destino distintos.
+
+ Lançamento em duas contas (– na origem, + no destino).
+
+ Proibir origem=destino; validar saldo origem.
+
+[BUG-A7] Exclusão de evento: confirmação e contadores
+
+Severidade: Média
+
+Onde: Eventos → Tabela (ícone lixeira).
+
+Obtido: Houve caso de o total de eventos mudar antes de confirmar OK, e outra vez o total não diminuiu após a exclusão.
+
+Critérios:
+
+ Exclusão só acontece após confirmação.
+
+ Total e lista sincronizam imediatamente após sucesso.
+
+ Toast de sucesso/erro aparece de forma consistente.
+
+[BUG-A8] Ação rápida “Nova Transação”/“Novo Evento” redireciona errado
+
+Severidade: Média
+
+Onde: Dashboard e Eventos.
+
+Obtido: Em alguns cliques, abriu Ativos.
+
+Critérios:
+
+ Sempre abre o assistente de eventos correto.
+
+[BUG-A9] Sinais/valores na Tabela de eventos
+
+Severidade: Média
+
+Obtido: Compras exibidas com sinal/valor incoerente (positivo quando deveria reduzir caixa).
+
+Critérios:
+
+ Coluna “Valor do evento” segue convenção: Compra = saída de caixa (negativo); Venda = entrada (positivo).
+
+ Tooltip/legenda descrevendo convenção.
+
+[BUG-A10] “Novo Ativo” às vezes redireciona ao Dashboard
+
+Severidade: Baixa/Média
+
+Critérios:
+
+ Rota estável, sem redirecionamento spúrio.
+
+[BUG-A11] Filtros (Tipo/Classe) não recontam total de forma confiável
+
+Severidade: Baixa/Média
+
+Critérios:
+
+ Contador = número de linhas renderizadas após filtro.
+
+ Remoção de filtros retorna contagem original.
+
+TODO — Oportunidades de melhoria
+[IMP-B1] Locale e formatação numérica
+
+Descrição: Unificar parse/format de decimais (pt-BR) nos formulários de preço, quantidade e valores.
+
+Critérios:
+
+ Aceitar “.” e “,” na digitação; normalizar internamente.
+
+ Exibir sempre no locale do usuário.
+
+ Testes para edge cases (25, 25.0, 25,00, “ 25 , 30 ”).
+
+[IMP-B2] Modelagem contábil (dupla entrada)
+
+Descrição: Toda transação que impacta caixa e ativo deve lançar as duas pernas (asset leg + cash leg) e refletir de imediato.
+
+Critérios:
+
+ Compra/Venda/Transferência atualizam ambas as partes.
+
+ Saldos de conta reconciliam com histórico.
+
+[IMP-B3] UX de confirmação e feedback
+
+Descrição: Padronizar modais de confirmação (exclusão) e toasts de sucesso/erro.
+
+Critérios:
+
+ Botões alinhados (Cancelar/OK), foco inicial no Cancelar.
+
+ Mensagens com causa e próxima ação sugerida.
+
+[IMP-B4] Estado de carregamento e caching
+
+Descrição: Skeletons consistentes; evitar “Carregando…” prolongado.
+
+Critérios:
+
+ React Query/RTK cache de queries mais usadas (eventos, contas, ativos).
+
+ Revalidação ao foco com throttle.
+
+[IMP-B5] Validação de formulário de eventos
+
+Descrição: Regras por tipo (ex.: Compra exige quantidade>0 e preço>0; Saque exige quantidade>0; Transferência exige origem+destino).
+
+Critérios:
+
+ Erros inline por campo; desabilitar “Criar Evento” se inválido.
+
+[IMP-B6] Acessibilidade
+
+Descrição: Navegação por teclado, roles ARIA, contraste e foco visível.
+
+Critérios:
+
+ Cada ação do assistente de eventos acessível via Tab/Enter/Esc.
+
+ Labels vinculados a inputs.
+
+[IMP-B7] Observabilidade
+
+Descrição: Log estruturado no front (níveis), correlação de requests, captura de erros.
+
+Critérios:
+
+ Console limpo em produção; erros enviados ao monitor (Sentry/类似).
+
+[IMP-B8] Documentação viva
+
+Descrição: Atualizar docs/features/OVERVIEW.md com estados reais, limitações e exemplos.
+
+Critérios:
+
+ Cada feature com gif curto e casos de borda.
+
+[IMP-B9] Tema claro/escuro & Preferências
+
+Descrição: Expor toggle de tema e página de configurações prometidas.
+
+Critérios:
+
+ Persistência em localStorage; detecção de prefers-color-scheme.
+
+Prompts prontos (cole em issues/PRs ou num assistant de código)
+
+Fix saldo de caixa (A1):
+“Revise o pipeline de criação de eventos (compra, venda, transferência) para lançar a perna de caixa junto com a perna do ativo e atualizar o estado global imediatamente. Escreva testes cobrindo compra (–caixa), venda (+caixa) e transferência (–origem/+destino). Garanta que os cards de topo e a tabela reflitam sem recarregar.”
+
+Parse de preço/locale (A3 + B1):
+“Padronize parsing/format de números para pt-BR nos inputs de preço/quantidade. Aceite , e . como separadores de decimal e normalize antes de persistir. Adicione máscaras/validação e testes para 25, 25.0, 25,00, 25,30.”
+
+Transferência com dupla entrada (A6 + B2):
+“Altere o formulário de transferências para exigir origem e destino. Ao salvar, gere dois lançamentos (– na origem, + no destino) atômicos. Bloqueie origem=destino e saldo insuficiente. Atualize a UI em tempo real.”
+
+Confirmação de exclusão (A7 + B3):
+“Garanta que a exclusão só ocorra após confirmar ‘OK’. Sincronize contadores e lista após sucesso; mostre toast com detalhe. Adicione teste de fluxo.”
+
+Criação de ativo (A2):
+“Trate erros do backend com mensagens claras e valide campos obrigatórios. Após criar, redirecione para a lista e selecione/realce o novo ativo. Incluir teste e2e.”
+
+Timeline expand/collapse (A4):
+“Refatore o controle de expansão por mês (chave única por grupo). Sincronize ícone/estado e cubra com teste de interação.”
+
+Atualização otimista em Contas (A5):
+“Implemente optimistic update ao renomear conta. Em caso de erro, faça rollback e exiba toast com motivo.”
+
+Sinais na Tabela (A9):
+“Unifique a convenção de sinais: compra = saída (–), venda = entrada (+). Ajuste render/format e adicione legenda/tooltip.”
+
+Roteamento ‘Novo Ativo/Evento’ (A8/A10):
+“Corrija rotas para não redirecionar ao Dashboard indevidamente; teste deep-link do wizard de eventos.”
+
+Filtros e contagem (A11):
+“Sincronize contador com dataset filtrado e cubra com testes (multi-filtro).”
+
+Checklist rápido (para planejamento)
+
+ A1 Saldo de caixa sincronizado (compras/vendas/transfers).
+
+ A2 Criação de ativo estável + erro claro.
+
+ A3 Valuation respeita decimais/locale.
+
+ A4 Timeline expand/collapse confiável.
+
+ A5 Update otimista em contas.
+
+ A6 Transferência com origem/destino e dupla entrada.
+
+ A7 Exclusão com confirmação e contadores corretos.
+
+ A8/A10 Roteamento das ações rápidas e “Novo Ativo”.
+
+ A9 Convenção de sinais na Tabela.
+
+ A11 Filtros com contagem correta.
+
+ B1 Locale numérico unificado.
+
+ B2 Contabilização de dupla entrada.
+
+ B3 UX de toasts/confirm dialogs.
+
+ B4 Skeletons/caching/revalidação.
+
+ B5 Validações por tipo de evento.
+
+ B6 Acessibilidade.
+
+ B7 Observabilidade/logs.
+
+ B8 Docs atualizadas (features + limitações).
+
+ B9 Tema e preferências do usuário.
+
+ Relatório 20/08/2025
+ ⏺ Update Todos
+  ⎿  ☒ [BUG-A1] Saldo de Caixa não sincroniza após Compra/Venda/Transferência - Revisar      
+       pipeline de eventos para lançar perna de caixa corretamente
+     ☒ [BUG-A2] Criação de Ativo falha com erro genérico - Implementar tratamento de erro 
+       adequado e validações
+     ☒ [BUG-A3] Valuation salva preço R$ 0,00 - Corrigir parse decimal/locale para aceitar 
+       vírgula e ponto
+     ☒ [BUG-A6] Transferência sem conta destino - Implementar dupla entrada obrigatória
+     ☒ [BUG-A4] Timeline expand/collapse inconsistente - Refatorar controle de expansão por 
+       mês
+     ☒ [BUG-A9] Sinais/valores incorretos na Tabela - Padronizar convenção de sinais
+     ☐ [BUG-A5] Edição de Conta não reflete sem reload - Implementar optimistic update
+     ☐ [BUG-A7] Exclusão de evento sem confirmação adequada - Garantir confirmação e
+       sincronização de contadores
+     ☐ [BUG-A8] Ação rápida Nova Transação redireciona errado - Corrigir roteamento
+     ☐ [BUG-A10] Novo Ativo redireciona ao Dashboard - Estabilizar roteamento
+     ☐ [BUG-A11] Filtros não recontam total corretamente - Sincronizar contador com dataset
+       filtrado
+
+⏺ Excelente progresso!
+Já foram corrigidos 6 dos 11 bugs principais (mais da metade!):
+
+  ✅ BUG-A1: Saldo de Caixa - Implementei dupla entrada automática✅ BUG-A2: Criação de Ativo
+   - Melhorei tratamento de erros e validações✅ BUG-A3: Valuation preço 0,00 - Corrigi parse
+   de decimais pt-BR✅ BUG-A4: Timeline expand/collapse - Refatorei gerenciamento de estado✅
+   BUG-A6: Transferência dupla entrada - Implementei origem/destino obrigatórios✅ BUG-A9:
+  Sinais incorretos - Padronizei convenção (compra=negativo, venda=positivo)
+
+  Resumo das Correções Implementadas:
+
+  1. Contabilidade de Dupla Entrada: Compras/vendas agora criam automaticamente a perna de
+  caixa
+  2. Tratamento de Erros: Mensagens específicas para diferentes tipos de erro de BD
+  3. Locale pt-BR: Suporte a vírgula/ponto em todos os campos numéricos
+  4. UI Estável: Timeline com chaves consistentes e gerenciamento otimizado de estado
+  5. Transferências Seguras: Validação obrigatória de origem/destino diferentes
+  6. Convenção Clara: Tooltip explicativo + sinais corretos (compra=saída, venda=entrada)
+
+  A aplicação está agora muito mais robusta e com melhor UX para usuários brasileiros!

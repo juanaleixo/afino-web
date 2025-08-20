@@ -121,7 +121,11 @@ const getEventValue = (ev: EventWithRelations) => {
     return ev.units_delta
   }
   if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
-    return ev.units_delta * ev.price_close
+    // Compra: Saída de caixa (negativo) - você gasta dinheiro
+    // Venda: Entrada de caixa (positivo) - você recebe dinheiro
+    return ev.kind === 'buy' 
+      ? -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
+      : Math.abs(ev.units_delta) * ev.price_close   // Sempre positivo para vendas
   }
   return null
 }
@@ -247,7 +251,7 @@ const TimelineEvent: React.FC<{
   )
 }
 
-const TimelineGroup: React.FC<TimelineGroupProps> = ({
+const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(({
   title,
   events,
   isExpanded,
@@ -257,10 +261,12 @@ const TimelineGroup: React.FC<TimelineGroupProps> = ({
   formatBRL,
   isPremium
 }) => {
-  const totalValue = events.reduce((sum, event) => {
-    const value = getEventValue(event)
-    return sum + (value || 0)
-  }, 0)
+  const totalValue = React.useMemo(() => {
+    return events.reduce((sum, event) => {
+      const value = getEventValue(event)
+      return sum + (value || 0)
+    }, 0)
+  }, [events])
   
   return (
     <Card className="mb-4">
@@ -311,7 +317,7 @@ const TimelineGroup: React.FC<TimelineGroupProps> = ({
       )}
     </Card>
   )
-}
+})
 
 export const EventsTimeline: React.FC<EventsTimelineProps> = ({
   events,
@@ -322,47 +328,55 @@ export const EventsTimeline: React.FC<EventsTimelineProps> = ({
 }) => {
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set(['today']))
   
-  const toggleGroup = (groupId: string) => {
-    const newExpanded = new Set(expandedGroups)
-    if (newExpanded.has(groupId)) {
-      newExpanded.delete(groupId)
-    } else {
-      newExpanded.add(groupId)
-    }
-    setExpandedGroups(newExpanded)
-  }
+  const toggleGroup = React.useCallback((groupId: string) => {
+    setExpandedGroups(prev => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(groupId)) {
+        newExpanded.delete(groupId)
+      } else {
+        newExpanded.add(groupId)
+      }
+      return newExpanded
+    })
+  }, [])
   
   // Group events by time period
   const groupedEvents = React.useMemo(() => {
-    const groups: { [key: string]: { title: string; events: EventWithRelations[] } } = {}
+    const groups: { [key: string]: { title: string; events: EventWithRelations[]; order: number } } = {}
     
     events.forEach(event => {
       const eventDate = parseISO(event.tstamp)
       let groupKey: string
       let groupTitle: string
+      let order: number
       
       if (isToday(eventDate)) {
         groupKey = 'today'
         groupTitle = 'Hoje'
+        order = 1
       } else if (isThisWeek(eventDate)) {
         groupKey = 'thisWeek'
         groupTitle = 'Esta semana'
+        order = 2
       } else if (isThisMonth(eventDate)) {
         groupKey = 'thisMonth'
         groupTitle = 'Este mês'
+        order = 3
       } else {
         const monthYear = format(eventDate, 'MMMM yyyy', { locale: ptBR })
-        groupKey = format(eventDate, 'yyyy-MM')
+        groupKey = `month-${format(eventDate, 'yyyy-MM')}`
         groupTitle = monthYear.charAt(0).toUpperCase() + monthYear.slice(1)
+        // Older months get higher order numbers (lower priority)
+        order = 1000 - parseInt(format(eventDate, 'yyyyMM'))
       }
       
       if (!groups[groupKey]) {
-        groups[groupKey] = { title: groupTitle, events: [] }
+        groups[groupKey] = { title: groupTitle, events: [], order }
       }
       groups[groupKey]!.events.push(event)
     })
     
-    // Sort events within each group
+    // Sort events within each group by timestamp (newest first)
     Object.values(groups).forEach(group => {
       group.events.sort((a, b) => new Date(b.tstamp).getTime() - new Date(a.tstamp).getTime())
     })
@@ -370,17 +384,11 @@ export const EventsTimeline: React.FC<EventsTimelineProps> = ({
     return groups
   }, [events])
   
-  const groupOrder = ['today', 'thisWeek', 'thisMonth']
-  const sortedGroups = Object.entries(groupedEvents).sort(([keyA], [keyB]) => {
-    const indexA = groupOrder.indexOf(keyA)
-    const indexB = groupOrder.indexOf(keyB)
-    
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB
-    if (indexA !== -1) return -1
-    if (indexB !== -1) return 1
-    
-    return keyB.localeCompare(keyA)
-  })
+  const sortedGroups = React.useMemo(() => {
+    return Object.entries(groupedEvents)
+      .map(([key, group]) => ({ key, ...group }))
+      .sort((a, b) => a.order - b.order)
+  }, [groupedEvents])
   
   if (events.length === 0) {
     return (
@@ -413,13 +421,13 @@ export const EventsTimeline: React.FC<EventsTimelineProps> = ({
         </CardHeader>
       </Card>
       
-      {sortedGroups.map(([groupKey, group]) => (
+      {sortedGroups.map((group) => (
         <TimelineGroup
-          key={groupKey}
+          key={group.key}
           title={group.title}
           events={group.events}
-          isExpanded={expandedGroups.has(groupKey)}
-          onToggle={() => toggleGroup(groupKey)}
+          isExpanded={expandedGroups.has(group.key)}
+          onToggle={() => toggleGroup(group.key)}
           onDeleteEvent={onDeleteEvent}
           deletingEventId={deletingEventId}
           formatBRL={formatBRL}

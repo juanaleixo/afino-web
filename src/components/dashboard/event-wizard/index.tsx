@@ -19,6 +19,7 @@ type EventKind = 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuati
 const eventSchema = z.object({
   asset_id: z.string().min(1, "Ativo é obrigatório"),
   account_id: z.string().optional(),
+  to_account_id: z.string().optional(), // Para transferências
   kind: z.enum(['deposit', 'withdraw', 'buy', 'sell', 'transfer', 'valuation']),
   units_delta: z.string().optional(),
   price_override: z.string().optional(),
@@ -55,6 +56,7 @@ export function EventWizard({
     defaultValues: {
       asset_id: preselectedAssetId || "",
       account_id: preselectedAccountId || "none",
+      to_account_id: "none",
       kind: preselectedKind || "buy",
       units_delta: "",
       price_override: "",
@@ -147,7 +149,7 @@ export function EventWizard({
         throw new Error('Para cash, use depósito, saque ou transferência.')
       }
 
-      // Preparar dados
+      // Preparar dados do evento principal
       const eventData: any = {
         user_id: user.id,
         asset_id: formData.asset_id,
@@ -159,31 +161,116 @@ export function EventWizard({
         eventData.account_id = formData.account_id
       }
 
-      // Adicionar campos específicos por tipo
-      if (['deposit', 'withdraw'].includes(selectedType)) {
-        const qty = parseFloat(formData.units_delta || '0')
-        eventData.units_delta = selectedType === 'withdraw' ? -Math.abs(qty) : Math.abs(qty)
-      } else if (['buy', 'sell'].includes(selectedType)) {
-        const qty = parseFloat(formData.units_delta || '0')
-        eventData.units_delta = selectedType === 'sell' ? -Math.abs(qty) : Math.abs(qty)
-        eventData.price_close = parseFloat(formData.price_close || '0')
-      } else if (selectedType === 'valuation') {
-        eventData.price_override = parseFloat(formData.price_override || '0')
-      } else if (selectedType === 'transfer') {
-        eventData.units_delta = parseFloat(formData.units_delta || '0')
+      // Array para armazenar todos os eventos a serem criados
+      const eventsToInsert = []
+
+      // Função helper para fazer parse de valores com locale pt-BR
+      const parseLocaleNumber = (value: string) => {
+        if (!value || value.trim() === '') return NaN
+        // Normalizar vírgula para ponto
+        const normalized = value.replace(',', '.')
+        return parseFloat(normalized)
       }
 
+      // Adicionar campos específicos por tipo
+      if (['deposit', 'withdraw'].includes(selectedType)) {
+        const qty = parseLocaleNumber(formData.units_delta || '0')
+        if (isNaN(qty) || qty <= 0) {
+          throw new Error('Quantidade deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        eventData.units_delta = selectedType === 'withdraw' ? -Math.abs(qty) : Math.abs(qty)
+        eventsToInsert.push(eventData)
+      } else if (['buy', 'sell'].includes(selectedType)) {
+        const qty = parseLocaleNumber(formData.units_delta || '0')
+        const price = parseLocaleNumber(formData.price_close || '0')
+        if (isNaN(qty) || qty <= 0) {
+          throw new Error('Quantidade deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        if (isNaN(price) || price <= 0) {
+          throw new Error('Preço deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        
+        // Evento principal (ativo)
+        eventData.units_delta = selectedType === 'sell' ? -Math.abs(qty) : Math.abs(qty)
+        eventData.price_close = price
+        eventsToInsert.push(eventData)
+
+        // Dupla entrada: perna de caixa (BRL)
+        // Buscar ativo BRL/Cash
+        const cashAsset = assets.find(a => a.class === 'currency' || a.symbol?.toUpperCase() === 'BRL')
+        if (cashAsset && formData.account_id && formData.account_id !== "none") {
+          const cashValue = Math.abs(qty) * price
+          const cashEventData = {
+            user_id: user.id,
+            asset_id: cashAsset.id,
+            account_id: formData.account_id,
+            kind: selectedType === 'buy' ? 'withdraw' : 'deposit',
+            units_delta: selectedType === 'buy' ? -cashValue : cashValue,
+            tstamp: new Date(formData.tstamp).toISOString(),
+          }
+          eventsToInsert.push(cashEventData)
+        }
+      } else if (selectedType === 'valuation') {
+        const price = parseLocaleNumber(formData.price_override || '0')
+        if (isNaN(price) || price <= 0) {
+          throw new Error('Preço de avaliação deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        eventData.price_override = price
+        eventsToInsert.push(eventData)
+      } else if (selectedType === 'transfer') {
+        const qty = parseLocaleNumber(formData.units_delta || '0')
+        if (isNaN(qty)) {
+          throw new Error('Quantidade deve ser um número válido. Use vírgula ou ponto como separador decimal.')
+        }
+        
+        // Validar que origem e destino estão definidos e são diferentes
+        if (!formData.account_id || formData.account_id === "none") {
+          throw new Error('Conta de origem é obrigatória para transferências.')
+        }
+        if (!formData.to_account_id || formData.to_account_id === "none") {
+          throw new Error('Conta de destino é obrigatória para transferências.')
+        }
+        if (formData.account_id === formData.to_account_id) {
+          throw new Error('Conta de origem e destino não podem ser iguais.')
+        }
+        
+        const absQty = Math.abs(qty)
+        
+        // Evento 1: Saída da conta origem
+        const originEventData = {
+          user_id: user.id,
+          asset_id: formData.asset_id,
+          account_id: formData.account_id,
+          kind: 'withdraw',
+          units_delta: -absQty,
+          tstamp: new Date(formData.tstamp).toISOString(),
+        }
+        eventsToInsert.push(originEventData)
+        
+        // Evento 2: Entrada na conta destino
+        const destEventData = {
+          user_id: user.id,
+          asset_id: formData.asset_id,
+          account_id: formData.to_account_id,
+          kind: 'deposit',
+          units_delta: absQty,
+          tstamp: new Date(formData.tstamp).toISOString(),
+        }
+        eventsToInsert.push(destEventData)
+      }
+
+      // Inserir todos os eventos em uma transação
       const { error } = await supabase
         .from('events')
-        .insert(eventData)
+        .insert(eventsToInsert)
 
       if (error) throw error
 
       toast.success('Evento criado com sucesso!')
       router.push('/dashboard/events')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao criar evento:', error)
-      toast.error(error.message || 'Erro ao criar evento')
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar evento')
     } finally {
       setIsSubmitting(false)
     }

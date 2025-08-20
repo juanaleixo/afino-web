@@ -30,28 +30,41 @@ export function AssetAccountStep({
 }: AssetAccountStepProps) {
   const selectedAssetId = form.watch('asset_id')
   const selectedAccountId = form.watch('account_id')
+  const selectedToAccountId = form.watch('to_account_id')
   const selectedAsset = assets.find(a => a.id === selectedAssetId)
   
   const requiresAccount = ['deposit', 'withdraw', 'buy', 'sell', 'transfer', 'valuation'].includes(eventKind)
+  const isTransfer = eventKind === 'transfer'
   
-  const canContinue = selectedAssetId && (!requiresAccount || (selectedAccountId && selectedAccountId !== 'none'))
+  const canContinue = selectedAssetId && (!requiresAccount || (selectedAccountId && selectedAccountId !== 'none')) &&
+    (!isTransfer || (selectedToAccountId && selectedToAccountId !== 'none' && selectedToAccountId !== selectedAccountId))
 
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <h3 className="text-lg font-semibold">Selecione o ativo e a conta</h3>
+        <h3 className="text-lg font-semibold">
+          {isTransfer ? 'Selecione o ativo e as contas' : 'Selecione o ativo e a conta'}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Escolha qual ativo será movimentado e em qual conta.
+          {isTransfer 
+            ? 'Escolha qual ativo será transferido, a conta de origem e a conta de destino.'
+            : 'Escolha qual ativo será movimentado e em qual conta.'
+          }
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className={`grid gap-6 ${isTransfer ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
               Ativo
-              <Link href="/dashboard/assets/new" className="text-xs underline text-muted-foreground">
-                Novo ativo
+              <Link 
+                href="/dashboard/assets/new" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs underline text-muted-foreground hover:text-foreground"
+              >
+                Novo ativo ↗
               </Link>
             </CardTitle>
             <CardDescription>
@@ -97,7 +110,7 @@ export function AssetAccountStep({
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
-              Conta
+              {isTransfer ? 'Conta de Origem' : 'Conta'}
               <Link href="/dashboard/accounts/new" className="text-xs underline text-muted-foreground">
                 Nova conta
               </Link>
@@ -140,6 +153,53 @@ export function AssetAccountStep({
             </Form>
           </CardContent>
         </Card>
+
+        {/* Conta de Destino - só aparece para transferências */}
+        {isTransfer && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Conta de Destino
+              </CardTitle>
+              <CardDescription>
+                Onde o valor será depositado
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <FormField
+                  control={form.control}
+                  name="to_account_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select onValueChange={field.onChange} value={field.value || "none"}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a conta destino" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Selecione uma conta</SelectItem>
+                          {accounts
+                            .filter(account => account.id !== selectedAccountId) // Não mostrar a conta de origem
+                            .map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary">{account.currency}</Badge>
+                                  <span>{account.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Form>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {selectedAsset && (
@@ -151,6 +211,20 @@ export function AssetAccountStep({
                 <AssetBadge assetClass={selectedAsset.class as any} />
                 <span className="font-medium">{selectedAsset.symbol}</span>
               </div>
+              {isTransfer && selectedAccountId && selectedToAccountId && selectedAccountId !== 'none' && selectedToAccountId !== 'none' && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-2">Transferência:</p>
+                  <div className="flex items-center justify-center gap-4 text-sm">
+                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                      {accounts.find(a => a.id === selectedAccountId)?.label} (Origem)
+                    </span>
+                    <span>→</span>
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                      {accounts.find(a => a.id === selectedToAccountId)?.label} (Destino)
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

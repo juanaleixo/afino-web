@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity } from "lucide-react"
+import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity, Info } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -273,14 +273,18 @@ export default function EventsPage() {
     })
   }, [events, debouncedSearchTerm, filterClass, filterKind, advancedFilters, isPremium])
   
-  // Helper function to get event value
+  // Helper function to get event cash impact (impacto no caixa)
   const getEventValue = (ev: EventWithRelations) => {
     const isCash = ev.global_assets?.class === 'currency' || ev.global_assets?.symbol?.toUpperCase() === 'BRL'
     if (isCash && typeof ev.units_delta === 'number') {
       return ev.units_delta
     }
     if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
-      return ev.units_delta * ev.price_close
+      // Compra: Saída de caixa (negativo) - você gasta dinheiro
+      // Venda: Entrada de caixa (positivo) - você recebe dinheiro
+      return ev.kind === 'buy' 
+        ? -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
+        : Math.abs(ev.units_delta) * ev.price_close   // Sempre positivo para vendas
     }
     return null
   }
@@ -419,11 +423,18 @@ export default function EventsPage() {
 
       if (error) throw error
       
+      // Atualização otimista: remover do estado imediatamente
+      setEvents(prev => prev.filter(e => e.id !== eventId))
+      
       toast.success('Evento excluído com sucesso!')
-      loadEvents() // Recarregar a lista
+      
+      // Recarregar a lista para garantir consistência
+      await loadEvents()
     } catch (error) {
       console.error('Erro ao excluir evento:', error)
       toast.error('Erro ao excluir evento')
+      // Em caso de erro, recarregar para restaurar estado correto
+      loadEvents()
     } finally {
       setDeletingEventId(null)
     }
@@ -599,7 +610,22 @@ export default function EventsPage() {
                     <TableHead>Conta</TableHead>
                     <TableHead>Quantidade</TableHead>
                     <TableHead>Preço/Val.</TableHead>
-                    <TableHead>Valor do Evento</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        Impacto no Caixa
+                        <div className="group relative">
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
+                            <div className="bg-popover text-popover-foreground text-xs rounded-md p-2 shadow-md border max-w-48">
+                              <strong>Convenção:</strong><br/>
+                              🔴 Compra: Saída de caixa (negativo)<br/>
+                              🟢 Venda: Entrada de caixa (positivo)<br/>
+                              💰 Depósito/Saque: Valor real
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>

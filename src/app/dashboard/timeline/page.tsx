@@ -52,6 +52,13 @@ export default function TimelinePage() {
   const [assets, setAssets] = useState<Array<{ id: string; symbol: string; class: string; label?: string }>>([])
   const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
+  const toggleAdvancedFilters = useCallback(() => {
+    setShowAdvancedFilters(prev => {
+      console.log('Timeline: Toggling advanced filters from', prev, 'to', !prev)
+      return !prev
+    })
+  }, [])
   const [assetBreakdownData, setAssetBreakdownData] = useState<any>(null)
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
   const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
@@ -387,13 +394,14 @@ export default function TimelinePage() {
 
         {/* Filtros Avançados Premium */}
         <AdvancedFilters
+          key={`filters-${showAdvancedFilters}`}
           filters={filters}
           onFiltersChange={handleFiltersChange}
           accounts={accounts}
           assets={assets}
           isPremium={isPremium}
           isOpen={showAdvancedFilters}
-          onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          onToggle={toggleAdvancedFilters}
         />
 
         {/* Cards de Resumo */}
