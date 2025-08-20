@@ -81,7 +81,7 @@ export class BenchmarkService {
     const toDate = new Date(to)
     const data: BenchmarkData[] = []
     
-    let currentDate = new Date(fromDate)
+    const currentDate = new Date(fromDate)
     let cumulativeReturn = 1.0
     const dailyRate = 0.105 / 365 // ~10.5% ao ano
     
@@ -157,7 +157,7 @@ export class BenchmarkService {
     const fromDate = new Date(from)
     const toDate = new Date(to)
     
-    let currentDate = new Date(fromDate)
+    const currentDate = new Date(fromDate)
     let baseValue = 120000 // Valor aproximado do IBOV
     
     while (currentDate <= toDate) {
@@ -235,7 +235,7 @@ export class BenchmarkService {
     const fromDate = new Date(from)
     const toDate = new Date(to)
     
-    let currentDate = new Date(fromDate)
+    const currentDate = new Date(fromDate)
     let baseValue = 4500 // Valor aproximado do S&P 500
     
     while (currentDate <= toDate) {
@@ -311,7 +311,7 @@ export class BenchmarkService {
     const fromDate = new Date(from)
     const toDate = new Date(to)
     
-    let currentDate = new Date(fromDate)
+    const currentDate = new Date(fromDate)
     let baseValue = 43000 // Valor aproximado do BTC em USD
     
     while (currentDate <= toDate) {

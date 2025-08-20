@@ -26,7 +26,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -66,10 +66,6 @@ const getEventIcon = (kind: string) => {
       return <TrendingDown className="h-4 w-4 text-red-600" />
     case 'buy':
       return <TrendingUp className="h-4 w-4 text-green-600" />
-    case 'sell':
-      return <TrendingDown className="h-4 w-4 text-red-600" />
-    case 'transfer':
-      return <ArrowRight className="h-4 w-4 text-blue-600" />
     case 'valuation':
       return <Calendar className="h-4 w-4 text-purple-600" />
     default:
@@ -85,10 +81,6 @@ const getEventLabel = (kind: string) => {
       return 'Saque'
     case 'buy':
       return 'Compra'
-    case 'sell':
-      return 'Venda'
-    case 'transfer':
-      return 'Transferência'
     case 'valuation':
       return 'Avaliação'
     default:
@@ -111,7 +103,7 @@ const getAssetDisplay = (ev: EventWithRelations) => {
 
 const getDisplayPrice = (ev: EventWithRelations, formatBRL: (n: number) => string) => {
   if (isCashAsset(ev)) return formatBRL(1)
-  if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.price_close === 'number') return formatBRL(ev.price_close)
+  if (ev.kind === 'buy' && typeof ev.price_close === 'number') return formatBRL(ev.price_close)
   if (ev.kind === 'valuation' && typeof ev.price_override === 'number') return formatBRL(ev.price_override)
   return '—'
 }
@@ -120,12 +112,9 @@ const getEventValue = (ev: EventWithRelations) => {
   if (isCashAsset(ev) && typeof ev.units_delta === 'number') {
     return ev.units_delta
   }
-  if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
+  if (ev.kind === 'buy' && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
     // Compra: Saída de caixa (negativo) - você gasta dinheiro
-    // Venda: Entrada de caixa (positivo) - você recebe dinheiro
-    return ev.kind === 'buy' 
-      ? -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
-      : Math.abs(ev.units_delta) * ev.price_close   // Sempre positivo para vendas
+    return -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
   }
   return null
 }
@@ -168,8 +157,7 @@ const TimelineEvent: React.FC<{
             <StatusBadge 
               variant={
                 event.kind === 'buy' || event.kind === 'deposit' ? 'success' :
-                event.kind === 'sell' || event.kind === 'withdraw' ? 'error' :
-                event.kind === 'transfer' ? 'info' : 'neutral'
+                event.kind === 'withdraw' ? 'error' : 'neutral'
               }
               size="sm"
             >
@@ -251,7 +239,7 @@ const TimelineEvent: React.FC<{
   )
 }
 
-const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(({
+const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(function TimelineGroup({
   title,
   events,
   isExpanded,
@@ -260,7 +248,7 @@ const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(({
   deletingEventId,
   formatBRL,
   isPremium
-}) => {
+}) {
   const totalValue = React.useMemo(() => {
     return events.reduce((sum, event) => {
       const value = getEventValue(event)

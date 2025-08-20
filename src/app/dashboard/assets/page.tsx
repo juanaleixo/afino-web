@@ -348,19 +348,6 @@ export default function AssetsPage() {
                                 </Button>
                                 <Button
                                   asChild
-                                  variant="outline"
-                                  size="sm"
-                                  title="Vender"
-                                >
-                                  <Link
-                                    href={`/dashboard/events/new?kind=sell&asset_id=${asset.id}`}
-                                  >
-                                    <TrendingDown className="h-4 w-4 mr-1" />{" "}
-                                    Vender
-                                  </Link>
-                                </Button>
-                                <Button
-                                  asChild
                                   variant="ghost"
                                   size="sm"
                                   title="Avaliar"

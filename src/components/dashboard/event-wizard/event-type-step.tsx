@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
 
 interface EventTypeOption {
   kind: EventKind
@@ -53,24 +53,6 @@ const eventTypeOptions: EventTypeOption[] = [
     forAssets: true,
   },
   {
-    kind: 'sell',
-    title: 'Venda',
-    description: 'Vender ativos por dinheiro',
-    icon: TrendingDown,
-    color: 'text-orange-600 bg-orange-50',
-    forCurrency: false,
-    forAssets: true,
-  },
-  {
-    kind: 'transfer',
-    title: 'Transferência',
-    description: 'Mover entre contas',
-    icon: RefreshCw,
-    color: 'text-purple-600 bg-purple-50',
-    forCurrency: true,
-    forAssets: true,
-  },
-  {
     kind: 'valuation',
     title: 'Avaliação',
     description: 'Definir preço manual do ativo',
@@ -98,8 +80,8 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
         <h3 className="text-lg font-semibold">Que tipo de operação você quer registrar?</h3>
         <p className="text-sm text-muted-foreground">
           {isCurrencyAsset 
-            ? 'Para valores em dinheiro (caixa), você pode fazer depósitos, saques ou transferências.'
-            : 'Para ativos (ações, crypto, etc.), você pode comprar, vender, transferir ou avaliar.'
+            ? 'Para valores em dinheiro (caixa), você pode fazer depósitos ou saques.'
+            : 'Para ativos (ações, crypto, etc.), você pode comprar ou avaliar.'
           }
         </p>
       </div>

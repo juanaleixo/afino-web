@@ -8,7 +8,7 @@ import { AssetBadge } from "@/components/ui/asset-badge"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, Hash, DollarSign } from "lucide-react"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
 
 interface DetailsStepProps {
   eventKind: EventKind
@@ -24,8 +24,6 @@ const eventDescriptions = {
   deposit: 'Informe a quantidade que será depositada',
   withdraw: 'Informe a quantidade que será sacada',
   buy: 'Informe a quantidade e o preço da compra',
-  sell: 'Informe a quantidade e o preço da venda',
-  transfer: 'Informe a quantidade que será transferida entre as contas',
   valuation: 'Informe o novo preço para avaliação',
 }
 
@@ -47,8 +45,8 @@ export function DetailsStep({
   const selectedToAccount = accounts.find(a => a.id === selectedToAccountId)
   
   const isCurrencyAsset = selectedAsset?.class === 'currency'
-  const needsQuantity = ['deposit', 'withdraw', 'buy', 'sell', 'transfer'].includes(eventKind)
-  const needsPrice = ['buy', 'sell'].includes(eventKind) && !isCurrencyAsset
+  const needsQuantity = ['deposit', 'withdraw', 'buy'].includes(eventKind)
+  const needsPrice = ['buy'].includes(eventKind) && !isCurrencyAsset
   const needsPriceOverride = eventKind === 'valuation' && !isCurrencyAsset
 
   return (
@@ -68,21 +66,7 @@ export function DetailsStep({
               <AssetBadge assetClass={selectedAsset?.class as any} />
               <span className="font-medium">{selectedAsset?.symbol}</span>
             </div>
-            {eventKind === 'transfer' && selectedAccount && selectedToAccount ? (
-              <div className="flex items-center justify-center gap-4 text-sm">
-                <div className="flex items-center gap-2 bg-red-100 text-red-800 px-2 py-1 rounded">
-                  <Badge variant="secondary">{selectedAccount.currency}</Badge>
-                  <span>{selectedAccount.label}</span>
-                  <span className="text-xs">(Origem)</span>
-                </div>
-                <span>→</span>
-                <div className="flex items-center gap-2 bg-green-100 text-green-800 px-2 py-1 rounded">
-                  <Badge variant="secondary">{selectedToAccount.currency}</Badge>
-                  <span>{selectedToAccount.label}</span>
-                  <span className="text-xs">(Destino)</span>
-                </div>
-              </div>
-            ) : selectedAccount && (
+            {selectedAccount && (
               <div className="flex items-center justify-center gap-2 text-sm">
                 <Badge variant="secondary">{selectedAccount.currency}</Badge>
                 <span>{selectedAccount.label}</span>
@@ -142,10 +126,7 @@ export function DetailsStep({
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      {eventKind === 'transfer' 
-                        ? 'Quantidade que sairá da conta origem e entrará na conta destino. Use vírgula ou ponto para decimais.'
-                        : 'Use valores positivos, o sistema ajustará automaticamente. Aceita vírgula ou ponto como decimal.'
-                      }
+                      Use valores positivos, o sistema ajustará automaticamente. Aceita vírgula ou ponto como decimal.
                     </p>
                   )}
                 </FormItem>

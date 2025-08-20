@@ -11,7 +11,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -58,8 +58,7 @@ const EventTableRow = React.memo<EventTableRowProps>(({
           <StatusBadge 
             variant={
               event.kind === 'buy' || event.kind === 'deposit' ? 'success' :
-              event.kind === 'sell' || event.kind === 'withdraw' ? 'error' :
-              event.kind === 'transfer' ? 'info' : 'neutral'
+              event.kind === 'withdraw' ? 'error' : 'neutral'
             }
             size="sm"
           >
@@ -107,13 +106,10 @@ const EventTableRow = React.memo<EventTableRowProps>(({
             )
           }
           
-          // Para compras e vendas, calcular o impacto no caixa
-          if ((event.kind === 'buy' || event.kind === 'sell') && typeof event.units_delta === 'number' && typeof event.price_close === 'number') {
+          // Para compras, calcular o impacto no caixa
+          if (event.kind === 'buy' && typeof event.units_delta === 'number' && typeof event.price_close === 'number') {
             // Compra: Saída de caixa (negativo) - você gasta dinheiro para comprar o ativo
-            // Venda: Entrada de caixa (positivo) - você recebe dinheiro ao vender o ativo
-            const cashImpact = event.kind === 'buy' 
-              ? -Math.abs(event.units_delta) * event.price_close  // Sempre negativo para compras
-              : Math.abs(event.units_delta) * event.price_close   // Sempre positivo para vendas
+            const cashImpact = -Math.abs(event.units_delta) * event.price_close  // Sempre negativo para compras
             
             return (
               <StatusBadge 

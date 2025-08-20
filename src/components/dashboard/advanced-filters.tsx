@@ -31,7 +31,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -176,8 +176,6 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                   <SelectItem value="deposit">Depósito</SelectItem>
                   <SelectItem value="withdraw">Saque</SelectItem>
                   <SelectItem value="buy">Compra</SelectItem>
-                  <SelectItem value="sell">Venda</SelectItem>
-                  <SelectItem value="transfer">Transferência</SelectItem>
                   <SelectItem value="valuation">Avaliação</SelectItem>
                 </SelectContent>
               </Select>

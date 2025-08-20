@@ -203,11 +203,6 @@ export default function HoldingsPage() {
                                           <TrendingUp className="h-4 w-4 mr-1" /> Comprar
                                         </Link>
                                       </Button>
-                                      <Button asChild size="sm" variant="outline">
-                                        <Link href={`/dashboard/events/new?kind=sell&asset_id=${r.asset_id}`}>
-                                          <TrendingDown className="h-4 w-4 mr-1" /> Vender
-                                        </Link>
-                                      </Button>
                                       <Button asChild size="sm" variant="ghost">
                                         <Link href={`/dashboard/events/new?kind=valuation&asset_id=${r.asset_id}`}>
                                           <Calendar className="h-4 w-4 mr-1" /> Avaliar

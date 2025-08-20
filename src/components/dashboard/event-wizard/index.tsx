@@ -14,13 +14,12 @@ import { supabase, Account, Asset } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingState } from "@/components/ui/loading-state"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
 
 const eventSchema = z.object({
   asset_id: z.string().min(1, "Ativo é obrigatório"),
   account_id: z.string().optional(),
-  to_account_id: z.string().optional(), // Para transferências
-  kind: z.enum(['deposit', 'withdraw', 'buy', 'sell', 'transfer', 'valuation']),
+  kind: z.enum(['deposit', 'withdraw', 'buy', 'valuation']),
   units_delta: z.string().optional(),
   price_override: z.string().optional(),
   price_close: z.string().optional(),
@@ -56,7 +55,6 @@ export function EventWizard({
     defaultValues: {
       asset_id: preselectedAssetId || "",
       account_id: preselectedAccountId || "none",
-      to_account_id: "none",
       kind: preselectedKind || "buy",
       units_delta: "",
       price_override: "",
@@ -145,8 +143,8 @@ export function EventWizard({
       const selectedAsset = assets.find(a => a.id === formData.asset_id)
       const assetIsCash = selectedAsset?.class === 'currency'
 
-      if (assetIsCash && ['buy', 'sell', 'valuation'].includes(selectedType)) {
-        throw new Error('Para cash, use depósito, saque ou transferência.')
+      if (assetIsCash && ['buy', 'valuation'].includes(selectedType)) {
+        throw new Error('Para cash, use depósito ou saque.')
       }
 
       // Preparar dados do evento principal
@@ -180,7 +178,7 @@ export function EventWizard({
         }
         eventData.units_delta = selectedType === 'withdraw' ? -Math.abs(qty) : Math.abs(qty)
         eventsToInsert.push(eventData)
-      } else if (['buy', 'sell'].includes(selectedType)) {
+      } else if (selectedType === 'buy') {
         const qty = parseLocaleNumber(formData.units_delta || '0')
         const price = parseLocaleNumber(formData.price_close || '0')
         if (isNaN(qty) || qty <= 0) {
@@ -190,12 +188,12 @@ export function EventWizard({
           throw new Error('Preço deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
         }
         
-        // Evento principal (ativo)
-        eventData.units_delta = selectedType === 'sell' ? -Math.abs(qty) : Math.abs(qty)
+        // Evento principal (ativo) - sempre positivo para compra
+        eventData.units_delta = Math.abs(qty)
         eventData.price_close = price
         eventsToInsert.push(eventData)
 
-        // Dupla entrada: perna de caixa (BRL)
+        // Dupla entrada: perna de caixa (BRL) - saída de caixa
         // Buscar ativo BRL/Cash
         const cashAsset = assets.find(a => a.class === 'currency' || a.symbol?.toUpperCase() === 'BRL')
         if (cashAsset && formData.account_id && formData.account_id !== "none") {
@@ -204,8 +202,8 @@ export function EventWizard({
             user_id: user.id,
             asset_id: cashAsset.id,
             account_id: formData.account_id,
-            kind: selectedType === 'buy' ? 'withdraw' : 'deposit',
-            units_delta: selectedType === 'buy' ? -cashValue : cashValue,
+            kind: 'withdraw',
+            units_delta: -cashValue,
             tstamp: new Date(formData.tstamp).toISOString(),
           }
           eventsToInsert.push(cashEventData)
@@ -217,46 +215,6 @@ export function EventWizard({
         }
         eventData.price_override = price
         eventsToInsert.push(eventData)
-      } else if (selectedType === 'transfer') {
-        const qty = parseLocaleNumber(formData.units_delta || '0')
-        if (isNaN(qty)) {
-          throw new Error('Quantidade deve ser um número válido. Use vírgula ou ponto como separador decimal.')
-        }
-        
-        // Validar que origem e destino estão definidos e são diferentes
-        if (!formData.account_id || formData.account_id === "none") {
-          throw new Error('Conta de origem é obrigatória para transferências.')
-        }
-        if (!formData.to_account_id || formData.to_account_id === "none") {
-          throw new Error('Conta de destino é obrigatória para transferências.')
-        }
-        if (formData.account_id === formData.to_account_id) {
-          throw new Error('Conta de origem e destino não podem ser iguais.')
-        }
-        
-        const absQty = Math.abs(qty)
-        
-        // Evento 1: Saída da conta origem
-        const originEventData = {
-          user_id: user.id,
-          asset_id: formData.asset_id,
-          account_id: formData.account_id,
-          kind: 'withdraw',
-          units_delta: -absQty,
-          tstamp: new Date(formData.tstamp).toISOString(),
-        }
-        eventsToInsert.push(originEventData)
-        
-        // Evento 2: Entrada na conta destino
-        const destEventData = {
-          user_id: user.id,
-          asset_id: formData.asset_id,
-          account_id: formData.to_account_id,
-          kind: 'deposit',
-          units_delta: absQty,
-          tstamp: new Date(formData.tstamp).toISOString(),
-        }
-        eventsToInsert.push(destEventData)
       }
 
       // Inserir todos os eventos em uma transação

@@ -28,7 +28,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -62,7 +62,7 @@ export default function EventsPage() {
   // Advanced filters state
   const [advancedFilters, setAdvancedFilters] = useState({
     searchTerm: '',
-    kind: 'all' as 'all' | 'deposit' | 'withdraw' | 'buy' | 'sell' | 'transfer' | 'valuation',
+    kind: 'all' as 'all' | 'deposit' | 'withdraw' | 'buy' | 'valuation',
     assetClass: 'all' as 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund',
     account: 'all' as string,
     dateFrom: null as Date | null,
@@ -136,10 +136,6 @@ export default function EventsPage() {
         return <TrendingDown className="h-4 w-4 text-red-600" />
       case 'buy':
         return <TrendingUp className="h-4 w-4 text-green-600" />
-      case 'sell':
-        return <TrendingDown className="h-4 w-4 text-red-600" />
-      case 'transfer':
-        return <TrendingUp className="h-4 w-4 text-blue-600" />
       case 'valuation':
         return <Calendar className="h-4 w-4 text-purple-600" />
       default:
@@ -155,10 +151,6 @@ export default function EventsPage() {
         return 'Saque'
       case 'buy':
         return 'Compra'
-      case 'sell':
-        return 'Venda'
-      case 'transfer':
-        return 'Transferência'
       case 'valuation':
         return 'Avaliação'
       default:
@@ -281,12 +273,9 @@ export default function EventsPage() {
     if (isCash && typeof ev.units_delta === 'number') {
       return ev.units_delta
     }
-    if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
+    if (ev.kind === 'buy' && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
       // Compra: Saída de caixa (negativo) - você gasta dinheiro
-      // Venda: Entrada de caixa (positivo) - você recebe dinheiro
-      return ev.kind === 'buy' 
-        ? -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
-        : Math.abs(ev.units_delta) * ev.price_close   // Sempre positivo para vendas
+      return -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
     }
     return null
   }
@@ -329,8 +318,6 @@ export default function EventsPage() {
         { label: 'Depósito', value: 'deposit' },
         { label: 'Saque', value: 'withdraw' },
         { label: 'Compra', value: 'buy' },
-        { label: 'Venda', value: 'sell' },
-        { label: 'Transferência', value: 'transfer' },
         { label: 'Avaliação', value: 'valuation' },
       ],
     },
@@ -353,7 +340,7 @@ export default function EventsPage() {
 
   const getDisplayPrice = (ev: EventWithRelations) => {
     if (isCashAsset(ev)) return formatBRL(1)
-    if ((ev.kind === 'buy' || ev.kind === 'sell') && typeof ev.price_close === 'number') return formatBRL(ev.price_close)
+    if (ev.kind === 'buy' && typeof ev.price_close === 'number') return formatBRL(ev.price_close)
     if (ev.kind === 'valuation' && typeof ev.price_override === 'number') return formatBRL(ev.price_override)
     return '—'
   }
@@ -689,10 +676,8 @@ export default function EventsPage() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
                       {eventToDelete.kind === 'buy' ? 'Compra' :
-                       eventToDelete.kind === 'sell' ? 'Venda' :
                        eventToDelete.kind === 'deposit' ? 'Depósito' :
                        eventToDelete.kind === 'withdraw' ? 'Saque' :
-                       eventToDelete.kind === 'transfer' ? 'Transferência' :
                        'Avaliação'}
                     </Badge>
                     <span className="font-medium">{eventToDelete.global_assets?.symbol}</span>

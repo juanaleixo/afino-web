@@ -526,7 +526,7 @@ export default function TimelinePage() {
                       <CardContent className="pt-4">
                         <div className="flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
-                            Dados detalhados por ativo disponíveis na aba "Por Ativos"
+                            Dados detalhados por ativo disponíveis na aba &quot;Por Ativos&quot;
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {performanceAnalysis.length} ativos com dados diários
