@@ -23,17 +23,17 @@ fi
 
 # Build do projeto
 echo "📦 Fazendo build do projeto..."
-npm run build:cf
+npm run build
 
 # Deploy baseado no ambiente
 if [ "$ENVIRONMENT" = "production" ]; then
     echo "🌐 Deployando para produção..."
-    wrangler pages deploy .vercel/output/static --project-name afino-web
+    wrangler pages deploy out --project-name afino-web
     echo "✅ Deploy para produção concluído!"
     echo "🔗 URL: https://afino-web.pages.dev"
 elif [ "$ENVIRONMENT" = "preview" ]; then
     echo "🧪 Deployando para preview..."
-    wrangler pages deploy .vercel/output/static --project-name afino-web-preview
+    wrangler pages deploy out --project-name afino-web-preview
     echo "✅ Deploy para preview concluído!"
     echo "🔗 URL: https://afino-web-preview.pages.dev"
 else

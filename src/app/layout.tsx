@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: "Centralize contas bancárias, cripto e investimentos com simplicidade e automação",
   icons: {
     icon: "/icon.svg",
-    apple: "/icon.svg",
+    apple: "/icon.png",
   },
 }
 

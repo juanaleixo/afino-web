@@ -18,7 +18,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Para Cloudflare Pages com SSR via next-on-pages, não usar export estático
+  output: 'export',
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
 }
 
 export default nextConfig

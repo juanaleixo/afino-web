@@ -1,0 +1,36 @@
+# Redirect common icon requests to existing assets
+/favicon.ico /icon.svg 200
+/favicon.png /icon.png 200
+/apple-touch-icon.png /icon.png 200
+/apple-touch-icon-precomposed.png /icon.png 200
+
+# Manifest fallback (if some agents request a default path)
+/manifest.json /site.webmanifest 200
+/manifest.webmanifest /site.webmanifest 200
+/site.webmanifest /site.webmanifest 200
+
+# Next.js App Router RSC data (.txt) mapping to index.txt
+# Explicit top-level pages
+/about.txt /about/index.txt 200
+/contact.txt /contact/index.txt 200
+/features.txt /features/index.txt 200
+/pricing.txt /pricing/index.txt 200
+/login.txt /login/index.txt 200
+/signup.txt /signup/index.txt 200
+/demo.txt /demo/index.txt 200
+/dashboard.txt /dashboard/index.txt 200
+
+# Nested dashboard pages - specific routes first
+/dashboard/events.txt /dashboard/events/index.txt 200
+/dashboard/timeline.txt /dashboard/timeline/index.txt 200
+/dashboard/assets.txt /dashboard/assets/index.txt 200
+/dashboard/accounts.txt /dashboard/accounts/index.txt 200
+/dashboard/holdings.txt /dashboard/holdings/index.txt 200
+/dashboard/reports.txt /dashboard/reports/index.txt 200
+/dashboard/settings.txt /dashboard/settings/index.txt 200
+/dashboard/accounts/new.txt /dashboard/accounts/new/index.txt 200
+/dashboard/assets/new.txt /dashboard/assets/new/index.txt 200
+/dashboard/events/new.txt /dashboard/events/new/index.txt 200
+
+# Fallback for other dashboard pages
+/dashboard/*.txt /dashboard/:splat/index.txt 200
