@@ -11,7 +11,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "deploy:preview": "./scripts/deploy.sh preview",
-    "deploy:production": "./scripts/deploy.sh production"
+    "deploy:production": "./scripts/deploy.sh production",
+    "wrangler": "wrangler pages dev out"
   },
   "dependencies": {
     "@eslint/js": "^9.33.0",
