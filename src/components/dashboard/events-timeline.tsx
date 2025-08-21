@@ -7,43 +7,29 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import { Button } from "@/components/ui/button"
 import { 
-  Calendar, 
-  TrendingUp, 
-  TrendingDown, 
   Trash2, 
   Clock,
-  ArrowRight,
   ChevronDown,
   ChevronUp,
   Filter
 } from "lucide-react"
 import { format, isToday, isThisWeek, isThisMonth, parseISO, differenceInDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
-
-interface EventWithRelations {
-  id: string
-  user_id: string
-  asset_id: string
-  account_id?: string
-  tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
-  units_delta?: number
-  price_override?: number
-  price_close?: number
-  global_assets?: {
-    symbol: string
-    class: string
-  }
-  accounts?: {
-    label: string
-  }
-}
+import { EventWithRelations } from "@/lib/types/events"
+import { 
+  getEventIcon,
+  getEventLabel,
+  isCashAsset,
+  getAssetDisplay,
+  getDisplayPrice,
+  getEventValue,
+  formatBRL
+} from "@/lib/utils/event-utils"
 
 interface EventsTimelineProps {
   events: EventWithRelations[]
   onDeleteEvent: (eventId: string) => void
   deletingEventId: string | null
-  formatBRL: (value: number) => string
   isPremium: boolean
 }
 
@@ -54,70 +40,9 @@ interface TimelineGroupProps {
   onToggle: () => void
   onDeleteEvent: (eventId: string) => void
   deletingEventId: string | null
-  formatBRL: (value: number) => string
   isPremium: boolean
 }
 
-const getEventIcon = (kind: string) => {
-  switch (kind) {
-    case 'deposit':
-      return <TrendingUp className="h-4 w-4 text-green-600" />
-    case 'withdraw':
-      return <TrendingDown className="h-4 w-4 text-red-600" />
-    case 'buy':
-      return <TrendingUp className="h-4 w-4 text-green-600" />
-    case 'valuation':
-      return <Calendar className="h-4 w-4 text-purple-600" />
-    default:
-      return <Calendar className="h-4 w-4" />
-  }
-}
-
-const getEventLabel = (kind: string) => {
-  switch (kind) {
-    case 'deposit':
-      return 'Depósito'
-    case 'withdraw':
-      return 'Saque'
-    case 'buy':
-      return 'Compra'
-    case 'valuation':
-      return 'Avaliação'
-    default:
-      return kind
-  }
-}
-
-const isCashAsset = (ev: EventWithRelations) => {
-  const sym = ev.global_assets?.symbol?.toUpperCase?.()
-  return ev.global_assets?.class === 'currency' || sym === 'BRL' || sym === 'CASH'
-}
-
-const getAssetDisplay = (ev: EventWithRelations) => {
-  if (isCashAsset(ev)) {
-    const sym = ev.global_assets?.symbol?.toUpperCase?.()
-    return sym && sym !== 'BRL' ? `Caixa (${sym})` : 'Caixa (BRL)'
-  }
-  return ev.global_assets?.symbol || '—'
-}
-
-const getDisplayPrice = (ev: EventWithRelations, formatBRL: (n: number) => string) => {
-  if (isCashAsset(ev)) return formatBRL(1)
-  if (ev.kind === 'buy' && typeof ev.price_close === 'number') return formatBRL(ev.price_close)
-  if (ev.kind === 'valuation' && typeof ev.price_override === 'number') return formatBRL(ev.price_override)
-  return '—'
-}
-
-const getEventValue = (ev: EventWithRelations) => {
-  if (isCashAsset(ev) && typeof ev.units_delta === 'number') {
-    return ev.units_delta
-  }
-  if (ev.kind === 'buy' && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
-    // Compra: Saída de caixa (negativo) - você gasta dinheiro
-    return -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
-  }
-  return null
-}
 
 const getRelativeTime = (dateString: string) => {
   const date = parseISO(dateString)
@@ -135,9 +60,8 @@ const TimelineEvent: React.FC<{
   event: EventWithRelations
   onDelete: (eventId: string) => void
   isDeleting: boolean
-  formatBRL: (value: number) => string
   showAccountDetails: boolean
-}> = ({ event, onDelete, isDeleting, formatBRL, showAccountDetails }) => {
+}> = ({ event, onDelete, isDeleting, showAccountDetails }) => {
   const eventValue = getEventValue(event)
   
   return (
@@ -156,7 +80,7 @@ const TimelineEvent: React.FC<{
           <div className="flex items-center gap-2">
             <StatusBadge 
               variant={
-                event.kind === 'buy' || event.kind === 'deposit' ? 'success' :
+                event.kind === 'buy' || event.kind === 'deposit' || event.kind === 'position_add' ? 'success' :
                 event.kind === 'withdraw' ? 'error' : 'neutral'
               }
               size="sm"
@@ -246,7 +170,6 @@ const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(function Timeline
   onToggle,
   onDeleteEvent,
   deletingEventId,
-  formatBRL,
   isPremium
 }) {
   const totalValue = React.useMemo(() => {
@@ -295,7 +218,6 @@ const TimelineGroup: React.FC<TimelineGroupProps> = React.memo(function Timeline
                   event={event}
                   onDelete={onDeleteEvent}
                   isDeleting={deletingEventId === event.id}
-                  formatBRL={formatBRL}
                   showAccountDetails={isPremium}
                 />
               </div>
@@ -311,7 +233,6 @@ export const EventsTimeline: React.FC<EventsTimelineProps> = ({
   events,
   onDeleteEvent,
   deletingEventId,
-  formatBRL,
   isPremium
 }) => {
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set(['today']))
@@ -418,7 +339,6 @@ export const EventsTimeline: React.FC<EventsTimelineProps> = ({
           onToggle={() => toggleGroup(group.key)}
           onDeleteEvent={onDeleteEvent}
           deletingEventId={deletingEventId}
-          formatBRL={formatBRL}
           isPremium={isPremium}
         />
       ))}

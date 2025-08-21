@@ -9,7 +9,20 @@ CREATE TABLE public.global_assets (
     meta jsonb,
     created_at timestamp with time zone DEFAULT now(),
     manual_price numeric,
-    label_ptbr text
+    label_ptbr text,
+    -- Add constraint for valid asset classes
+    CONSTRAINT global_assets_class_check CHECK (class = ANY (ARRAY[
+        'currency'::text, 
+        'cash'::text,
+        'stock'::text, 
+        'crypto'::text, 
+        'fund'::text,
+        'commodity'::text,
+        'bond'::text,
+        'reit'::text,
+        'real_estate'::text,
+        'vehicle'::text
+    ]))
 );
 
 ALTER TABLE public.global_assets OWNER TO postgres;

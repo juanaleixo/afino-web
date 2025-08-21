@@ -7,7 +7,10 @@ import {
   DollarSign, 
   FileText, 
   Building, 
-  Package 
+  Package,
+  Car,
+  PiggyBank,
+  Banknote
 } from "lucide-react"
 
 const assetBadgeVariants = cva(
@@ -18,9 +21,14 @@ const assetBadgeVariants = cva(
         stock: "asset-stock",
         crypto: "asset-crypto", 
         currency: "asset-currency",
+        cash: "asset-currency",
         bond: "asset-bond",
+        fund: "asset-fund",
+        reit: "asset-reit",
         "real-estate": "asset-real-estate",
+        real_estate: "asset-real-estate",
         commodity: "asset-commodity",
+        vehicle: "asset-vehicle",
         default: "bg-muted text-muted-foreground",
       },
       size: {
@@ -40,18 +48,28 @@ const assetIcons = {
   stock: TrendingUp,
   crypto: Bitcoin,
   currency: DollarSign,
+  cash: Banknote,
   bond: FileText,
+  fund: PiggyBank,
+  reit: Building,
   "real-estate": Building,
+  real_estate: Building,
   commodity: Package,
+  vehicle: Car,
 }
 
 const assetLabels = {
   stock: "Ação",
   crypto: "Cripto",
   currency: "Caixa",
+  cash: "Dinheiro",
   bond: "Título",
-  "real-estate": "Imóvel", 
-  commodity: "Commodities",
+  fund: "Fundo",
+  reit: "REIT",
+  "real-estate": "Imóvel",
+  real_estate: "Imóvel", 
+  commodity: "Commodity",
+  vehicle: "Veículo",
 }
 
 export interface AssetBadgeProps

@@ -4,48 +4,27 @@ import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import { Trash2 } from "lucide-react"
-
-interface EventWithRelations {
-  id: string
-  user_id: string
-  asset_id: string
-  account_id?: string
-  tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
-  units_delta?: number
-  price_override?: number
-  price_close?: number
-  global_assets?: {
-    symbol: string
-    class: string
-  }
-  accounts?: {
-    label: string
-  }
-}
+import { EventWithRelations } from "@/lib/types/events"
+import { 
+  getEventIcon,
+  getEventLabel,
+  isCashAsset,
+  getAssetDisplay,
+  getDisplayPrice,
+  getEventValue,
+  formatBRL
+} from "@/lib/utils/event-utils"
 
 interface EventTableRowProps {
   event: EventWithRelations
   onDelete: (eventId: string) => void
   isDeleting: boolean
-  getEventIcon: (kind: EventWithRelations['kind']) => React.ReactNode
-  getEventLabel: (kind: EventWithRelations['kind']) => string
-  isCashAsset: (event: EventWithRelations) => boolean
-  getAssetDisplay: (event: EventWithRelations) => string
-  getDisplayPrice: (event: EventWithRelations) => string
-  formatBRL: (value: number) => string
 }
 
 const EventTableRow = React.memo<EventTableRowProps>(({
   event,
   onDelete,
   isDeleting,
-  getEventIcon,
-  getEventLabel,
-  isCashAsset,
-  getAssetDisplay,
-  getDisplayPrice,
-  formatBRL,
 }) => {
   return (
     <TableRow key={event.id}>
@@ -57,7 +36,7 @@ const EventTableRow = React.memo<EventTableRowProps>(({
           {getEventIcon(event.kind)}
           <StatusBadge 
             variant={
-              event.kind === 'buy' || event.kind === 'deposit' ? 'success' :
+              event.kind === 'buy' || event.kind === 'deposit' || event.kind === 'position_add' ? 'success' :
               event.kind === 'withdraw' ? 'error' : 'neutral'
             }
             size="sm"
@@ -89,38 +68,21 @@ const EventTableRow = React.memo<EventTableRowProps>(({
         ) : 'N/D'}
       </TableCell>
       <TableCell>
-        {getDisplayPrice(event)}
+        {getDisplayPrice(event, formatBRL)}
       </TableCell>
       <TableCell>
         {(() => {
-          // Para ativos de caixa (BRL), o units_delta já representa o impacto no caixa
-          if (isCashAsset(event) && typeof event.units_delta === 'number') {
-            const val = event.units_delta
+          const eventValue = getEventValue(event)
+          if (eventValue !== null) {
             return (
               <StatusBadge 
-                variant={val >= 0 ? 'success' : 'error'}
+                variant={eventValue >= 0 ? 'success' : 'error'}
                 size="sm"
               >
-                {formatBRL(val)}
+                {formatBRL(eventValue)}
               </StatusBadge>
             )
           }
-          
-          // Para compras, calcular o impacto no caixa
-          if (event.kind === 'buy' && typeof event.units_delta === 'number' && typeof event.price_close === 'number') {
-            // Compra: Saída de caixa (negativo) - você gasta dinheiro para comprar o ativo
-            const cashImpact = -Math.abs(event.units_delta) * event.price_close  // Sempre negativo para compras
-            
-            return (
-              <StatusBadge 
-                variant={cashImpact >= 0 ? 'success' : 'error'}
-                size="sm"
-              >
-                {formatBRL(cashImpact)}
-              </StatusBadge>
-            )
-          }
-          
           return '—'
         })()}
       </TableCell>

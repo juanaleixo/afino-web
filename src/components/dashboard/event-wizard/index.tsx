@@ -14,12 +14,12 @@ import { supabase, Account, Asset } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingState } from "@/components/ui/loading-state"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
 
 const eventSchema = z.object({
   asset_id: z.string().min(1, "Ativo é obrigatório"),
   account_id: z.string().optional(),
-  kind: z.enum(['deposit', 'withdraw', 'buy', 'valuation']),
+  kind: z.enum(['deposit', 'withdraw', 'buy', 'position_add', 'valuation']),
   units_delta: z.string().optional(),
   price_override: z.string().optional(),
   price_close: z.string().optional(),
@@ -208,6 +208,20 @@ export function EventWizard({
           }
           eventsToInsert.push(cashEventData)
         }
+      } else if (selectedType === 'position_add') {
+        const qty = parseLocaleNumber(formData.units_delta || '0')
+        const price = parseLocaleNumber(formData.price_close || '0')
+        if (isNaN(qty) || qty <= 0) {
+          throw new Error('Quantidade deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        if (isNaN(price) || price <= 0) {
+          throw new Error('Preço deve ser um número positivo. Use vírgula ou ponto como separador decimal.')
+        }
+        
+        // Evento principal - adicionar posição existente
+        eventData.units_delta = Math.abs(qty)
+        eventData.price_close = price
+        eventsToInsert.push(eventData)
       } else if (selectedType === 'valuation') {
         const price = parseLocaleNumber(formData.price_override || '0')
         if (isNaN(price) || price <= 0) {

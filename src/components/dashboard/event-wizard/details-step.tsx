@@ -8,7 +8,7 @@ import { AssetBadge } from "@/components/ui/asset-badge"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, Hash, DollarSign } from "lucide-react"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
 
 interface DetailsStepProps {
   eventKind: EventKind
@@ -24,6 +24,7 @@ const eventDescriptions = {
   deposit: 'Informe a quantidade que será depositada',
   withdraw: 'Informe a quantidade que será sacada',
   buy: 'Informe a quantidade e o preço da compra',
+  position_add: 'Informe a quantidade e o preço de avaliação da posição',
   valuation: 'Informe o novo preço para avaliação',
 }
 

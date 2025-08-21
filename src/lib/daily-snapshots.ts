@@ -34,7 +34,7 @@ export interface EventForSnapshot {
   user_id: string
   asset_id: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -121,6 +121,12 @@ export function calculatePositionsAtDate(
         position.quantity += event.units_delta || 0
         if (event.price_close) {
           position.last_price = event.price_close
+        }
+        break
+      case 'position_add':
+        position.quantity += event.units_delta || 0
+        if (event.price_override) {
+          position.last_price = event.price_override
         }
         break
       case 'valuation':

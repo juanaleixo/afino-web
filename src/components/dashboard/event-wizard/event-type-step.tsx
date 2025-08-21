@@ -1,18 +1,18 @@
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { 
   ArrowDownCircle, 
   ArrowUpCircle, 
   ShoppingCart, 
-  TrendingDown,
-  RefreshCw,
+  Plus,
   DollarSign,
   type LucideIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
 
 interface EventTypeOption {
   kind: EventKind
@@ -22,6 +22,7 @@ interface EventTypeOption {
   color: string
   forCurrency?: boolean
   forAssets?: boolean
+  isNew?: boolean
 }
 
 const eventTypeOptions: EventTypeOption[] = [
@@ -46,11 +47,21 @@ const eventTypeOptions: EventTypeOption[] = [
   {
     kind: 'buy',
     title: 'Compra',
-    description: 'Comprar ativos (ações, crypto, etc.)',
+    description: 'Comprar ativos com preço específico',
     icon: ShoppingCart,
     color: 'text-blue-600 bg-blue-50',
     forCurrency: false,
     forAssets: true,
+  },
+  {
+    kind: 'position_add',
+    title: 'Adicionar Posição',
+    description: 'Registrar ativos que você já possui',
+    icon: Plus,
+    color: 'text-purple-600 bg-purple-50',
+    forCurrency: false,
+    forAssets: true,
+    isNew: true,
   },
   {
     kind: 'valuation',
@@ -81,7 +92,7 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
         <p className="text-sm text-muted-foreground">
           {isCurrencyAsset 
             ? 'Para valores em dinheiro (caixa), você pode fazer depósitos ou saques.'
-            : 'Para ativos (ações, crypto, etc.), você pode comprar ou avaliar.'
+            : 'Para ativos, você pode comprar, adicionar posições existentes ou avaliar.'
           }
         </p>
       </div>
@@ -101,8 +112,15 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
                 <div className={cn("p-2 rounded-lg", option.color)}>
                   <option.icon className="h-5 w-5" />
                 </div>
-                <div>
-                  <CardTitle className="text-base">{option.title}</CardTitle>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">{option.title}</CardTitle>
+                    {option.isNew && (
+                      <Badge variant="secondary" className="text-xs">
+                        Novo
+                      </Badge>
+                    )}
+                  </div>
                   <CardDescription className="text-xs">
                     {option.description}
                   </CardDescription>
@@ -112,6 +130,25 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
           </Card>
         ))}
       </div>
+
+      {!isCurrencyAsset && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex gap-3">
+            <div className="text-blue-600">
+              <Plus className="h-5 w-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-blue-900 mb-1">
+                💡 Novo: Adicionar Posição
+              </h4>
+              <p className="text-sm text-blue-800">
+                Use esta opção para registrar ativos que você já possui. 
+                Ideal para fazer um "inventário" do seu patrimônio atual, adicionando posições existentes ao seu portfólio.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedType && (
         <div className="text-center">

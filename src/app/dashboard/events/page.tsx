@@ -28,7 +28,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -62,8 +62,8 @@ export default function EventsPage() {
   // Advanced filters state
   const [advancedFilters, setAdvancedFilters] = useState({
     searchTerm: '',
-    kind: 'all' as 'all' | 'deposit' | 'withdraw' | 'buy' | 'valuation',
-    assetClass: 'all' as 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund',
+    kind: 'all' as 'all' | 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation',
+    assetClass: 'all' as 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund' | 'commodity' | 'bond' | 'reit' | 'real_estate' | 'vehicle',
     account: 'all' as string,
     dateFrom: null as Date | null,
     dateTo: null as Date | null,
@@ -136,6 +136,8 @@ export default function EventsPage() {
         return <TrendingDown className="h-4 w-4 text-red-600" />
       case 'buy':
         return <TrendingUp className="h-4 w-4 text-green-600" />
+      case 'position_add':
+        return <TrendingUp className="h-4 w-4 text-purple-600" />
       case 'valuation':
         return <Calendar className="h-4 w-4 text-purple-600" />
       default:
@@ -151,6 +153,8 @@ export default function EventsPage() {
         return 'Saque'
       case 'buy':
         return 'Compra'
+      case 'position_add':
+        return 'Adicionar Posição'
       case 'valuation':
         return 'Avaliação'
       default:
@@ -267,16 +271,28 @@ export default function EventsPage() {
     })
   }, [events, debouncedSearchTerm, filterClass, filterKind, advancedFilters, isPremium])
   
-  // Helper function to get event cash impact (impacto no caixa)
+  // Helper function to get event value (valor do evento)
   const getEventValue = (ev: EventWithRelations) => {
+    if (typeof ev.units_delta !== 'number') return null
+    
+    // Para caixa (BRL), units_delta já é em reais
     const isCash = ev.global_assets?.class === 'currency' || ev.global_assets?.symbol?.toUpperCase() === 'BRL'
-    if (isCash && typeof ev.units_delta === 'number') {
+    if (isCash) {
       return ev.units_delta
     }
-    if (ev.kind === 'buy' && typeof ev.units_delta === 'number' && typeof ev.price_close === 'number') {
-      // Compra: Saída de caixa (negativo) - você gasta dinheiro
-      return -Math.abs(ev.units_delta) * ev.price_close  // Sempre negativo para compras
+    
+    // Para outros ativos, calcular valor = quantidade × preço
+    let price = 0
+    if (ev.kind === 'buy' || ev.kind === 'position_add') {
+      price = ev.price_close || 0
+    } else if (ev.kind === 'valuation') {
+      price = ev.price_override || 0
     }
+    
+    if (price > 0) {
+      return ev.units_delta * price
+    }
+    
     return null
   }
 
@@ -318,6 +334,7 @@ export default function EventsPage() {
         { label: 'Depósito', value: 'deposit' },
         { label: 'Saque', value: 'withdraw' },
         { label: 'Compra', value: 'buy' },
+        { label: 'Adicionar Posição', value: 'position_add' },
         { label: 'Avaliação', value: 'valuation' },
       ],
     },
@@ -596,7 +613,6 @@ export default function EventsPage() {
             events={filteredEvents}
             onDeleteEvent={deleteEvent}
             deletingEventId={deletingEventId}
-            formatBRL={formatBRL}
             isPremium={isPremium}
           />
         ) : (
@@ -619,15 +635,16 @@ export default function EventsPage() {
                     <TableHead>Preço/Val.</TableHead>
                     <TableHead>
                       <div className="flex items-center gap-1">
-                        Impacto no Caixa
+                        Valor do Evento
                         <div className="group relative">
                           <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                           <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
                             <div className="bg-popover text-popover-foreground text-xs rounded-md p-2 shadow-md border max-w-48">
-                              <strong>Convenção:</strong><br/>
-                              🔴 Compra: Saída de caixa (negativo)<br/>
-                              🟢 Venda: Entrada de caixa (positivo)<br/>
-                              💰 Depósito/Saque: Valor real
+                              <strong>Cálculo:</strong><br/>
+                              💰 Caixa (BRL): Valor direto<br/>
+                              📈 Outros ativos: Quantidade × Preço<br/>
+                              ✅ Verde: Valores positivos<br/>
+                              🔴 Vermelho: Valores negativos
                             </div>
                           </div>
                         </div>
@@ -643,12 +660,6 @@ export default function EventsPage() {
                       event={event}
                       onDelete={deleteEvent}
                       isDeleting={deletingEventId === event.id}
-                      getEventIcon={getEventIcon}
-                      getEventLabel={getEventLabel}
-                      isCashAsset={isCashAsset}
-                      getAssetDisplay={getAssetDisplay}
-                      getDisplayPrice={getDisplayPrice}
-                      formatBRL={formatBRL}
                     />
                   ))}
                 </TableBody>
@@ -678,6 +689,7 @@ export default function EventsPage() {
                       {eventToDelete.kind === 'buy' ? 'Compra' :
                        eventToDelete.kind === 'deposit' ? 'Depósito' :
                        eventToDelete.kind === 'withdraw' ? 'Saque' :
+                       eventToDelete.kind === 'position_add' ? 'Adicionar Posição' :
                        'Avaliação'}
                     </Badge>
                     <span className="font-medium">{eventToDelete.global_assets?.symbol}</span>

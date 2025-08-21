@@ -5,7 +5,7 @@ CREATE TABLE public.events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     asset_id uuid NOT NULL,
-    account_id uuid NOT NULL,
+    account_id uuid, -- Made optional to match application usage
     tstamp timestamp with time zone NOT NULL,
     kind text NOT NULL,
     units_delta numeric,
@@ -13,8 +13,22 @@ CREATE TABLE public.events (
     price_close numeric,
     meta jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT events_check CHECK ((((kind = ANY (ARRAY['deposit'::text, 'withdraw'::text, 'transfer'::text])) AND (units_delta IS NOT NULL) AND (price_override IS NULL)) OR ((kind = ANY (ARRAY['buy'::text, 'sell'::text])) AND (units_delta IS NOT NULL) AND (price_close IS NOT NULL)) OR ((kind = 'valuation'::text) AND (price_override IS NOT NULL)))),
-    CONSTRAINT events_kind_check CHECK ((kind = ANY (ARRAY['deposit'::text, 'withdraw'::text, 'buy'::text, 'sell'::text, 'transfer'::text, 'valuation'::text])))
+    -- Updated business logic constraint to handle all event types properly
+    CONSTRAINT events_business_logic_check CHECK (
+        -- All events except valuation must have units_delta
+        (kind != 'valuation' AND units_delta IS NOT NULL) OR (kind = 'valuation')
+        AND
+        -- Buy and position_add require price_close
+        ((kind IN ('buy', 'position_add') AND price_close IS NOT NULL) OR kind NOT IN ('buy', 'position_add'))
+        AND
+        -- Valuation must have price_override
+        ((kind = 'valuation' AND price_override IS NOT NULL) OR kind != 'valuation')
+        AND
+        -- Allow price_override for deposit/withdraw (for non-currency assets) and valuation
+        (price_override IS NULL OR kind IN ('deposit', 'withdraw', 'valuation'))
+    ),
+    -- Updated to match application event types
+    CONSTRAINT events_kind_check CHECK ((kind = ANY (ARRAY['deposit'::text, 'withdraw'::text, 'buy'::text, 'position_add'::text, 'valuation'::text])))
 );
 
 ALTER TABLE ONLY public.events FORCE ROW LEVEL SECURITY;

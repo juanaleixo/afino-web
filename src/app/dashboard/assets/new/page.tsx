@@ -185,13 +185,15 @@ export default function NewAssetPage() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="stock">Ação</SelectItem>
-                            <SelectItem value="bond">Título</SelectItem>
-                            <SelectItem value="fund">Fundo</SelectItem>
                             <SelectItem value="crypto">Criptomoeda</SelectItem>
                             <SelectItem value="currency">Moeda</SelectItem>
-                            <SelectItem value="commodity">Commodities</SelectItem>
+                            <SelectItem value="cash">Dinheiro</SelectItem>
+                            <SelectItem value="bond">Título</SelectItem>
+                            <SelectItem value="fund">Fundo</SelectItem>
+                            <SelectItem value="reit">REIT</SelectItem>
                             <SelectItem value="real_estate">Imóvel</SelectItem>
-                            <SelectItem value="other">Outro</SelectItem>
+                            <SelectItem value="commodity">Commodity</SelectItem>
+                            <SelectItem value="vehicle">Veículo</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

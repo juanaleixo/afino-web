@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 
-type EventKind = 'deposit' | 'withdraw' | 'buy' | 'valuation'
+type EventKind = 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
 
 interface AssetAccountStepProps {
   eventKind: EventKind

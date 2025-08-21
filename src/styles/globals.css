@@ -40,8 +40,11 @@
     --crypto: 271 81% 56%; /* Purple for crypto */
     --currency: 38 92% 50%; /* Yellow for cash/currency */
     --bond: 217 91% 60%; /* Blue for bonds */
+    --fund: 174 62% 47%; /* Teal for funds */
+    --reit: 122 39% 49%; /* Sage green for REITs */
     --real-estate: 25 95% 53%; /* Orange for real estate */
     --commodity: 16 85% 55%; /* Red-orange for commodities */
+    --vehicle: 262 83% 58%; /* Purple-blue for vehicles */
     
     /* Status Colors */
     --positive: var(--success);
@@ -81,8 +84,11 @@
     --crypto: 271 81% 66%;
     --currency: 38 92% 60%;
     --bond: 217 91% 70%;
+    --fund: 174 62% 57%;
+    --reit: 122 39% 59%;
     --real-estate: 25 95% 63%;
     --commodity: 16 85% 65%;
+    --vehicle: 262 83% 68%;
   }
 }
 
@@ -149,6 +155,18 @@
   
   .asset-commodity {
     @apply text-[hsl(var(--commodity))] bg-[hsl(var(--commodity))]/10;
+  }
+  
+  .asset-fund {
+    @apply text-[hsl(var(--fund))] bg-[hsl(var(--fund))]/10;
+  }
+  
+  .asset-reit {
+    @apply text-[hsl(var(--reit))] bg-[hsl(var(--reit))]/10;
+  }
+  
+  .asset-vehicle {
+    @apply text-[hsl(var(--vehicle))] bg-[hsl(var(--vehicle))]/10;
   }
   
   /* Financial Status */

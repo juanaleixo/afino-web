@@ -39,7 +39,7 @@ export interface Event {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number

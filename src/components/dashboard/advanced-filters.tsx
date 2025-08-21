@@ -31,7 +31,7 @@ interface EventWithRelations {
   asset_id: string
   account_id?: string
   tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'valuation'
+  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
   units_delta?: number
   price_override?: number
   price_close?: number
@@ -47,7 +47,7 @@ interface EventWithRelations {
 interface FilterConfig {
   searchTerm: string
   kind: EventWithRelations['kind'] | 'all'
-  assetClass: 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund'
+  assetClass: 'all' | 'currency' | 'noncurrency' | 'stock' | 'crypto' | 'fund' | 'commodity' | 'bond' | 'reit' | 'real_estate' | 'vehicle'
   account: string | 'all'
   dateFrom: Date | null
   dateTo: Date | null
@@ -176,6 +176,7 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                   <SelectItem value="deposit">Depósito</SelectItem>
                   <SelectItem value="withdraw">Saque</SelectItem>
                   <SelectItem value="buy">Compra</SelectItem>
+                  <SelectItem value="position_add">Adicionar Posição</SelectItem>
                   <SelectItem value="valuation">Avaliação</SelectItem>
                 </SelectContent>
               </Select>
@@ -199,6 +200,11 @@ export const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                       {cls === 'stock' ? 'Ações' :
                        cls === 'crypto' ? 'Criptomoedas' :
                        cls === 'fund' ? 'Fundos' :
+                       cls === 'commodity' ? 'Commodities' :
+                       cls === 'bond' ? 'Títulos' :
+                       cls === 'reit' ? 'REITs' :
+                       cls === 'real_estate' ? 'Imóveis' :
+                       cls === 'vehicle' ? 'Veículos' :
                        cls.toUpperCase()}
                     </SelectItem>
                   ))}
