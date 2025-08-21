@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAuth } from "@/lib/auth"
-import { PortfolioService } from "@/lib/portfolio"
+import { getPortfolioService } from "@/lib/portfolio"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Eye, Crown, Loader2, DollarSign, Zap, Settings, Monitor, Target, Activity, PieChart } from "lucide-react"
 import { toast } from "sonner"
-import { useUserPlan } from "@/hooks/use-user-plan"
+import { useUserPlan } from "@/contexts/UserPlanContext"
 import PortfolioChart from "@/components/PortfolioChart"
 import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-portfolio-chart"
 import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
@@ -93,7 +93,7 @@ export default function TimelinePage() {
       setLoading(true)
       const { from, to } = getDateRange()
       
-      const portfolioService = new PortfolioService(user.id, { assumedPlan: isPremium ? 'premium' : 'free' })
+      const portfolioService = getPortfolioService(user.id, { assumedPlan: isPremium ? 'premium' : 'free' })
       // Garantir que o serviço sabe o plano do usuário antes de chamadas premium
       await portfolioService.initialize()
       
@@ -163,7 +163,7 @@ export default function TimelinePage() {
     try {
       setLoading(true)
       const { from, to } = getDateRange()
-      const portfolioService = new PortfolioService(user.id)
+      const portfolioService = getPortfolioService(user.id)
       
       const dailyPositions = await portfolioService.getDailyPositionsByAsset(assetId, from, to)
       setAssetDailyPositions(dailyPositions)
@@ -181,7 +181,7 @@ export default function TimelinePage() {
     if (!user?.id || !isPremium) return []
 
     const { from, to } = getDateRange()
-    const portfolioService = new PortfolioService(user.id)
+    const portfolioService = getPortfolioService(user.id)
     return await portfolioService.getDailyPositionsByAccountAsset(accountId, assetId, from, to)
   }
 

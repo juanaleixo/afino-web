@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
-import { useUserPlan } from "@/hooks/use-user-plan"
-import { PortfolioService } from "@/lib/portfolio"
+import { useUserPlan } from "@/contexts/UserPlanContext"
+import { getPortfolioService } from "@/lib/portfolio"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,8 +48,23 @@ export default function DashboardPage() {
   const [assetSymbols, setAssetSymbols] = useState<Map<string, string>>(new Map())
   const [loadingSymbols, setLoadingSymbols] = useState(false)
 
-  // Get data version based on last modification timestamp
-  const getDataVersion = async (userId: string): Promise<string> => {
+  // Cached version of last event timestamp (for cache invalidation)
+  const getLastEventTimestamp = async (userId: string): Promise<string> => {
+    const cacheKey = `last_event:${userId}`
+    
+    // Check cache first
+    let cached = null
+    try {
+      cached = window.sessionStorage?.getItem(cacheKey)
+    } catch {}
+    
+    if (cached) {
+      const { timestamp, expires } = JSON.parse(cached)
+      if (Date.now() < expires) {
+        return timestamp
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('events')
@@ -58,16 +73,23 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
         .limit(1)
       
-      if (error || !data?.length) {
-        return Date.now().toString() // Default version if no data
+      let timestamp = Date.now().toString()
+      if (!error && data?.length) {
+        const lastModified = new Date(data[0]!.created_at).getTime()
+        timestamp = Math.floor(lastModified / (5 * 60 * 1000)).toString()
       }
       
-      // Use timestamp of last event as version
-      const lastModified = new Date(data[0]!.created_at).getTime()
-      // Round to 5-minute intervals to avoid too frequent cache invalidation
-      return Math.floor(lastModified / (5 * 60 * 1000)).toString()
+      // Cache for 1 minute
+      try {
+        window.sessionStorage?.setItem(cacheKey, JSON.stringify({
+          timestamp,
+          expires: Date.now() + 60 * 1000
+        }))
+      } catch {}
+      
+      return timestamp
     } catch (error) {
-      console.error('Error getting data version:', error)
+      console.error('Error getting last event timestamp:', error)
       return Date.now().toString()
     }
   }
@@ -109,7 +131,7 @@ export default function DashboardPage() {
     const loadDashboardStats = async (userId: string) => {
       try {
         setLoadingStats(true)
-        const portfolioService = new PortfolioService(userId)
+        const portfolioService = getPortfolioService(userId)
         const today = new Date().toISOString().split('T')[0]!
         const stats = await portfolioService.getPortfolioStats(today)
         setPortfolioStats(stats)
@@ -124,7 +146,7 @@ export default function DashboardPage() {
     const loadMiniTimeline = async (userId: string) => {
       try {
         setLoadingMiniTimeline(true)
-        const portfolioService = new PortfolioService(userId)
+        const portfolioService = getPortfolioService(userId)
         
         // Initialize service to ensure premium status is loaded
         await portfolioService.initialize()
@@ -194,11 +216,11 @@ export default function DashboardPage() {
   const loadTimelinePreview = async (userId: string) => {
     try {
       setLoadingTimelinePreview(true)
-      const portfolioService = new PortfolioService(userId)
+      const portfolioService = getPortfolioService(userId)
       await portfolioService.initialize()
       
       // Smart cache with data versioning - checks for updates
-      const dataVersion = await getDataVersion(userId)
+      const dataVersion = await getLastEventTimestamp(userId)
       const cacheKey = `timeline-preview-${userId}-v${dataVersion}`
       const cached = sessionStorage.getItem(cacheKey)
       

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Crown, Check, X } from 'lucide-react'
 import Link from 'next/link'
-import { useUserPlan } from '@/hooks/useUserPlan'
+import { useUserPlan } from '@/contexts/UserPlanContext'
 
 interface PlanStatusProps {
   showUpgradeButton?: boolean

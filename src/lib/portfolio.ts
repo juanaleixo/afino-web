@@ -1,4 +1,5 @@
 import { supabase, PortfolioDaily, PortfolioMonthly, HoldingAt, HoldingAccount, UserProfile } from './supabase'
+import { cache, withCache } from './cache'
 
 // Serviço para as funções RPC do portfólio
 export class PortfolioService {
@@ -10,28 +11,60 @@ export class PortfolioService {
     if (options?.assumedPlan) this.userPlan = options.assumedPlan
   }
 
-  // Inicializar o plano do usuário
-  async initialize() {
-    try {
+  // Cached function to get user plan
+  private getUserPlan = withCache(
+    async (userId: string) => {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('plan')
-        .eq('user_id', this.userId)
+        .eq('user_id', userId)
         .single()
 
       if (error) {
         console.warn('Erro ao carregar plano do usuário, mantendo plano atual:', error)
-      } else {
-        if (data?.plan === 'premium') {
-          this.userPlan = 'premium'
-        } else if (!this.userPlan || this.userPlan === 'free') {
-          this.userPlan = data?.plan || 'free'
-        }
+        return 'free'
+      }
+      
+      return data?.plan || 'free'
+    },
+    (userId: string) => `user_plan:${userId}`,
+    10 * 60 * 1000 // 10 minutes
+  )
+
+  // Inicializar o plano do usuário
+  async initialize() {
+    try {
+      const plan = await this.getUserPlan(this.userId)
+      if (plan === 'premium') {
+        this.userPlan = 'premium'
+      } else if (!this.userPlan || this.userPlan === 'free') {
+        this.userPlan = plan
       }
     } catch (error) {
       console.warn('Erro ao verificar plano do usuário, mantendo plano atual:', error)
     }
   }
+
+  // Cached function for asset batch lookup
+  private getAssetsBatch = withCache(
+    async (assetIds: string[]) => {
+      if (assetIds.length === 0) return []
+      
+      const { data, error } = await supabase
+        .from('global_assets')
+        .select('id, symbol, class, label_ptbr')
+        .in('id', assetIds)
+      
+      if (error) {
+        console.warn('Erro ao buscar ativos:', error)
+        return []
+      }
+      
+      return data || []
+    },
+    (assetIds: string[]) => `assets_batch:${assetIds.sort().join(',')}`,
+    15 * 60 * 1000 // 15 minutes (assets change infrequently)
+  )
 
   // Verificar se o usuário tem acesso premium
   private checkPremiumAccess(feature: string) {
@@ -130,15 +163,60 @@ export class PortfolioService {
     }
   }
 
-  // Snapshot por ativo (free/premium)
+  // Cached function for optimized holdings with assets
+  private getHoldingsWithAssets = withCache(
+    async (userId: string, date: string) => {
+      // Try new optimized function first, fallback to original on 404
+      try {
+        const { data, error } = await supabase.rpc('api_holdings_with_assets', { 
+          p_date: date
+        })
+        if (!error && Array.isArray(data)) return data
+      } catch (newFunctionError) {
+        // Function doesn't exist yet, ignore and fallback
+      }
+      
+      // Fallback to original RPC
+      const { data: fallbackData, error: fallbackError } = await supabase.rpc('api_holdings_at', { 
+        p_date: date
+      })
+      if (!fallbackError && Array.isArray(fallbackData)) return fallbackData
+      
+      throw new Error(`RPC failed: ${fallbackError?.message || 'Unknown error'}`)
+    },
+    (userId: string, date: string) => `holdings_with_assets:${userId}:${date}`,
+    2 * 60 * 1000 // 2 minutes
+  )
+
+  // Snapshot por ativo (free/premium) 
   async getHoldingsAt(date: string): Promise<HoldingAt[]> {
-    // Tenta RPC
+    // Try optimized RPC with assets first
     try {
-      const { data, error } = await supabase.rpc('api_holdings_at', { p_date: date })
-      if (!error && Array.isArray(data)) return data
-      console.warn('api_holdings_at falhou/sem dados, fallback via tabela', error)
+      const data = await this.getHoldingsWithAssets(this.userId, date)
+      return data
     } catch (e) {
-      console.warn('Falha RPC api_holdings_at, tentando tabela:', e)
+      console.warn('Falha RPC otimizada, tentando RPC original:', e)
+      
+      // Fallback to original RPC
+      try {
+        const { data: fallbackData, error } = await supabase.rpc('api_holdings_at', { 
+          p_date: date
+        })
+        if (!error && Array.isArray(fallbackData)) {
+          // Enrich with asset metadata
+          const assetIds = fallbackData.map(h => h.asset_id)
+          const assetsData = await this.getAssetsBatch(assetIds)
+          const assetMap = new Map(assetsData.map(a => [a.id, a]))
+          
+          return fallbackData.map(holding => ({
+            ...holding,
+            symbol: assetMap.get(holding.asset_id)?.symbol,
+            class: assetMap.get(holding.asset_id)?.class
+          }))
+        }
+      } catch (fallbackError) {
+        console.warn('Falha RPC api_holdings_at, tentando tabela:', fallbackError)
+      }
     }
     // Fallback: agregando daily_positions_acct por asset_id nesse dia
     // Primeiro, tente achar a última data disponível (<= date) para o usuário
@@ -176,14 +254,11 @@ export class PortfolioService {
       agg.set(id, { units: prev.units + u, value: prev.value + v })
     }
     if (agg.size === 0) return []
-    // enriquecer com símbolo/classe
+    // enriquecer com símbolo/classe (cached)
     const assetIds = Array.from(agg.keys())
-    const { data: assetsData } = await supabase
-      .from('global_assets')
-      .select('id, symbol, class')
-      .in('id', assetIds)
+    const assetsData = await this.getAssetsBatch(assetIds)
     const assetMap = new Map<string, { symbol?: string, class?: string }>()
-    for (const a of assetsData || []) assetMap.set((a as any).id, { symbol: (a as any).symbol, class: (a as any).class })
+    for (const a of assetsData) assetMap.set(a.id, { symbol: a.symbol, class: a.class })
     const result: any[] = []
     for (const [asset_id, { units, value }] of agg.entries()) {
       const meta = assetMap.get(asset_id) || {}
@@ -611,9 +686,26 @@ export class PortfolioService {
   }
 }
 
+// Singleton instances cache
+const serviceInstances = new Map<string, PortfolioService>()
+
+// Factory function to get or create PortfolioService instance
+export function getPortfolioService(userId: string, options?: { assumedPlan?: 'free' | 'premium' }): PortfolioService {
+  const cacheKey = `${userId}_${options?.assumedPlan || 'auto'}`
+  
+  if (!serviceInstances.has(cacheKey)) {
+    console.log(`Creating new PortfolioService instance for ${cacheKey}`)
+    serviceInstances.set(cacheKey, new PortfolioService(userId, options))
+  } else {
+    console.log(`Reusing PortfolioService instance for ${cacheKey}`)
+  }
+  
+  return serviceInstances.get(cacheKey)!
+}
+
 // Hook para usar o serviço de portfólio
 export const usePortfolioService = (userId: string) => {
-  const service = new PortfolioService(userId)
+  const service = getPortfolioService(userId)
   
   return {
     service,
