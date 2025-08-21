@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendingUp, TrendingDown, Target, Activity, BarChart3, Eye, Crown, Loader2, PieChart, LineChart, Filter } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPie, Cell, BarChart as RechartsBar, Bar } from 'recharts'
+import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPie, Pie, Cell, BarChart as RechartsBar, Bar } from 'recharts'
 
 interface AssetAnalysis {
   asset_id: string
@@ -237,11 +237,21 @@ export default function PremiumAnalytics({
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <RechartsPie data={allocationData}>
-                    {allocationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <RechartsPie>
+                    <Pie
+                      data={allocationData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {allocationData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [formatCurrency(value), 'Valor']} />
                     <Legend />
                   </RechartsPie>
                 </ResponsiveContainer>
@@ -262,7 +272,7 @@ export default function PremiumAnalytics({
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
-                    <Tooltip formatter={(value: number) => formatPercent(value)} />
+                    <Tooltip formatter={(value: number) => [formatPercent(value), 'Performance']} />
                     <Bar dataKey="performance" fill="#8884d8" />
                   </RechartsBar>
                 </ResponsiveContainer>

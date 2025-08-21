@@ -14,7 +14,6 @@ import { toast } from "sonner"
 import { useUserPlan } from "@/hooks/use-user-plan"
 import PortfolioChart from "@/components/PortfolioChart"
 import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-portfolio-chart"
-import AdvancedFilters from "@/components/dashboard/timeline/advanced-filters"
 import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
 import MultiAssetTradingView from "@/components/dashboard/timeline/multi-asset-tradingview"
 import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
@@ -32,15 +31,8 @@ interface TimelineFilters {
   period: '1M' | '3M' | '6M' | '1Y' | '2Y' | 'ALL' | 'CUSTOM'
   customFrom?: string
   customTo?: string
-  accountIds: string[]
-  assetClasses: string[]
-  selectedAssets: string[]
-  showCashOnly: boolean
-  showProjections: boolean
   granularity: 'daily' | 'monthly'
-  showAssetBreakdown: boolean
   benchmark?: string | undefined
-  excludeZeroValues: boolean
 }
 
 export default function TimelinePage() {
@@ -48,17 +40,7 @@ export default function TimelinePage() {
   const { isPremium } = useUserPlan()
   const [loading, setLoading] = useState(true)
   const [portfolioData, setPortfolioData] = useState<any>(null)
-  const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
-  const [assets, setAssets] = useState<Array<{ id: string; symbol: string; class: string; label?: string }>>([])
   const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-
-  const toggleAdvancedFilters = useCallback(() => {
-    setShowAdvancedFilters(prev => {
-      console.log('Timeline: Toggling advanced filters from', prev, 'to', !prev)
-      return !prev
-    })
-  }, [])
   const [assetBreakdownData, setAssetBreakdownData] = useState<any>(null)
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
   const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
@@ -67,15 +49,8 @@ export default function TimelinePage() {
   
   const [filters, setFilters] = useState<TimelineFilters>({
     period: '1Y',
-    accountIds: [],
-    assetClasses: [],
-    selectedAssets: [],
-    showCashOnly: false,
-    showProjections: false,
     granularity: 'monthly',
-    showAssetBreakdown: false,
-    benchmark: undefined,
-    excludeZeroValues: false
+    benchmark: undefined
   })
 
   const getDateRange = useCallback(() => {
@@ -123,33 +98,13 @@ export default function TimelinePage() {
       await portfolioService.initialize()
       
       // Carregar dados básicos reais
-      const [monthlyData, dailyData, holdingsData, accountsData, assetsData] = await Promise.all([
+      const [monthlyData, dailyData, holdingsData] = await Promise.all([
         portfolioService.getMonthlySeries(from, to),
         isPremium && filters.granularity === 'daily' ? portfolioService.getDailySeries(from, to).catch(() => null) : Promise.resolve(null),
-        portfolioService.getHoldingsAt(to),
-        portfolioService.getAccounts().catch(() => []),
-        portfolioService.getUniqueAssets(to).catch(() => [])
+        portfolioService.getHoldingsAt(to)
       ])
 
-      // Carregar dados por ativo se solicitado (Premium) - DADOS REAIS
-      let assetBreakdown = null
-      if (isPremium && filters.showAssetBreakdown) {
-        try {
-          assetBreakdown = await portfolioService.getAssetBreakdown(from, to)
-        } catch (error) {
-          console.error('Erro ao carregar breakdown por ativo:', error)
-          // Fallback para dados baseados nos holdings atuais
-          const totalValue = holdingsData?.reduce((sum: number, h: any) => sum + h.value, 0) || 0
-          assetBreakdown = holdingsData?.map((holding: any) => ({
-            date: to,
-            asset_id: holding.asset_id,
-            asset_symbol: holding.symbol || holding.asset_id,
-            asset_class: holding.class || 'unknown',
-            value: holding.value,
-            percentage: totalValue > 0 ? (holding.value / totalValue) * 100 : 0
-          })) || []
-        }
-      }
+      // Asset breakdown removido - funcionalidade confusa e limitada
 
       setPortfolioData({
         monthlySeries: monthlyData,
@@ -158,13 +113,7 @@ export default function TimelinePage() {
         period: { from, to }
       })
       
-      setAssetBreakdownData(assetBreakdown)
-      
-      // Usar contas reais do banco
-      setAccounts(accountsData)
-      
-      // Usar ativos reais do banco
-      setAssets(assetsData)
+      setAssetBreakdownData(null)
 
       // Carregar dados de benchmark se selecionado (Premium)
       if (isPremium && filters.benchmark) {
@@ -198,7 +147,7 @@ export default function TimelinePage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, getDateRange, isPremium, filters.showAssetBreakdown, filters.benchmark, filters.granularity])
+  }, [user?.id, getDateRange, isPremium, filters.benchmark, filters.granularity])
 
   useEffect(() => {
     loadTimelineData()
@@ -238,8 +187,8 @@ export default function TimelinePage() {
 
   const getSelectedAssetInfo = () => {
     if (!selectedAssetForDrillDown) return null
-    const asset = assets.find(a => a.id === selectedAssetForDrillDown)
-    return asset || null
+    // Assets list removido - usando apenas ID
+    return { id: selectedAssetForDrillDown, symbol: selectedAssetForDrillDown }
   }
 
   const calculateTotalValue = () => {
@@ -253,12 +202,10 @@ export default function TimelinePage() {
       ? (portfolioData?.dailySeries || [])
       : null
     if (dailyActive) {
-      const arr = dailyActive.map((d: any) => ({ date: d.date, total_value: d.total_value }))
-      return filters.excludeZeroValues ? arr.filter((x: any) => x.total_value > 0) : arr
+      return dailyActive.map((d: any) => ({ date: d.date, total_value: d.total_value }))
     }
     const monthlyActive = portfolioData?.monthlySeries || []
-    const arr = monthlyActive.map((m: any) => ({ date: m.month_eom, total_value: m.total_value }))
-    return filters.excludeZeroValues ? arr.filter((x: any) => x.total_value > 0) : arr
+    return monthlyActive.map((m: any) => ({ date: m.month_eom, total_value: m.total_value }))
   }
 
   const calculateReturns = () => {
@@ -392,17 +339,6 @@ export default function TimelinePage() {
           </CardContent>
         </Card>
 
-        {/* Filtros Avançados Premium */}
-        <AdvancedFilters
-          key={`filters-${showAdvancedFilters}`}
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          accounts={accounts}
-          assets={assets}
-          isPremium={isPremium}
-          isOpen={showAdvancedFilters}
-          onToggle={toggleAdvancedFilters}
-        />
 
         {/* Cards de Resumo */}
         {portfolioData ? (
@@ -508,7 +444,6 @@ export default function TimelinePage() {
                     dailyData={portfolioData?.dailySeries}
                     assetBreakdown={assetBreakdownData}
                     isLoading={loading}
-                    showAssetBreakdown={filters.showAssetBreakdown}
                     granularity={filters.granularity}
                   />
                 ) : (
@@ -594,7 +529,14 @@ export default function TimelinePage() {
                             Para comparar ativos individuais, use a visualização diária
                           </p>
                         </div>
-                        <Button onClick={() => handleFiltersChange({ granularity: 'daily' })}>
+                        <Button onClick={() => {
+                          const newFilters: Partial<TimelineFilters> = { granularity: 'daily' }
+                          // Silently optimize to 1M for daily data without interrupting user
+                          if (!['1M', '3M'].includes(filters.period)) {
+                            newFilters.period = '1M'
+                          }
+                          handleFiltersChange(newFilters)
+                        }}>
                           Alternar para Dados Diários
                         </Button>
                       </div>

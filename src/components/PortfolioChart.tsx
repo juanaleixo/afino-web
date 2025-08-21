@@ -97,7 +97,7 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
                       className="fill-muted-foreground text-xs"
                     />
                     <Tooltip
-                      formatter={(value: number) => currencyFormatter.format(value)}
+                      formatter={(value: number) => [currencyFormatter.format(value), 'Valor Total']}
                       labelFormatter={(label: string) => new Date(label).toLocaleDateString('pt-BR')}
                       contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '0.5rem', color: 'white' }}
                       wrapperStyle={{ outline: 'none' }}

@@ -157,7 +157,7 @@ export default function MultiAssetTradingView({
       const portfolioSeries = chart.addSeries(LineSeries, {
         color: '#1f2937',
         lineWidth: 3,
-        title: 'Portfolio Total',
+        title: 'Valor Total',
         priceFormat: {
           type: 'custom',
           formatter: (price: number) => 
@@ -461,7 +461,7 @@ export default function MultiAssetTradingView({
                 <FadeIn>
                   <div className="flex items-center space-x-2 hover:bg-muted/50 p-2 rounded transition-colors">
                     <div className="w-3 h-3 bg-gray-800 rounded" />
-                    <span className="text-sm font-medium">Portfolio Total</span>
+                    <span className="text-sm font-medium">Valor Total</span>
                   </div>
                 </FadeIn>
               )}
