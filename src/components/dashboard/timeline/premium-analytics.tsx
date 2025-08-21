@@ -42,6 +42,13 @@ export default function PremiumAnalytics({
   const [selectedView, setSelectedView] = useState<'overview' | 'performance' | 'risk' | 'comparison'>('overview')
   const [selectedAsset, setSelectedAsset] = useState<string>('')
 
+  // Auto-select first asset when performance data is available
+  useEffect(() => {
+    if (performanceData && performanceData.length > 0 && !selectedAsset) {
+      setSelectedAsset(performanceData[0]?.asset_id || '')
+    }
+  }, [performanceData, selectedAsset])
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',

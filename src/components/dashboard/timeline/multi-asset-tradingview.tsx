@@ -126,6 +126,10 @@ export default function MultiAssetTradingView({
         borderColor: isDark ? '#374151' : '#e2e8f0',
         timeVisible: true,
         secondsVisible: false,
+        barSpacing: 6,
+        minBarSpacing: 0.5,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       crosshair: {
         mode: 1,
@@ -152,8 +156,8 @@ export default function MultiAssetTradingView({
 
     chartRef.current = chart
 
-    // Add portfolio line if enabled (only in line modes, not candles)
-    if (showPortfolio && portfolioData?.dailySeries && chartType !== 'candles') {
+    // Add portfolio line if enabled (only in line modes, not candles or percentage)
+    if (showPortfolio && portfolioData?.dailySeries && chartType !== 'candles' && chartType !== 'percentage') {
       const portfolioSeries = chart.addSeries(LineSeries, {
         color: '#1f2937',
         lineWidth: 3,
@@ -267,6 +271,24 @@ export default function MultiAssetTradingView({
     })
 
     chart.timeScale().fitContent()
+    
+    // Set visible range to prevent excessive zoom out
+    if (assetsData.length > 0 && assetsData[0]?.daily_values?.length) {
+      const firstAsset = assetsData[0]
+      const firstDate = firstAsset.daily_values?.[0]?.date
+      const lastDate = firstAsset.daily_values?.[firstAsset.daily_values.length - 1]?.date
+      
+      if (firstDate && lastDate) {
+        // Add 5% margin on each side to prevent blank spaces
+        const totalTime = new Date(lastDate).getTime() - new Date(firstDate).getTime()
+        const margin = totalTime * 0.05
+        
+        chart.timeScale().setVisibleRange({
+          from: (new Date(firstDate).getTime() - margin) / 1000 as any,
+          to: (new Date(lastDate).getTime() + margin) / 1000 as any
+        })
+      }
+    }
 
     // Cleanup
     return () => {

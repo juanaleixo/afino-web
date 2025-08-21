@@ -48,6 +48,10 @@ export default function LightweightChartWrapper({
         borderColor: isDark ? '#374151' : '#e2e8f0',
         timeVisible: true,
         secondsVisible: false,
+        barSpacing: 6,
+        minBarSpacing: 0.5,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       crosshair: {
         mode: 1,
