@@ -580,6 +580,35 @@ export class PortfolioService {
       holdings
     }
   }
+
+  // Obter lista de ativos do usuário com símbolos
+  async getUserAssets() {
+    try {
+      // First get user's holdings to find which assets they have
+      const holdings = await this.getHoldingsAt(new Date().toISOString().split('T')[0]!)
+      const assetIds = holdings.map(h => h.asset_id)
+      
+      if (assetIds.length === 0) return []
+      
+      // Then get asset details from global_assets table
+      const { data, error } = await supabase
+        .from('global_assets')
+        .select('id, symbol, class, label_ptbr')
+        .in('id', assetIds)
+      
+      if (error) throw error
+      
+      return data?.map(asset => ({
+        id: asset.id,
+        symbol: asset.symbol || asset.id,
+        class: asset.class || 'unknown',
+        label: asset.label_ptbr || asset.symbol || asset.id
+      })) || []
+    } catch (error) {
+      console.error('Erro ao carregar ativos do usuário:', error)
+      return []
+    }
+  }
 }
 
 // Hook para usar o serviço de portfólio
@@ -594,6 +623,7 @@ export const usePortfolioService = (userId: string) => {
     getDailySeries: (from: string, to: string) => service.getDailySeries(from, to),
     getMonthlySeries: (from: string, to: string) => service.getMonthlySeries(from, to),
     getHoldingsAt: (date: string) => service.getHoldingsAt(date),
-    getHoldingsAccounts: (date: string) => service.getHoldingsAccounts(date)
+    getHoldingsAccounts: (date: string) => service.getHoldingsAccounts(date),
+    getUserAssets: () => service.getUserAssets()
   }
 } 

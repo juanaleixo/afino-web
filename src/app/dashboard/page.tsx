@@ -5,6 +5,7 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
 import { useUserPlan } from "@/hooks/use-user-plan"
 import { PortfolioService } from "@/lib/portfolio"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +45,63 @@ export default function DashboardPage() {
   const [loadingMiniTimeline, setLoadingMiniTimeline] = useState(true)
   const [timelinePreviewData, setTimelinePreviewData] = useState<any>(null)
   const [loadingTimelinePreview, setLoadingTimelinePreview] = useState(true)
+  const [assetSymbols, setAssetSymbols] = useState<Map<string, string>>(new Map())
+  const [loadingSymbols, setLoadingSymbols] = useState(false)
+
+  // Get data version based on last modification timestamp
+  const getDataVersion = async (userId: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      
+      if (error || !data?.length) {
+        return Date.now().toString() // Default version if no data
+      }
+      
+      // Use timestamp of last event as version
+      const lastModified = new Date(data[0]!.created_at).getTime()
+      // Round to 5-minute intervals to avoid too frequent cache invalidation
+      return Math.floor(lastModified / (5 * 60 * 1000)).toString()
+    } catch (error) {
+      console.error('Error getting data version:', error)
+      return Date.now().toString()
+    }
+  }
+
+  // Load asset symbols asynchronously 
+  const loadAssetSymbols = async (assetIds: string[]) => {
+    try {
+      setLoadingSymbols(true)
+      const { data, error } = await supabase
+        .from('global_assets')
+        .select('id, symbol')
+        .in('id', assetIds)
+      
+      if (error) throw error
+      
+      const symbolMap = new Map<string, string>()
+      data?.forEach(asset => {
+        symbolMap.set(asset.id, asset.symbol || asset.id)
+      })
+      
+      setAssetSymbols(symbolMap)
+    } catch (error) {
+      console.error('Error loading asset symbols:', error)
+    } finally {
+      setLoadingSymbols(false)
+    }
+  }
+
+  // Load symbols when timeline data is available but symbols are not loaded
+  useEffect(() => {
+    if (timelinePreviewData?.holdings?.length > 0 && assetSymbols.size === 0) {
+      loadAssetSymbols(timelinePreviewData.holdings.map((h: any) => h.asset_id))
+    }
+  }, [timelinePreviewData, assetSymbols.size])
 
   useEffect(() => {
     if (!user?.id) return
@@ -139,8 +197,9 @@ export default function DashboardPage() {
       const portfolioService = new PortfolioService(userId)
       await portfolioService.initialize()
       
-      // Aggressive cache for 30 minutes
-      const cacheKey = `timeline-preview-${userId}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
+      // Smart cache with data versioning - checks for updates
+      const dataVersion = await getDataVersion(userId)
+      const cacheKey = `timeline-preview-${userId}-v${dataVersion}`
       const cached = sessionStorage.getItem(cacheKey)
       
       if (cached) {
@@ -159,16 +218,17 @@ export default function DashboardPage() {
         const from = sixMonthsAgo.toISOString().split('T')[0]!
         const to = today.toISOString().split('T')[0]!
         
-        const [dailyData, holdingsData, performanceData] = await Promise.all([
+        // Simplified data loading - just the essentials for preview
+        const [dailyData, holdingsData] = await Promise.all([
           portfolioService.getDailySeries(from, to),
-          portfolioService.getHoldingsAt(to),
-          portfolioService.getAssetPerformanceAnalysis(from, to).catch(() => [])
+          portfolioService.getHoldingsAt(to)
         ])
         
         timelineData = {
           series: dailyData,
           holdings: holdingsData,
-          performance: performanceData,
+          performance: [],
+          assets: [],
           period: { from, to, label: '6 meses' },
           isPremium: true
         }
@@ -188,14 +248,20 @@ export default function DashboardPage() {
           series: monthlyData,
           holdings: holdingsData,
           performance: [],
+          assets: [],
           period: { from, to, label: '12 meses' },
           isPremium: false
         }
       }
       
-      // Cache for 30 minutes
+      // Cache for 60 minutes
       sessionStorage.setItem(cacheKey, JSON.stringify(timelineData))
       setTimelinePreviewData(timelineData)
+      
+      // Load asset symbols asynchronously for better UX
+      if (timelineData.holdings?.length > 0) {
+        loadAssetSymbols(timelineData.holdings.map((h: any) => h.asset_id))
+      }
     } catch (error) {
       console.error('Erro ao carregar preview da timeline:', error)
       // Set empty data to avoid loading state forever
@@ -228,6 +294,80 @@ export default function DashboardPage() {
     
     const percentage = ((lastValue - firstValue) / firstValue) * 100
     return { percentage, isPositive: percentage >= 0 }
+  }
+
+  const getLargestHolding = () => {
+    if (!timelinePreviewData?.holdings?.length) return { symbol: 'N/A', percentage: 0, loading: false }
+    
+    const holdings = timelinePreviewData.holdings
+    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
+    
+    if (totalValue === 0) return { symbol: 'N/A', percentage: 0, loading: false }
+    
+    const largest = holdings.reduce((max: any, current: any) => 
+      (current.value || 0) > (max.value || 0) ? current : max
+    )
+    
+    const percentage = ((largest.value || 0) / totalValue) * 100
+    const assetId = largest.asset_id || 'N/A'
+    
+    // If symbols are loading, show loading state
+    if (loadingSymbols) {
+      return { symbol: '...', percentage: isNaN(percentage) ? 0 : percentage, loading: true }
+    }
+    
+    // Try to get symbol from loaded symbols, fallback to abbreviated ID
+    const symbol = assetSymbols.get(assetId) || 
+                  (assetId.length > 8 ? assetId.substring(0, 8).toUpperCase() : assetId)
+    
+    return { 
+      symbol, 
+      percentage: isNaN(percentage) ? 0 : percentage,
+      loading: false
+    }
+  }
+
+  const getDiversificationScore = () => {
+    if (!timelinePreviewData?.holdings?.length) return { score: 0, label: 'Sem dados' }
+    
+    const holdings = timelinePreviewData.holdings
+    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
+
+    if (totalValue === 0 || holdings.length === 0) return { score: 0, label: 'Sem dados' }
+
+    // Calculate Herfindahl-Hirschman Index (HHI) for diversification
+    const hhi = holdings.reduce((sum: number, holding: any) => {
+      const weight = (holding.value || 0) / totalValue
+      if (isNaN(weight)) return sum
+      return sum + (weight * weight)
+    }, 0)
+
+    // Convert HHI to diversification score (0-100, higher = more diversified)
+    const diversificationScore = Math.max(0, 100 - (hhi * 100))
+
+    if (isNaN(diversificationScore)) return { score: 0, label: 'Sem dados' }
+
+    let label = 'Baixa'
+    if (diversificationScore > 70) label = 'Alta'
+    else if (diversificationScore > 40) label = 'Média'
+
+    return { score: diversificationScore, label }
+  }
+
+  const getAssetClassDistribution = () => {
+    if (!timelinePreviewData?.holdings?.length) {
+      return { diversityLabel: 'Sem dados' }
+    }
+    
+    const holdings = timelinePreviewData.holdings
+    const numAssets = holdings.length
+    
+    // Simple diversity calculation based on number of assets
+    let diversityLabel = 'Concentrado'
+    if (numAssets >= 5) diversityLabel = 'Diversificado'
+    else if (numAssets >= 3) diversityLabel = 'Balanceado'
+    
+    return { diversityLabel }
   }
 
   const menuItems = [
@@ -329,12 +469,18 @@ export default function DashboardPage() {
                       {portfolioStats ? formatCurrency(portfolioStats.totalValue) : 'R$ 0,00'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <StatusBadge variant="success" size="sm">
-                        <ArrowUp className="h-3 w-3" />
-                        +0,0%
-                      </StatusBadge>
+                      {timelinePreviewData?.series && calculate30DayPerformance().percentage !== 0 ? (
+                        <StatusBadge variant={calculate30DayPerformance().isPositive ? "success" : "error"} size="sm">
+                          {calculate30DayPerformance().isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                          {calculate30DayPerformance().isPositive ? '+' : ''}{calculate30DayPerformance().percentage.toFixed(1)}%
+                        </StatusBadge>
+                      ) : (
+                        <StatusBadge variant="neutral" size="sm">
+                          Sem variação
+                        </StatusBadge>
+                      )}
                       <span className="text-xs text-muted-foreground">
-                        {portfolioStats ? `${portfolioStats.totalAssets} posições` : 'Sem dados'}
+                        {timelinePreviewData?.holdings?.length ? `${timelinePreviewData.holdings.length} posições` : 'Sem dados'}
                       </span>
                     </div>
                   </>
@@ -353,14 +499,14 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {portfolioStats?.totalAssets || 0}
+                      {timelinePreviewData?.holdings?.length || 0}
                     </div>
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
                       <AssetBadge assetClass="stock" size="sm" showLabel={false} />
                       <AssetBadge assetClass="crypto" size="sm" showLabel={false} />
                       <AssetBadge assetClass="currency" size="sm" showLabel={false} />
                       <span className="text-xs text-muted-foreground">
-                        {portfolioStats?.totalAssets > 0 ? 'Diversificado' : 'Sem ativos'}
+                        {getAssetClassDistribution().diversityLabel}
                       </span>
                     </div>
                   </>
@@ -370,54 +516,58 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Últimas Atividades</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Maior Posição</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <StatusBadge variant="info" size="sm">
-                    Hoje
-                  </StatusBadge>
-                  <span className="text-xs text-muted-foreground">
-                    transações
-                  </span>
-                </div>
+                {loadingTimelinePreview ? (
+                  <LoadingState variant="inline" size="sm" message="Carregando..." />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">
+                      {getLargestHolding().loading ? (
+                        <span className="animate-pulse text-muted-foreground">...</span>
+                      ) : (
+                        getLargestHolding().symbol
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <StatusBadge variant="info" size="sm">
+                        {getLargestHolding().percentage.toFixed(1)}%
+                      </StatusBadge>
+                      <span className="text-xs text-muted-foreground">
+                        do portfólio
+                      </span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Performance {isPremium ? '30 dias' : 'Últimos meses'}
-                </CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Diversificação</CardTitle>
+                <PieChart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {loadingMiniTimeline ? (
+                {loadingTimelinePreview ? (
                   <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
-                    <div className={`text-2xl font-bold ${calculate30DayPerformance().isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                      {calculate30DayPerformance().isPositive ? '+' : ''}{calculate30DayPerformance().percentage.toFixed(1)}%
+                    <div className="text-2xl font-bold">
+                      {getDiversificationScore().score.toFixed(0)}
                     </div>
-                    <div className="flex items-center gap-2 mt-1 mb-3">
-                      <StatusBadge variant={calculate30DayPerformance().isPositive ? "success" : "error"} size="sm">
-                        {calculate30DayPerformance().isPositive ? 
-                          <ArrowUp className="h-3 w-3" /> : 
-                          <ArrowDown className="h-3 w-3" />
-                        }
-                        {isPremium ? '30 dias' : 'período'}
+                    <div className="flex items-center gap-2 mt-1">
+                      <StatusBadge 
+                        variant={getDiversificationScore().score > 70 ? "success" : getDiversificationScore().score > 40 ? "warning" : "neutral"} 
+                        size="sm"
+                      >
+                        {getDiversificationScore().label}
                       </StatusBadge>
                       <span className="text-xs text-muted-foreground">
-                        evolução
+                        diversificação
                       </span>
                     </div>
-                    <MiniChart 
-                      data={miniTimelineData} 
-                      color={calculate30DayPerformance().isPositive ? '#16a34a' : '#dc2626'}
-                      height={50}
-                    />
                   </>
                 )}
               </CardContent>
