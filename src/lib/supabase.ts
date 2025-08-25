@@ -1,9 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Avoid throwing at build-time when env vars are not provided (e.g., static export of marketing pages).
+// We create a safe proxy that only errors if someone actually tries to use the client without config.
+function createSupabaseSafe(): SupabaseClient<any, any, any> {
+  if (supabaseUrl && supabaseAnonKey) {
+    return createClient(supabaseUrl, supabaseAnonKey)
+  }
+  const message = 'Supabase client is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+  return new Proxy({} as SupabaseClient<any, any, any>, {
+    get() {
+      throw new Error(message)
+    }
+  })
+}
+
+export const supabase = createSupabaseSafe()
 
 // Tipos baseados no schema SQL real
 export interface User {

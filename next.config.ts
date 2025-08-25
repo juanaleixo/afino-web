@@ -16,7 +16,8 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: false,
+    // Lint already runs in the CI quality job; skip during build to avoid ESLint CLI option mismatches
+    ignoreDuringBuilds: true,
   },
   output: 'export',
   trailingSlash: true,

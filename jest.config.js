@@ -12,6 +12,7 @@ const customJestConfig = {
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/.next/'],
+  watchman: false,
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

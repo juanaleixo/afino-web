@@ -143,7 +143,7 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
               </h4>
               <p className="text-sm text-blue-800">
                 Use esta opção para registrar ativos que você já possui. 
-                Ideal para fazer um "inventário" do seu patrimônio atual, adicionando posições existentes ao seu portfólio.
+                Ideal para fazer um &quot;inventário&quot; do seu patrimônio atual, adicionando posições existentes ao seu portfólio.
               </p>
             </div>
           </div>

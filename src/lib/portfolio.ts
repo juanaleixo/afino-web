@@ -1,5 +1,5 @@
-import { supabase, PortfolioDaily, PortfolioMonthly, HoldingAt, HoldingAccount, UserProfile } from './supabase'
-import { cache, withCache } from './cache'
+import { supabase, PortfolioDaily, PortfolioMonthly, HoldingAt, HoldingAccount } from './supabase'
+import { withCache } from './cache'
 
 // Serviço para as funções RPC do portfólio
 export class PortfolioService {
@@ -172,7 +172,7 @@ export class PortfolioService {
           p_date: date
         })
         if (!error && Array.isArray(data)) return data
-      } catch (newFunctionError) {
+      } catch {
         // Function doesn't exist yet, ignore and fallback
       }
       
@@ -349,7 +349,7 @@ export class PortfolioService {
           label: holding.label_ptbr || holding.symbol
         }))
       }
-    } catch (rpcError) {
+    } catch {
       console.warn('RPC api_holdings_detailed_at não disponível, usando fallback')
     }
 
@@ -418,7 +418,7 @@ export class PortfolioService {
       if (!error && Array.isArray(data) && data.length > 0) {
         raw = data
       }
-    } catch (rpcError) {
+    } catch {
       console.warn('RPC api_portfolio_daily_detailed não disponível, usando fallback')
     }
 

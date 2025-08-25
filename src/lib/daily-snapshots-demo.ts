@@ -7,7 +7,6 @@
 import {
   calculatePositionsAtDate,
   calculateDailySnapshot,
-  toSaoPauloDate,
   EventForSnapshot
 } from './daily-snapshots'
 

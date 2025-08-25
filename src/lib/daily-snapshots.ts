@@ -144,7 +144,7 @@ export function calculatePositionsAtDate(
 export function calculateDailySnapshot(
   positions: AssetPosition[],
   date: string,
-  userId: string
+  _userId: string
 ): SnapshotSummary {
   let cashBalance = 0
   let assetsValue = 0

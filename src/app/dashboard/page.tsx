@@ -26,8 +26,6 @@ import {
   ArrowDown,
   Clock,
   Users,
-  RefreshCw,
-  TrendingUp as TrendingUpIcon,
   Edit3
 } from "lucide-react"
 import MiniChart from "@/components/ui/mini-chart"

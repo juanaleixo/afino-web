@@ -325,8 +325,9 @@ describe('Daily Snapshots', () => {
       // Dia 1: Só cash
       const day1 = calculatePositionsAtDate(events, '2024-01-01')
       expect(day1).toHaveLength(1)
-      expect(day1[0].quantity).toBe(5000)
-      expect(day1[0].last_price).toBe(1) // Cash sempre 1.0
+      const onlyPos = day1[0]!
+      expect(onlyPos.quantity).toBe(5000)
+      expect(onlyPos.last_price).toBe(1) // Cash sempre 1.0
       
       // Dia 2: Cash + stock
       const day2 = calculatePositionsAtDate(events, '2024-01-02')

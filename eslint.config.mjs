@@ -24,6 +24,8 @@ const eslintConfig = [
       "**/*.bundle.js",
       ".wrangler/**",
       "next-env.d.ts",
+      "jest.config.js",
+      "jest.setup.ts",
     ],
   },
   {
