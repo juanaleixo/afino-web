@@ -31,6 +31,148 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getAssetDisplayLabel, getAssetClassLabel, getAssetClassColor } from "@/lib/utils/assets";
+
+interface AssetsTableProps {
+  assets: Asset[];
+  latestPrices: Record<string, { date: string; price: number }>;
+  formatBRL: (n: number) => string;
+  formatDate: (d: string) => string;
+  currencyLabel: (c: string) => string;
+  isGlobalAssets?: boolean;
+}
+
+function AssetsTable({
+  assets,
+  latestPrices,
+  formatBRL,
+  formatDate,
+  currencyLabel,
+  isGlobalAssets = false,
+}: AssetsTableProps) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Ativo</TableHead>
+          <TableHead>Classe</TableHead>
+          <TableHead>Moeda</TableHead>
+          <TableHead>Preço</TableHead>
+          <TableHead>Atualizado</TableHead>
+          {!isGlobalAssets && <TableHead>Ações</TableHead>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {assets.map((asset) => (
+          <TableRow key={asset.id}>
+            <TableCell className="font-medium">
+              <div className="flex flex-col">
+                <span>{getAssetDisplayLabel(asset)}</span>
+                {getAssetDisplayLabel(asset)?.toUpperCase?.() !== asset.symbol?.toUpperCase?.() && (
+                  <span className="text-xs text-muted-foreground">{asset.symbol}</span>
+                )}
+              </div>
+            </TableCell>
+            <TableCell>
+              <Badge className={getAssetClassColor(asset.class)}>
+                {getAssetClassLabel(asset.class)}
+              </Badge>
+            </TableCell>
+            <TableCell>{currencyLabel(asset.currency)}</TableCell>
+            <TableCell>
+              {asset.class === "currency" || asset.class === 'cash' ? (
+                <span>{formatBRL(1)}</span>
+              ) : typeof asset.manual_price === "number" ? (
+                <span>
+                  {formatBRL(asset.manual_price)}
+                  <Badge variant="secondary" className="ml-2">
+                    Manual
+                  </Badge>
+                </span>
+              ) : latestPrices[asset.id] ? (
+                <span>
+                  {formatBRL(latestPrices[asset.id]?.price || 0)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">--</span>
+              )}
+            </TableCell>
+            <TableCell>
+              {latestPrices[asset.id]?.date ? (
+                <span className="text-xs text-muted-foreground">
+                  {formatDate(latestPrices[asset.id]?.date || '')}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">--</span>
+              )}
+            </TableCell>
+            {!isGlobalAssets && (
+              <TableCell>
+                <div className="flex flex-wrap gap-2">
+                  {asset.class === "currency" || asset.class === 'cash' ? (
+                    <>
+                      <Button
+                        asChild
+                        variant="secondary"
+                        size="sm"
+                        title="Entrada de Caixa"
+                      >
+                        <Link
+                          href={`/dashboard/events/new?kind=deposit&asset_id=${asset.id}`}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Entrada
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        title="Saída de Caixa"
+                      >
+                        <Link
+                          href={`/dashboard/events/new?kind=withdraw&asset_id=${asset.id}`}
+                        >
+                          <TrendingDown className="h-4 w-4 mr-1" /> Saída
+                        </Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        asChild
+                        variant="secondary"
+                        size="sm"
+                        title="Comprar"
+                      >
+                        <Link
+                          href={`/dashboard/events/new?kind=buy&asset_id=${asset.id}`}
+                        >
+                          <TrendingUp className="h-4 w-4 mr-1" /> Comprar
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        title="Avaliar"
+                      >
+                        <Link
+                          href={`/dashboard/events/new?kind=valuation&asset_id=${asset.id}`}
+                        >
+                          <Calendar className="h-4 w-4 mr-1" /> Avaliar
+                        </Link>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
 
 export default function AssetsPage() {
   const { user } = useAuth();
@@ -87,64 +229,11 @@ export default function AssetsPage() {
     loadAssets();
   }, [loadAssets]);
 
-  const getAssetClassLabel = (assetClass: string) => {
-    switch (assetClass) {
-      case "stock":
-        return "Ação";
-      case "bond":
-        return "Título";
-      case "fund":
-        return "Fundo";
-      case "crypto":
-        return "Cripto";
-      case "currency":
-        return "Caixa";
-      case "cash":
-        return "Caixa";
-      case "commodity":
-        return "Commodities";
-      case "real_estate":
-        return "Imóvel";
-      default:
-        return assetClass;
-    }
-  };
+  // Filtrar apenas ativos customizados
+  const customAssets = assets.filter(asset => 
+    asset.meta && typeof asset.meta === 'object' && 'is_custom' in asset.meta && asset.meta.is_custom
+  );
 
-  const getAssetClassColor = (assetClass: string) => {
-    switch (assetClass) {
-      case "stock":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "bond":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "fund":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      case "crypto":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
-      case "currency":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
-      case "cash":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
-      case "commodity":
-        return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300";
-      case "real_estate":
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
-    }
-  };
-
-  const getDisplayLabel = (asset: Asset) => {
-    if (asset.label_ptbr && asset.label_ptbr.trim().length > 0) return asset.label_ptbr
-    // Fallbacks em PT-BR
-    if (asset.class === 'currency' || asset.class === 'cash') return 'Caixa'
-    if (asset.class === 'crypto') {
-      const sym = asset.symbol?.toUpperCase?.() || ''
-      if (sym === 'BTC') return 'Bitcoin'
-      if (sym === 'ETH') return 'Ethereum'
-    }
-    if (asset.class === 'stock') return asset.symbol
-    return asset.symbol
-  }
 
   const formatBRL = (n: number) =>
     new Intl.NumberFormat("pt-BR", {
@@ -153,26 +242,7 @@ export default function AssetsPage() {
     }).format(n);
   const formatDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
   const currencyLabel = (c: string) => {
-    switch (c) {
-      case "BRL":
-        return "Real Brasileiro (BRL)";
-      case "USD":
-        return "Dólar Americano (USD)";
-      case "EUR":
-        return "Euro (EUR)";
-      case "GBP":
-        return "Libra Esterlina (GBP)";
-      case "JPY":
-        return "Iene Japonês (JPY)";
-      case "CHF":
-        return "Franco Suíço (CHF)";
-      case "CAD":
-        return "Dólar Canadense (CAD)";
-      case "AUD":
-        return "Dólar Australiano (AUD)";
-      default:
-        return c;
-    }
+    return c === "BRL" ? "Real Brasileiro (BRL)" : c;
   };
 
   if (loading) {
@@ -222,151 +292,36 @@ export default function AssetsPage() {
         <main className="container mx-auto px-4 py-8">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Ativos</CardTitle>
+              <CardTitle>Meus Ativos</CardTitle>
               <CardDescription>
-                Todos os ativos disponíveis para investimento
+                Ativos criados por você para seu portfólio pessoal
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {assets.length === 0 ? (
+              {customAssets.length === 0 ? (
                 <div className="text-center py-8">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">
-                    Nenhum ativo encontrado
+                    Nenhum ativo personalizado criado
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    Você ainda não tem ativos cadastrados.
+                    Crie seus primeiros ativos personalizados para começar a acompanhar seu portfólio.
                   </p>
                   <Button asChild>
                     <Link href="/dashboard/assets/new">
                       <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Primeiro Ativo
+                      Criar Primeiro Ativo
                     </Link>
                   </Button>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ativo</TableHead>
-                      <TableHead>Classe</TableHead>
-                      <TableHead>Moeda</TableHead>
-                      <TableHead>Preço</TableHead>
-                      <TableHead>Atualizado</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {assets.map((asset) => (
-                      <TableRow key={asset.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex flex-col">
-                            <span>{getDisplayLabel(asset)}</span>
-                            {getDisplayLabel(asset)?.toUpperCase?.() !== asset.symbol?.toUpperCase?.() && (
-                              <span className="text-xs text-muted-foreground">{asset.symbol}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getAssetClassColor(asset.class)}>
-                            {getAssetClassLabel(asset.class)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{currencyLabel(asset.currency)}</TableCell>
-                        <TableCell>
-                          {asset.class === "currency" || asset.class === 'cash' ? (
-                            <span>{formatBRL(1)}</span>
-                          ) : typeof asset.manual_price === "number" ? (
-                            <span>
-                              {formatBRL(asset.manual_price)}
-                              <Badge variant="secondary" className="ml-2">
-                                Manual
-                              </Badge>
-                            </span>
-                          ) : latestPrices[asset.id] ? (
-                            <span>
-                              {formatBRL(latestPrices[asset.id]?.price || 0)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {latestPrices[asset.id]?.date ? (
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(latestPrices[asset.id]?.date || '')}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">--</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {/* Ações contextuais por tipo de ativo */}
-                          <div className="flex flex-wrap gap-2">
-                            {asset.class === "currency" || asset.class === 'cash' ? (
-                              <>
-                                <Button
-                                  asChild
-                                  variant="secondary"
-                                  size="sm"
-                                  title="Depósito em Caixa"
-                                >
-                                  <Link
-                                    href={`/dashboard/events/new?kind=deposit&asset_id=${asset.id}`}
-                                  >
-                                    <Plus className="h-4 w-4 mr-1" /> Depósito
-                                  </Link>
-                                </Button>
-                                <Button
-                                  asChild
-                                  variant="outline"
-                                  size="sm"
-                                  title="Saque de Caixa"
-                                >
-                                  <Link
-                                    href={`/dashboard/events/new?kind=withdraw&asset_id=${asset.id}`}
-                                  >
-                                    <TrendingDown className="h-4 w-4 mr-1" />{" "}
-                                    Saque
-                                  </Link>
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  asChild
-                                  variant="secondary"
-                                  size="sm"
-                                  title="Comprar"
-                                >
-                                  <Link
-                                    href={`/dashboard/events/new?kind=buy&asset_id=${asset.id}`}
-                                  >
-                                    <TrendingUp className="h-4 w-4 mr-1" />{" "}
-                                    Comprar
-                                  </Link>
-                                </Button>
-                                <Button
-                                  asChild
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Avaliar"
-                                >
-                                  <Link
-                                    href={`/dashboard/events/new?kind=valuation&asset_id=${asset.id}`}
-                                  >
-                                    <Calendar className="h-4 w-4 mr-1" />{" "}
-                                    Avaliar
-                                  </Link>
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <AssetsTable 
+                  assets={customAssets} 
+                  latestPrices={latestPrices}
+                  formatBRL={formatBRL}
+                  formatDate={formatDate}
+                  currencyLabel={currencyLabel}
+                />
               )}
             </CardContent>
           </Card>

@@ -97,7 +97,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 
@@ -112,11 +112,11 @@
   }
   
   .page-title {
-    @apply text-3xl font-bold mb-2;
+    @apply text-3xl font-bold mb-2 tracking-tight;
   }
   
   .page-description {
-    @apply text-muted-foreground;
+    @apply text-muted-foreground text-lg leading-relaxed;
   }
   
   .stats-grid {

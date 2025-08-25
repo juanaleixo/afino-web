@@ -79,7 +79,7 @@ async function fetchUserPlan(userId: string): Promise<UserPlan> {
       const plan = data?.plan || 'free'
       
       // Cache for 10 minutes (plan changes are infrequent)
-      cache.set(cacheKey, plan, 10 * 60 * 1000)
+      cache.set(cacheKey, plan, { ttl: 10 * 60 * 1000 })
       
       return plan
     } catch (error) {

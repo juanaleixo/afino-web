@@ -12,12 +12,12 @@ import { Badge } from "@/components/ui/badge"
 import { LoadingState } from "@/components/ui/loading-state"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { AssetBadge } from "@/components/ui/asset-badge"
-import { 
-  BarChart3, 
-  Wallet, 
-  TrendingUp, 
-  Settings, 
-  LogOut, 
+import {
+  BarChart3,
+  Wallet,
+  TrendingUp,
+  Settings,
+  LogOut,
   Plus,
   DollarSign,
   PieChart,
@@ -25,7 +25,8 @@ import {
   ArrowUp,
   ArrowDown,
   Clock,
-  Users
+  Users,
+  RefreshCw
 } from "lucide-react"
 import MiniChart from "@/components/ui/mini-chart"
 import PortfolioChart from "@/components/PortfolioChart"
@@ -34,6 +35,8 @@ import Image from "next/image"
 import { toast } from "sonner"
 import PlanStatus from "@/components/PlanStatus"
 import ThemeSwitch from "@/components/ThemeSwitch"
+import { getAssetDisplayLabel } from "@/lib/utils/assets"
+import { PatrimonyFAB } from "@/components/ui/patrimony-fab"
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -394,8 +397,8 @@ export default function DashboardPage() {
 
   const menuItems = [
     {
-      title: "Timeline",
-      description: "Análise completa do seu patrimônio ao longo do tempo",
+      title: "Análise Temporal",
+      description: "Visualização completa da evolução dos seus ativos",
       icon: BarChart3,
       href: "/dashboard/timeline",
       badge: "success",
@@ -403,21 +406,21 @@ export default function DashboardPage() {
     },
     {
       title: "Contas",
-      description: "Gerencie suas contas bancárias",
+      description: "Gerenciar contas e corretoras",
       icon: Wallet,
       href: "/dashboard/accounts",
       badge: "primary",
     },
     {
-      title: "Ativos",
-      description: "Cadastro de ações, cripto e outros",
+      title: "Meus Ativos",
+      description: "Ativos customizados do portfólio",
       icon: TrendingUp,
       href: "/dashboard/assets",
       badge: "secondary",
     },
     {
-      title: "Eventos",
-      description: "Transações e movimentações",
+      title: "Transações",
+      description: "Eventos e movimentações",
       icon: Activity,
       href: "/dashboard/events",
       badge: "info",
@@ -441,7 +444,7 @@ export default function DashboardPage() {
                 />
                 <div>
                   <h1 className="text-2xl font-bold">Afino</h1>
-                  <p className="text-sm text-muted-foreground">Hub Financeiro Inteligente</p>
+                  <p className="text-sm text-muted-foreground">Visualização de Ativos</p>
                 </div>
               </div>
               
@@ -469,9 +472,9 @@ export default function DashboardPage() {
         <main className="dashboard-page">
           {/* Welcome Section */}
           <div className="page-header">
-            <h2 className="page-title">Timeline do Seu Patrimônio</h2>
+            <h2 className="page-title">Visualização do Patrimônio</h2>
             <p className="page-description">
-              Acompanhe a evolução completa dos seus investimentos e tome decisões baseadas em dados reais.
+              Acompanhe a evolução dos seus ativos ao longo do tempo com análises visuais claras e intuitivas.
             </p>
           </div>
 
@@ -601,16 +604,16 @@ export default function DashboardPage() {
             {/* Timeline Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold">Timeline do Patrimônio</h2>
+                <h2 className="text-2xl font-bold">Evolução Temporal</h2>
                 <p className="text-muted-foreground">
                   {timelinePreviewData?.period?.label || (isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses')} • 
-                  {timelinePreviewData?.isPremium ? ' Dados diários' : ' Dados mensais'}
+                  Visualização {timelinePreviewData?.isPremium ? 'diária' : 'mensal'}
                 </p>
               </div>
               <Link href="/dashboard/timeline">
                 <Button className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Ver Análise Completa
+                  <TrendingUp className="h-4 w-4" />
+                  Análise Detalhada
                 </Button>
               </Link>
             </div>
@@ -693,30 +696,38 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Quick Menu */}
+            {/* Ações Rápidas */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Ações Rápidas</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Ações Rápidas</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {menuItems.slice(1).map((item) => (
-                    <Link key={item.href} href={item.href}>
-                      <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                        <item.icon className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-medium text-sm">{item.title}</div>
-                          <div className="text-xs text-muted-foreground">{item.description}</div>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+              <CardContent className="space-y-2">
+                <Link href="/dashboard/patrimony/new?operation=add_existing">
+                  <Button variant="outline" className="w-full justify-start" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Patrimônio Existente
+                  </Button>
+                </Link>
+                <Link href="/dashboard/patrimony/new?operation=money_in">
+                  <Button variant="outline" className="w-full justify-start" size="sm">
+                    <ArrowDown className="mr-2 h-4 w-4" />
+                    Registrar Entrada
+                  </Button>
+                </Link>
+                <Link href="/dashboard/patrimony/new?operation=update_value">
+                  <Button variant="outline" className="w-full justify-start" size="sm">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Atualizar Valores
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
 
         </main>
+
+        {/* Floating Action Button */}
+        <PatrimonyFAB />
       </div>
     </ProtectedRoute>
   )

@@ -28,7 +28,7 @@ export class PortfolioService {
       return data?.plan || 'free'
     },
     (userId: string) => `user_plan:${userId}`,
-    10 * 60 * 1000 // 10 minutes
+    { ttl: 10 * 60 * 1000 } // 10 minutes
   )
 
   // Inicializar o plano do usuário
@@ -63,7 +63,7 @@ export class PortfolioService {
       return data || []
     },
     (assetIds: string[]) => `assets_batch:${assetIds.sort().join(',')}`,
-    15 * 60 * 1000 // 15 minutes (assets change infrequently)
+    { ttl: 15 * 60 * 1000 } // 15 minutes (assets change infrequently)
   )
 
   // Verificar se o usuário tem acesso premium
@@ -185,7 +185,7 @@ export class PortfolioService {
       throw new Error(`RPC failed: ${fallbackError?.message || 'Unknown error'}`)
     },
     (userId: string, date: string) => `holdings_with_assets:${userId}:${date}`,
-    2 * 60 * 1000 // 2 minutes
+    { ttl: 2 * 60 * 1000 } // 2 minutes
   )
 
   // Snapshot por ativo (free/premium) 

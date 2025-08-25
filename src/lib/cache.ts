@@ -192,7 +192,7 @@ export function withCache<T extends unknown[], R>(
     // Check if there's an ongoing call for this key
     if (ongoingCalls.has(key)) {
       console.log(`[Cache] Waiting for ongoing: ${key}`)
-      return await ongoingCalls.get(key)!
+      return await ongoingCalls.get(key)! as Promise<R>
     }
 
     console.log(`[Cache] Miss: ${key}`)

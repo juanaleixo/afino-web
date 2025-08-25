@@ -238,13 +238,13 @@ export default function TimelinePage() {
 
   return (
     <DashboardLayout
-      title="Linha do Tempo"
-      description="Acompanhe a evolução do seu patrimônio ao longo do tempo"
+      title="Análise Temporal"
+      description="Visualize e analise a evolução dos seus ativos ao longo do tempo"
       icon={<TrendingUp className="h-6 w-6" />}
       backHref="/dashboard"
       breadcrumbs={[
         { label: "Painel", href: "/dashboard" },
-        { label: "Linha do Tempo" },
+        { label: "Análise Temporal" },
       ]}
       actions={
         <div className="flex items-center space-x-3">

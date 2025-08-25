@@ -71,6 +71,7 @@ export default function NewAssetPage() {
         currency: data.currency,
         manual_price: manualPrice,
         connector: data.connector?.trim() || null,
+        meta: { is_custom: true }
       }
 
       const { error } = await supabase
@@ -215,13 +216,6 @@ export default function NewAssetPage() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="BRL">Real Brasileiro (BRL)</SelectItem>
-                            <SelectItem value="USD">Dólar Americano (USD)</SelectItem>
-                            <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                            <SelectItem value="GBP">Libra Esterlina (GBP)</SelectItem>
-                            <SelectItem value="JPY">Iene Japonês (JPY)</SelectItem>
-                            <SelectItem value="CHF">Franco Suíço (CHF)</SelectItem>
-                            <SelectItem value="CAD">Dólar Canadense (CAD)</SelectItem>
-                            <SelectItem value="AUD">Dólar Australiano (AUD)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

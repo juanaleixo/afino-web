@@ -129,7 +129,9 @@ class PerformanceMonitor {
       const entries = list.getEntries()
       if (entries.length > 0) {
         const lastEntry = entries[entries.length - 1]
-        this.recordMetric('LCP', lastEntry.startTime, 'ms')
+        if (lastEntry) {
+          this.recordMetric('LCP', lastEntry.startTime, 'ms')
+        }
       }
     })
     lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })

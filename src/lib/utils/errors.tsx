@@ -3,6 +3,8 @@
  * Provides consistent error handling across the application
  */
 
+import React from 'react'
+
 // Custom error types
 export class AppError extends Error {
   constructor(
@@ -112,7 +114,7 @@ export function createErrorResponse(
       message: error.message,
       details: isAppError ? error.details : undefined,
       timestamp: new Date().toISOString(),
-      requestId,
+      ...(requestId && { requestId }),
     }
   }
 }

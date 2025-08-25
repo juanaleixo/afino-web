@@ -28,8 +28,8 @@ interface EventTypeOption {
 const eventTypeOptions: EventTypeOption[] = [
   {
     kind: 'deposit',
-    title: 'Depósito',
-    description: 'Adicionar dinheiro ou ativos à conta',
+    title: 'Entrada',
+    description: 'Adicionar dinheiro ou ativos ao portfólio',
     icon: ArrowDownCircle,
     color: 'text-green-600 bg-green-50',
     forCurrency: true,
@@ -37,8 +37,8 @@ const eventTypeOptions: EventTypeOption[] = [
   },
   {
     kind: 'withdraw', 
-    title: 'Saque',
-    description: 'Retirar dinheiro ou ativos da conta',
+    title: 'Saída',
+    description: 'Retirar dinheiro ou ativos do portfólio',
     icon: ArrowUpCircle,
     color: 'text-red-600 bg-red-50',
     forCurrency: true,
@@ -91,7 +91,7 @@ export function EventTypeStep({ selectedType, onTypeSelect, isCurrencyAsset }: E
         <h3 className="text-lg font-semibold">Que tipo de operação você quer registrar?</h3>
         <p className="text-sm text-muted-foreground">
           {isCurrencyAsset 
-            ? 'Para valores em dinheiro (caixa), você pode fazer depósitos ou saques.'
+            ? 'Para saldo em caixa, você pode registrar entradas ou saídas de dinheiro.'
             : 'Para ativos, você pode comprar, adicionar posições existentes ou avaliar.'
           }
         </p>

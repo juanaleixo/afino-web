@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Account, Asset } from "@/lib/supabase"
 import { AssetBadge } from "@/components/ui/asset-badge"
+import { AssetSelector } from "@/components/ui/asset-selector"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Plus } from "lucide-react"
@@ -74,27 +75,12 @@ export function AssetAccountStep({
                 name="asset_id"
                 render={({ field }) => (
                   <FormItem>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o ativo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {assets.map((asset) => (
-                          <SelectItem key={asset.id} value={asset.id}>
-                            <div className="flex items-center gap-2">
-                              <AssetBadge 
-                                assetClass={asset.class as any}
-                                size="sm"
-                                showLabel={false}
-                              />
-                              <span>{asset.symbol}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <AssetSelector
+                      assets={assets}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Buscar e selecionar ativo..."
+                    />
                     <FormMessage />
                   </FormItem>
                 )}

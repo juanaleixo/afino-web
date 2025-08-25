@@ -1,182 +1,185 @@
-# Afino - Hub Financeiro Inteligente
+# Afino - Análise Patrimonial Completa 💰
 
-> **Registre e acompanhe seu patrimônio de forma simples e visual**
+> **Visualize todo seu patrimônio em um só lugar - imóveis, veículos, investimentos e muito mais**
 
-## 🎯 Visão do Produto
+## 🌟 O que é o Afino?
 
-O Afino foca em **registrar fotos do patrimônio** ao invés de gerenciar transações financeiras complexas. É ideal para quem quer:
+O Afino é a plataforma definitiva para **análise patrimonial completa**. Diferente de apps bancários que mostram apenas investimentos ou planilhas que são difíceis de manter, o Afino permite que você:
 
-- 📸 **Inventariar** o patrimônio atual
-- 📊 **Acompanhar** evolução ao longo do tempo  
-- 💰 **Avaliar** posições manualmente
-- 🔍 **Visualizar** dados de forma clara e intuitiva
+- 🏠 **Registre TODOS seus bens** - de imóveis a criptomoedas
+- 📊 **Acompanhe a evolução diária** do seu patrimônio total
+- 🎯 **Visualize de forma intuitiva** onde está seu dinheiro
+- 💡 **Tome decisões informadas** com análises profissionais
 
-## ✨ Funcionalidades Principais
+## 🚀 Por que o Afino é diferente?
 
-### 💫 Foco em Simplicidade
-- **Adicionar Posição**: Registre ativos que você já possui (sem afetar caixa)
-- **Avaliação**: Defina preços manuais para seus ativos
-- **Depósitos/Saques**: Controle entrada e saída de dinheiro
-- **Compra** (opcional): Para quem quer controle financeiro completo
+### 📱 Patrimônio Completo, Não Apenas Investimentos
 
-### 📈 Visualizações
-- **Timeline Interativa**: Evolução do patrimônio ao longo do tempo
-- **Holdings**: Visão atual de todas as posições
-- **Gráficos**: Análise visual da performance
+| Tipo de Patrimônio | Como Registrar | Exemplos |
+|-------------------|----------------|----------|
+| **🏠 Imóveis** | Adicione e avalie periodicamente | Casa, apartamento, terreno |
+| **🚗 Veículos** | Registre com valor de mercado | Carro, moto, barco |
+| **📈 Investimentos** | Acompanhe automaticamente | Ações, FIIs, ETFs |
+| **🪙 Criptomoedas** | Valores em tempo real | Bitcoin, Ethereum |
+| **💵 Contas e Aplicações** | Saldos atualizados | Poupança, CDB, CDI |
+| **🎨 Outros Bens** | Personalize como quiser | Arte, joias, coleções |
 
-### 🏆 Recursos Premium
-- **Dados Diários**: Granularidade de dados por dia
-- **Múltiplas Contas**: Organize por corretoras/bancos
-- **Análise Avançada**: Métricas de performance detalhadas
+### 🔍 Análise Diária Premium
 
-## 🚀 Tipos de Eventos Suportados
+Com a versão Premium, você tem acesso a:
+- **Timeline Diária**: Veja exatamente como seu patrimônio evoluiu dia a dia
+- **Múltiplas Carteiras**: Organize por objetivo (aposentadoria, emergência, etc)
+- **Relatórios Detalhados**: Entenda onde está crescendo ou perdendo valor
 
-| Tipo | Descrição | Afeta Caixa | Uso Principal |
-|------|-----------|-------------|---------------|
-| **📥 Depósito** | Adicionar dinheiro/ativos | ✅ Sim | Entrada de recursos |
-| **📤 Saque** | Retirar dinheiro/ativos | ✅ Sim | Saída de recursos |
-| **➕ Adicionar Posição** | Registrar ativos existentes | ❌ Não | Inventário inicial |
-| **🛒 Compra** | Comprar com impacto no caixa | ✅ Sim | Transação completa |
-| **💰 Avaliação** | Definir preço manual | ❌ Não | Precificação |
+## 💫 Como Funciona?
 
-## 📊 Casos de Uso
+### 1️⃣ Cadastre Seu Patrimônio Atual
 
-### Cenário 1: Inventário Inicial
+**Imóveis e Veículos:**
 ```
-🎯 Objetivo: "Quero registrar tudo que tenho hoje"
-
-1. Adicionar Posição: 100 ações PETR4
-2. Adicionar Posição: 0.5 BTC  
-3. Adicionar Posição: 200g Ouro
-4. Avaliação: Definir preços atuais
-
-✅ Resultado: Patrimônio mapeado sem afetar caixa
+Exemplo: "Tenho um apartamento que vale R$ 500.000"
+→ Use "Adicionar Patrimônio Existente"
+→ Selecione "Imóvel" 
+→ Digite o valor atual
+✅ Pronto! Já aparece no seu patrimônio total
 ```
 
-### Cenário 2: Acompanhamento Financeiro
+**Investimentos:**
 ```
-🎯 Objetivo: "Quero controlar minhas transações"
-
-1. Depósito: R$ 10.000 na conta
-2. Compra: 400 ações VALE3 por R$ 25
-3. Avaliação: Atualizar preço para R$ 27
-
-✅ Resultado: Controle completo de caixa + posições
+Exemplo: "Tenho 100 ações da Petrobras"
+→ Use "Adicionar Patrimônio Existente"
+→ Busque "PETR4"
+→ Digite a quantidade
+✅ O valor é calculado automaticamente!
 ```
 
-## 🏗️ Arquitetura
+### 2️⃣ Mantenha Atualizado
 
-### Frontend (Next.js 15)
-- **React 18** com Server Components
-- **TypeScript** para type safety  
-- **Tailwind CSS** para styling
-- **Supabase Client** para dados em tempo real
+- **Ativos com Cotação** (ações, cripto): Atualização automática diária
+- **Bens Físicos** (imóvel, veículo): Você atualiza quando quiser
+- **Aplicações** (CDI, poupança): Registre os rendimentos mensalmente
 
-### Backend (Supabase)
-- **PostgreSQL** para dados estruturados
-- **Row Level Security** para isolamento de usuários
-- **Functions** para business logic complexa
-- **Real-time** para atualizações instantâneas
+### 3️⃣ Acompanhe a Evolução
 
-### Performance
-- **Sistema de Cache** inteligente
-- **Singleton Pattern** para services
-- **Promise Pooling** para evitar chamadas duplicadas
+Visualize através de:
+- 📊 **Gráfico de Evolução**: Linha do tempo do patrimônio total
+- 🥧 **Composição**: Pizza mostrando onde está cada real
+- 📈 **Performance**: Quanto cada ativo contribuiu para o crescimento
 
-## 🛠️ Desenvolvimento
+## 🎯 Casos de Uso Reais
 
-### Requisitos
-```bash
-Node.js 18+
-npm ou yarn
-Supabase CLI (opcional)
+### 👨‍👩‍👧‍👦 Família Silva - Controle Patrimonial Completo
+```
+Patrimônio Registrado:
+- Casa própria: R$ 800.000
+- Carro SUV: R$ 120.000  
+- Poupança: R$ 50.000
+- Ações variadas: R$ 200.000
+- Bitcoin: R$ 30.000
+
+Benefício: "Agora vemos que 66% do patrimônio está em imóvel. 
+Vamos diversificar mais!"
 ```
 
-### Setup Local
-```bash
-# Clone e install
-git clone https://github.com/your-org/afino-web
-cd afino-web
-npm install
+### 💼 João - Investidor Iniciante
+```
+Começou com:
+- Conta corrente: R$ 5.000
+- FGTS: R$ 15.000
 
-# Configure environment
-cp .env.example .env.local
-# Adicione suas chaves do Supabase
+Após 1 ano:
+- CDB: R$ 10.000
+- Ações: R$ 8.000
+- Reserva: R$ 12.000
 
-# Run development
-npm run dev
+Benefício: "O gráfico mostra que economizei R$ 15.000 em 1 ano!"
 ```
 
-### Scripts Disponíveis
-```bash
-npm run dev        # Desenvolvimento
-npm run build      # Build produção
-npm run start      # Servidor produção
-npm run lint       # ESLint
-npm run test       # Jest tests
-```
+## 🛠️ Operações Disponíveis
 
-## 🗄️ Banco de Dados
+### Para Registrar Patrimônio
 
-### Aplicar Migrations
-```sql
--- No Supabase SQL Editor:
-\i database/functions/api_user_context.sql
-\i database/functions/api_holdings_with_assets.sql
-\i database/indexes/performance_optimizations.sql
-\i database/migrations/2025-08-21_position_add_feature.sql
-```
+| Operação | Quando Usar | Exemplo |
+|----------|-------------|---------|
+| **➕ Adicionar Patrimônio** | Registrar algo que você já tem | "Tenho um carro de R$ 50.000" |
+| **💰 Entrada de Dinheiro** | Recebeu dinheiro novo | "Recebi salário de R$ 5.000" |
+| **📊 Atualizar Valor** | Mudou o valor de mercado | "Meu apto agora vale R$ 600.000" |
 
-### Schema Principal
-- **events**: Todos os eventos financeiros
-- **accounts**: Contas/carteiras do usuário  
-- **global_assets**: Catálogo de ativos
-- **daily_positions_acct**: Snapshots diários das posições
+### Para Movimentações
 
-## 🚦 Status do Projeto
+| Operação | Quando Usar | Exemplo |
+|----------|-------------|---------|
+| **🛒 Compra** | Comprou algo novo | "Comprei 50 ações por R$ 30 cada" |
+| **💸 Saída de Dinheiro** | Gastou ou retirou | "Paguei R$ 2.000 de contas" |
 
-### ✅ Implementado
-- [x] Sistema de cache avançado
-- [x] Context global para user plan
-- [x] Singleton pattern para services
-- [x] Interface para eventos básicos
-- [x] Timeline interativa
-- [x] Performance otimizada (60-80% mais rápido)
+## 🆚 Comparação com Alternativas
 
-### 🚧 Em Desenvolvimento
-- [ ] Funcionalidade "Adicionar Posição"
-- [ ] Migração assistida para usuários
-- [ ] Onboarding melhorado
-- [ ] Análise de performance avançada
+| Funcionalidade | Afino | Apps Bancários | Planilhas |
+|----------------|-------|----------------|-----------|
+| Todos os tipos de patrimônio | ✅ | ❌ Só investimentos | ✅ Manual |
+| Atualização automática | ✅ | ✅ Parcial | ❌ |
+| Análise visual profissional | ✅ | ⚠️ Básica | ❌ |
+| Histórico diário | ✅ | ❌ | ⚠️ Trabalhoso |
+| Múltiplas carteiras | ✅ | ❌ | ✅ |
+| Facilidade de uso | ✅ | ✅ | ❌ |
 
-### 📋 Planejado
-- [ ] App mobile (React Native)
-- [ ] Integração com corretoras
-- [ ] Importação via CSV/Excel
-- [ ] Relatórios PDF
-- [ ] API pública
+## 🎨 Interface Intuitiva
 
-## 🤝 Contribuição
+### Tela Principal - Visão Geral
+- **Patrimônio Total**: Número grande no topo
+- **Variação**: Quanto mudou hoje/mês/ano
+- **Gráfico**: Evolução visual
+- **Lista de Ativos**: Todos os seus bens organizados
 
-### Reportar Issues
-Use o [GitHub Issues](https://github.com/your-org/afino-web/issues) para:
-- 🐛 Bugs encontrados  
-- 💡 Sugestões de features
-- 📖 Melhorias na documentação
+### Adicionar Novo Patrimônio
+1. **Escolha o Tipo**: Ícones grandes e claros
+2. **Busque ou Crie**: Digite o nome e encontre
+3. **Informe Detalhes**: Quantidade e valor
+4. **Confirme**: Veja instantaneamente no patrimônio
 
-### Development Guidelines
-1. **Foque na simplicidade** - o app deve ser fácil de usar
-2. **Performance first** - cada feature deve ser otimizada
-3. **Teste antes de comitar** - garanta que tudo funciona
-4. **Documente mudanças** - atualize README e documentação
+## 🚀 Começar é Simples
 
-## 📄 Licença
+### 1. Crie sua conta (grátis)
+### 2. Adicione seu primeiro patrimônio
+### 3. Veja seu patrimônio total instantaneamente
 
-MIT License - veja [LICENSE](LICENSE) para detalhes.
+**Dica inicial**: Comece com o que é mais fácil - suas contas bancárias e investimentos. Depois adicione imóveis e outros bens.
 
-## 🔗 Links Úteis
+## 💎 Planos
 
-- [Documentação Completa](docs/)
-- [API Reference](docs/api/)
-- [Supabase Dashboard](https://supabase.com/dashboard)
-- [Feedback & Suporte](mailto:support@afino.com.br)
+### Grátis Forever
+- ✅ Patrimônio ilimitado
+- ✅ Atualizações automáticas
+- ✅ 1 carteira
+- ✅ Visão mensal
+
+### Premium (R$ 19,90/mês)
+- ✅ Tudo do plano grátis
+- ✅ **Análise diária detalhada**
+- ✅ **Carteiras ilimitadas**
+- ✅ **Exportar relatórios**
+- ✅ **Suporte prioritário**
+
+## 🔒 Segurança
+
+- 🔐 Criptografia de ponta a ponta
+- 🏦 Infraestrutura bancária (Supabase)
+- 👤 Seus dados são só seus
+- 🚫 Não vendemos suas informações
+
+## 📱 Disponível em
+
+- 💻 **Web**: Acesse de qualquer navegador
+- 📱 **Mobile**: Em breve para iOS e Android
+
+## 🤝 Suporte
+
+- 📧 Email: contato@afino.app
+- 💬 Chat: Dentro do app
+- 📚 Central de ajuda: help.afino.app
+
+---
+
+**Afino** - Porque seu patrimônio é mais que números em uma planilha. É sua conquista, seu futuro, sua tranquilidade.
+
+*Comece grátis hoje e descubra o poder de ver todo seu patrimônio em um só lugar.*
