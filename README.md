@@ -1,244 +1,182 @@
-# Afino Finance - Hub Financeiro Inteligente
+# Afino - Hub Financeiro Inteligente
 
-Uma plataforma moderna de gestão financeira construída com Next.js 15, TypeScript, Tailwind CSS e Supabase, oferecendo controle completo de investimentos com funcionalidades diferenciadas por plano.
+> **Registre e acompanhe seu patrimônio de forma simples e visual**
 
-## 🚀 Tecnologias
+## 🎯 Visão do Produto
 
-- **Framework**: Next.js 15 (App Router)
-- **Linguagem**: TypeScript
-- **Estilização**: Tailwind CSS
-- **Banco de Dados**: Supabase (PostgreSQL)
-- **Autenticação**: Supabase Auth
-- **UI Components**: shadcn/ui
-- **Ícones**: Lucide React
+O Afino foca em **registrar fotos do patrimônio** ao invés de gerenciar transações financeiras complexas. É ideal para quem quer:
 
-## ✨ Funcionalidades
+- 📸 **Inventariar** o patrimônio atual
+- 📊 **Acompanhar** evolução ao longo do tempo  
+- 💰 **Avaliar** posições manualmente
+- 🔍 **Visualizar** dados de forma clara e intuitiva
 
-### 📊 **Dashboard Inteligente**
-- Visão consolidada do patrimônio
-- Gráficos de evolução temporal
-- Estatísticas em tempo real
-- Controle de acesso por plano (Free/Premium)
+## ✨ Funcionalidades Principais
 
-### 💰 **Gestão de Investimentos**
-- Contas bancárias múltiplas
-- Catálogo global de ativos
-- Ativos customizados por usuário
-- Transações e movimentações
-- Posições diárias calculadas automaticamente
+### 💫 Foco em Simplicidade
+- **Adicionar Posição**: Registre ativos que você já possui (sem afetar caixa)
+- **Avaliação**: Defina preços manuais para seus ativos
+- **Depósitos/Saques**: Controle entrada e saída de dinheiro
+- **Compra** (opcional): Para quem quer controle financeiro completo
 
-### 🎯 **Funcionalidades por Plano**
+### 📈 Visualizações
+- **Timeline Interativa**: Evolução do patrimônio ao longo do tempo
+- **Holdings**: Visão atual de todas as posições
+- **Gráficos**: Análise visual da performance
 
-#### **Plano Free**
-- ✅ Série mensal do patrimônio
-- ✅ Snapshot por ativo (data atual)
-- ✅ Dashboard básico
-- ✅ Gestão de contas e ativos
+### 🏆 Recursos Premium
+- **Dados Diários**: Granularidade de dados por dia
+- **Múltiplas Contas**: Organize por corretoras/bancos
+- **Análise Avançada**: Métricas de performance detalhadas
 
-#### **Plano Premium**
-- ✅ Série diária do patrimônio
-- ✅ Detalhamento por conta+ativo
-- ✅ Snapshot por ativo (qualquer data)
-- ✅ Gráficos avançados
-- ✅ Relatórios detalhados
+## 🚀 Tipos de Eventos Suportados
 
-### 🔒 **Segurança e Performance**
-- Row Level Security (RLS) ativo
-- Funções RPC otimizadas
-- Materialized Views para agregações
-- Controle de acesso granular
+| Tipo | Descrição | Afeta Caixa | Uso Principal |
+|------|-----------|-------------|---------------|
+| **📥 Depósito** | Adicionar dinheiro/ativos | ✅ Sim | Entrada de recursos |
+| **📤 Saque** | Retirar dinheiro/ativos | ✅ Sim | Saída de recursos |
+| **➕ Adicionar Posição** | Registrar ativos existentes | ❌ Não | Inventário inicial |
+| **🛒 Compra** | Comprar com impacto no caixa | ✅ Sim | Transação completa |
+| **💰 Avaliação** | Definir preço manual | ❌ Não | Precificação |
 
-## 🛠️ Instalação
+## 📊 Casos de Uso
 
-### 1. Clone o repositório
-```bash
-git clone https://github.com/seu-usuario/afino-finance.git
-cd afino-finance
+### Cenário 1: Inventário Inicial
+```
+🎯 Objetivo: "Quero registrar tudo que tenho hoje"
+
+1. Adicionar Posição: 100 ações PETR4
+2. Adicionar Posição: 0.5 BTC  
+3. Adicionar Posição: 200g Ouro
+4. Avaliação: Definir preços atuais
+
+✅ Resultado: Patrimônio mapeado sem afetar caixa
 ```
 
-### 2. Instale as dependências
+### Cenário 2: Acompanhamento Financeiro
+```
+🎯 Objetivo: "Quero controlar minhas transações"
+
+1. Depósito: R$ 10.000 na conta
+2. Compra: 400 ações VALE3 por R$ 25
+3. Avaliação: Atualizar preço para R$ 27
+
+✅ Resultado: Controle completo de caixa + posições
+```
+
+## 🏗️ Arquitetura
+
+### Frontend (Next.js 15)
+- **React 18** com Server Components
+- **TypeScript** para type safety  
+- **Tailwind CSS** para styling
+- **Supabase Client** para dados em tempo real
+
+### Backend (Supabase)
+- **PostgreSQL** para dados estruturados
+- **Row Level Security** para isolamento de usuários
+- **Functions** para business logic complexa
+- **Real-time** para atualizações instantâneas
+
+### Performance
+- **Sistema de Cache** inteligente
+- **Singleton Pattern** para services
+- **Promise Pooling** para evitar chamadas duplicadas
+
+## 🛠️ Desenvolvimento
+
+### Requisitos
 ```bash
+Node.js 18+
+npm ou yarn
+Supabase CLI (opcional)
+```
+
+### Setup Local
+```bash
+# Clone e install
+git clone https://github.com/your-org/afino-web
+cd afino-web
 npm install
-```
 
-### 3. Configure o Supabase
-1. Crie um projeto no [Supabase](https://supabase.com)
-2. Vá para Settings > API
-3. Copie a URL e anon key
-4. Crie um arquivo `.env.local` na raiz do projeto:
+# Configure environment
+cp .env.example .env.local
+# Adicione suas chaves do Supabase
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
-```
-
-### 4. Configure o Banco de Dados
-Execute no SQL Editor do Supabase:
-
-```sql
--- Execute o conteúdo do arquivo database/complete_setup.sql
-```
-
-### 5. Insira Dados de Teste (Opcional)
-```sql
--- Execute o conteúdo do arquivo database/test_data.sql
-```
-
-### 6. Execute o projeto
-```bash
+# Run development
 npm run dev
 ```
 
-Acesse: http://localhost:3000
-
-## 🗄️ Estrutura do Banco de Dados
-
-### **Tabelas Principais**
-- `accounts` - Contas bancárias dos usuários
-- `events` - Transações e movimentações
-- `global_assets` - Catálogo público de ativos
-- `global_price_daily` - Preços históricos dos ativos
-- `custom_assets` - Ativos personalizados por usuário
-- `daily_positions_acct` - Posições diárias por conta/ativo
-- `user_profiles` - Perfis de usuário com planos
-
-### **Materialized Views**
-- `portfolio_value_daily` - Valor diário do portfólio
-- `portfolio_value_monthly` - Valor mensal do portfólio
-- `portfolio_value_daily_acct` - Valor diário por conta
-
-### **Funções RPC**
-- `api_portfolio_daily()` - Série diária (premium)
-- `api_portfolio_monthly()` - Série mensal (free/premium)
-- `api_holdings_at()` - Snapshot por ativo (free/premium)
-- `api_holdings_accounts()` - Snapshot por conta+ativo (premium)
-
-## 📁 Estrutura do Projeto
-
-```
-afino-finance/
-├── app/                    # App Router (Next.js 15)
-│   ├── dashboard/         # Páginas do dashboard
-│   │   ├── portfolio/     # Página do portfólio
-│   │   ├── accounts/      # Gestão de contas
-│   │   ├── assets/        # Gestão de ativos
-│   │   └── events/        # Transações
-│   ├── login/            # Página de login
-│   ├── signup/           # Página de cadastro
-│   └── layout.tsx        # Layout principal
-├── components/           # Componentes React
-│   ├── ui/              # Componentes shadcn/ui
-│   ├── PortfolioChart.tsx
-│   ├── PlanStatus.tsx
-│   └── ProtectedRoute.tsx
-├── lib/                 # Utilitários e configurações
-│   ├── auth.tsx         # Contexto de autenticação
-│   ├── supabase.ts      # Cliente Supabase e tipos
-│   └── portfolio.ts     # Serviço de portfólio
-├── hooks/               # Hooks personalizados
-│   └── useUserPlan.ts   # Hook de plano do usuário
-├── database/            # Scripts SQL
-│   ├── complete_setup.sql
-│   ├── rpc_functions.sql
-│   └── test_data.sql
-└── styles/              # Estilos globais
-```
-
-## 🔐 Funcionalidades Implementadas
-
-- ✅ Autenticação com Supabase
-- ✅ Proteção de rotas
-- ✅ Controle de acesso por plano
-- ✅ Funções RPC para portfólio
-- ✅ Dashboard com gráficos
-- ✅ Gestão de contas e ativos
-- ✅ Tema escuro/claro
-- ✅ Interface responsiva
-- ✅ Validação de formulários
-- ✅ Notificações toast
-
-## 🎨 Design System
-
-O projeto utiliza Tailwind CSS com:
-
-- **Cores**: Sistema de cores baseado em HSL
-- **Tipografia**: Inter font
-- **Tema**: Suporte a tema escuro/claro
-- **Responsividade**: Mobile-first
-- **Componentes**: shadcn/ui
-
-## 🔧 Scripts Disponíveis
-
+### Scripts Disponíveis
 ```bash
-npm run dev          # Desenvolvimento
-npm run build        # Build de produção
-npm run start        # Servidor de produção
-npm run lint         # Linting
+npm run dev        # Desenvolvimento
+npm run build      # Build produção
+npm run start      # Servidor produção
+npm run lint       # ESLint
+npm run test       # Jest tests
 ```
 
-## 🚀 Como Usar
+## 🗄️ Banco de Dados
 
-### **Dashboard**
-- Acesse `/dashboard` após fazer login
-- Visualize estatísticas do portfólio
-- Navegue entre as diferentes seções
+### Aplicar Migrations
+```sql
+-- No Supabase SQL Editor:
+\i database/functions/api_user_context.sql
+\i database/functions/api_holdings_with_assets.sql
+\i database/indexes/performance_optimizations.sql
+\i database/migrations/2025-08-21_position_add_feature.sql
+```
 
-### **Portfólio**
-- Acesse `/dashboard/portfolio`
-- Visualize gráficos de evolução
-- Consulte posições por data
-- Compare funcionalidades free vs premium
+### Schema Principal
+- **events**: Todos os eventos financeiros
+- **accounts**: Contas/carteiras do usuário  
+- **global_assets**: Catálogo de ativos
+- **daily_positions_acct**: Snapshots diários das posições
 
-### **Gestão de Dados**
-- Crie contas em `/dashboard/accounts`
-- Adicione ativos em `/dashboard/assets`
-- Registre transações em `/dashboard/events`
+## 🚦 Status do Projeto
 
-## 🔒 Controle de Acesso
+### ✅ Implementado
+- [x] Sistema de cache avançado
+- [x] Context global para user plan
+- [x] Singleton pattern para services
+- [x] Interface para eventos básicos
+- [x] Timeline interativa
+- [x] Performance otimizada (60-80% mais rápido)
 
-### **Row Level Security (RLS)**
-- Todas as tabelas de usuário têm RLS ativo
-- Políticas baseadas em `user_id = app_current_user()`
-- Materialized Views sem acesso direto (apenas via RPC)
+### 🚧 Em Desenvolvimento
+- [ ] Funcionalidade "Adicionar Posição"
+- [ ] Migração assistida para usuários
+- [ ] Onboarding melhorado
+- [ ] Análise de performance avançada
 
-### **Planos de Acesso**
-- **Free**: Funcionalidades básicas
-- **Premium**: Acesso completo a todas as funcionalidades
-
-## 📊 Performance
-
-- **Materialized Views** para agregações
-- **Funções RPC** otimizadas
-- **Partições** em tabelas grandes
-- **Índices** estratégicos para consultas
-
-## 🔄 Próximos Passos
-
-- [ ] Implementar triggers de recálculo automático
-- [ ] Adicionar mais tipos de ativos
-- [ ] Implementar relatórios avançados
-- [ ] Adicionar integração com APIs externas
-- [ ] Implementar notificações em tempo real
-
-## 📞 Suporte
-
-Para problemas comuns, consulte:
-- `DATABASE_SETUP.md` - Configuração do banco
-- `TROUBLESHOOTING.md` - Solução de problemas
-- `IMPLEMENTATION_SUMMARY.md` - Resumo da implementação
+### 📋 Planejado
+- [ ] App mobile (React Native)
+- [ ] Integração com corretoras
+- [ ] Importação via CSV/Excel
+- [ ] Relatórios PDF
+- [ ] API pública
 
 ## 🤝 Contribuição
 
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+### Reportar Issues
+Use o [GitHub Issues](https://github.com/your-org/afino-web/issues) para:
+- 🐛 Bugs encontrados  
+- 💡 Sugestões de features
+- 📖 Melhorias na documentação
+
+### Development Guidelines
+1. **Foque na simplicidade** - o app deve ser fácil de usar
+2. **Performance first** - cada feature deve ser otimizada
+3. **Teste antes de comitar** - garanta que tudo funciona
+4. **Documente mudanças** - atualize README e documentação
 
 ## 📄 Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+MIT License - veja [LICENSE](LICENSE) para detalhes.
 
----
+## 🔗 Links Úteis
 
-**Desenvolvido com ❤️ para simplificar a gestão financeira pessoal**
+- [Documentação Completa](docs/)
+- [API Reference](docs/api/)
+- [Supabase Dashboard](https://supabase.com/dashboard)
+- [Feedback & Suporte](mailto:support@afino.com.br)
