@@ -26,7 +26,9 @@ import {
   ArrowDown,
   Clock,
   Users,
-  RefreshCw
+  RefreshCw,
+  TrendingUp as TrendingUpIcon,
+  Edit3
 } from "lucide-react"
 import MiniChart from "@/components/ui/mini-chart"
 import PortfolioChart from "@/components/PortfolioChart"
@@ -430,21 +432,23 @@ export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-card">
+        {/* Enhanced Header */}
+        <header className="border-b bg-gradient-to-r from-card/95 via-card to-card/95 backdrop-blur-md shadow-sm">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Image
-                  src="/icon.svg"
-                  alt="Afino Finance"
-                  width={32}
-                  height={32}
-                  className="h-8 w-8"
-                />
+                <div className="relative p-2 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 shadow-md">
+                  <Image
+                    src="/icon.svg"
+                    alt="Afino Finance"
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 drop-shadow-sm"
+                  />
+                </div>
                 <div>
-                  <h1 className="text-2xl font-bold">Afino</h1>
-                  <p className="text-sm text-muted-foreground">Visualização de Ativos</p>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">Afino</h1>
+                  <p className="text-sm text-muted-foreground font-medium">Visualização de Ativos</p>
                 </div>
               </div>
               
@@ -470,20 +474,15 @@ export default function DashboardPage() {
 
         {/* Main Content */}
         <main className="dashboard-page">
-          {/* Welcome Section */}
-          <div className="page-header">
-            <h2 className="page-title">Visualização do Patrimônio</h2>
-            <p className="page-description">
-              Acompanhe a evolução dos seus ativos ao longo do tempo com análises visuais claras e intuitivas.
-            </p>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="stats-grid">
-            <Card>
+          {/* Enhanced Quick Stats */}
+          <div className="stats-grid animate-fade-in-up delay-150">
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Patrimônio Total</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingStats ? (
@@ -513,10 +512,12 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Tipos de Ativo</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-lg bg-gradient-to-br from-secondary/20 to-secondary/10">
+                  <TrendingUp className="h-4 w-4 text-secondary-foreground" />
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingStats ? (
@@ -539,10 +540,12 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Maior Posição</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-lg bg-gradient-to-br from-info/20 to-info/10">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingTimelinePreview ? (
@@ -569,10 +572,12 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Diversificação</CardTitle>
-                <PieChart className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-accent/10">
+                  <PieChart className="h-4 w-4 text-accent-foreground" />
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingTimelinePreview ? (
@@ -619,7 +624,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Main Timeline Chart */}
-            <Card>
+            <Card className="card-hover animate-fade-in-up delay-300">
               <CardContent className="pt-6">
                 {loadingTimelinePreview ? (
                   <div className="h-64 flex items-center justify-center">
@@ -697,31 +702,29 @@ export default function DashboardPage() {
             )}
 
             {/* Ações Rápidas */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Ações Rápidas</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <div className="animate-fade-in-up delay-450">
+              <h3 className="text-lg font-semibold mb-4">Ações Rápidas</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Link href="/dashboard/patrimony/new?operation=add_existing">
-                  <Button variant="outline" className="w-full justify-start" size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Patrimônio Existente
+                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors duration-200 group">
+                    <Plus className="h-6 w-6" />
+                    <span className="font-medium text-center leading-tight">Adicionar Patrimônio Existente</span>
                   </Button>
                 </Link>
                 <Link href="/dashboard/patrimony/new?operation=money_in">
-                  <Button variant="outline" className="w-full justify-start" size="sm">
-                    <ArrowDown className="mr-2 h-4 w-4" />
-                    Registrar Entrada
+                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-green-600 text-green-600 hover:bg-green-600 hover:text-white transition-colors duration-200 group">
+                    <ArrowDown className="h-6 w-6" />
+                    <span className="font-medium text-center leading-tight">Registrar Entrada</span>
                   </Button>
                 </Link>
                 <Link href="/dashboard/patrimony/new?operation=update_value">
-                  <Button variant="outline" className="w-full justify-start" size="sm">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Atualizar Valores
+                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors duration-200 group">
+                    <Edit3 className="h-6 w-6" />
+                    <span className="font-medium text-center leading-tight">Atualizar Valores</span>
                   </Button>
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
         </main>
