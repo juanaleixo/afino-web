@@ -1,0 +1,20 @@
+-- =========================================================
+-- ⚠️  ARQUIVO MOVIDO PARA ESTRUTURA ORGANIZADA
+-- =========================================================
+--
+-- Este arquivo foi reorganizado. Os componentes agora estão em:
+--
+-- 📋 Tabelas:     database/tables/sync_queue.sql
+-- 🏗️  Índices:     database/indexes/sync_queue_indexes.sql
+-- ⚙️  Funções:     database/functions/sync_events_to_clickhouse.sql
+--                database/functions/process_sync_queue.sql
+--                database/functions/sync_queue_stats.sql
+-- 🔧 Triggers:    database/triggers/t_events_sync_clickhouse.sql
+--                database/triggers/t_global_assets_sync_clickhouse.sql
+-- 🛡️  RLS:        database/rls/sync_queue_rls.sql
+--
+-- 📚 Setup Guide: database/CLICKHOUSE_SYNC_SETUP.md
+--
+-- Para aplicar todos os componentes, siga o guia de setup.
+-- ========================================================
+

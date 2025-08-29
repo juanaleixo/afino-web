@@ -1,8 +1,10 @@
 import { supabase, PortfolioDaily, PortfolioMonthly, HoldingAt, HoldingAccount } from './supabase'
+import { clickhouse, ClickHouseHelpers, type PortfolioDailyRecord, type AssetPositionRecord } from './clickhouse'
+import { PriceEngine } from './pricing/price-engine'
 import { withCache } from './cache'
 
-// Serviço para as funções RPC do portfólio
-export class PortfolioService {
+// Serviço híbrido para portfolio: Supabase (transações) + ClickHouse (analytics)
+export class HybridPortfolioService {
   private userId: string
   private userPlan: 'free' | 'premium' = 'free'
 
@@ -73,18 +75,30 @@ export class PortfolioService {
     }
   }
 
-  // Série diária do patrimônio (premium)
+  // Série diária do patrimônio via ClickHouse (premium)
   async getDailySeries(from: string, to: string): Promise<PortfolioDaily[]> {
     this.checkPremiumAccess('série diária')
-    // Tenta RPC
+    
     try {
-      const { data, error } = await supabase.rpc('api_portfolio_daily', { p_from: from, p_to: to })
-      if (!error && Array.isArray(data)) return data
-      console.warn('api_portfolio_daily falhou/sem dados, fallback via tabela', error)
-    } catch (e) {
-      console.warn('Falha RPC api_portfolio_daily, tentando tabela:', e)
+      const query = ClickHouseHelpers.buildPortfolioDailyQuery(this.userId, from, to, 'daily')
+      const result = await clickhouse.query({ query })
+      const data = await result.json<PortfolioDailyRecord[]>()
+      
+      return data.map(row => ({
+        date: row.date,
+        total_value: row.total_value
+      }))
+      
+    } catch (error) {
+      console.error('ClickHouse daily series failed:', error)
+      // Fallback para método antigo se ClickHouse falhar
+      return await this.getDailySeriesFallback(from, to)
     }
-    // Fallback: somar daily_positions_acct por dia
+  }
+  
+  // Método fallback para compatibilidade
+  private async getDailySeriesFallback(from: string, to: string): Promise<PortfolioDaily[]> {
+    console.warn('Using Supabase fallback for daily series')
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
       .select('date, value, user_id, is_final')
@@ -93,74 +107,76 @@ export class PortfolioService {
       .lte('date', to)
       .eq('is_final', true)
       .order('date')
-    if (error) {
-      console.error('Fallback diário via tabela falhou:', error)
-      throw new Error('Erro ao carregar dados diários do portfólio')
-    }
+    
+    if (error) throw new Error('Erro ao carregar dados diários do portfólio')
+    
     const map = new Map<string, number>()
     for (const r of rows || []) {
       const d = r.date as string
       const v = Number((r as any).value) || 0
       map.set(d, (map.get(d) || 0) + v)
     }
+    
     return Array.from(map.entries())
       .sort(([a],[b]) => a.localeCompare(b))
       .map(([date, total]) => ({ date, total_value: total }))
   }
 
-  // Série mensal do patrimônio (free/premium)
+  // Série mensal do patrimônio via ClickHouse (free/premium)
   async getMonthlySeries(from: string, to: string): Promise<PortfolioMonthly[]> {
-    // Tenta RPC mensal
     try {
-      const { data, error } = await supabase.rpc('api_portfolio_monthly', { p_from: from, p_to: to })
-      if (!error && Array.isArray(data)) return data
-      console.warn('api_portfolio_monthly falhou/sem dados, derivando do diário', error)
-    } catch (e) {
-      console.warn('Falha RPC api_portfolio_monthly, derivando do diário:', e)
-    }
-    // Fallback: derivar de daily_positions_acct (livre de premium), somando por dia e pegando o último dia de cada mês
-    try {
-      const { data: rows, error } = await supabase
-        .from('daily_positions_acct')
-        .select('date, value, user_id, is_final')
-        .eq('user_id', this.userId)
-        .eq('is_final', true)
-        .gte('date', from)
-        .lte('date', to)
-        .order('date')
+      const query = ClickHouseHelpers.buildPortfolioDailyQuery(this.userId, from, to, 'monthly')
+      const result = await clickhouse.query({ query })
+      const data = await result.json<{ month_eom: string; total_value: number; monthly_change: number; monthly_return_pct: number }[]>()
       
-      if (error) {
-        console.error('Fallback mensal via tabela falhou:', error)
-        return []
-      }
-
-      // Agregar valor total por data
-      const totalsByDate = new Map<string, number>()
-      for (const r of rows || []) {
-        const d = (r as any).date as string
-        const v = Number((r as any).value) || 0
-        totalsByDate.set(d, (totalsByDate.get(d) || 0) + v)
-      }
-      if (totalsByDate.size === 0) return []
-
-      // Para cada mês, pegar o último dia disponível e seu total
-      const byMonth = new Map<string, { date: string, total: number }>()
-      const dates = Array.from(totalsByDate.keys()).sort((a,b)=> a.localeCompare(b))
-      for (const d of dates) {
-        const m = new Date(d)
-        const monthKey = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1)).toISOString().slice(0,10)
-        const current = byMonth.get(monthKey)
-        const total = totalsByDate.get(d) || 0
-        if (!current || d > current.date) byMonth.set(monthKey, { date: d, total })
-      }
-
-      return Array.from(byMonth.entries())
-        .sort(([a],[b]) => a.localeCompare(b))
-        .map(([month, obj]) => ({ month_eom: month, total_value: obj.total }))
-    } catch (e) {
-      console.warn('Falha derivação mensal via tabela:', e)
-      return []
+      return data.map(row => ({
+        month_eom: row.month_eom,
+        total_value: row.total_value
+      }))
+      
+    } catch (error) {
+      console.error('ClickHouse monthly series failed:', error)
+      // Fallback para método antigo
+      return await this.getMonthlySeriesFallback(from, to)
     }
+  }
+  
+  // Método fallback para compatibilidade
+  private async getMonthlySeriesFallback(from: string, to: string): Promise<PortfolioMonthly[]> {
+    console.warn('Using Supabase fallback for monthly series')
+    const { data: rows, error } = await supabase
+      .from('daily_positions_acct')
+      .select('date, value, user_id, is_final')
+      .eq('user_id', this.userId)
+      .eq('is_final', true)
+      .gte('date', from)
+      .lte('date', to)
+      .order('date')
+    
+    if (error) return []
+
+    const totalsByDate = new Map<string, number>()
+    for (const r of rows || []) {
+      const d = (r as any).date as string
+      const v = Number((r as any).value) || 0
+      totalsByDate.set(d, (totalsByDate.get(d) || 0) + v)
+    }
+    
+    if (totalsByDate.size === 0) return []
+
+    const byMonth = new Map<string, { date: string, total: number }>()
+    const dates = Array.from(totalsByDate.keys()).sort((a,b)=> a.localeCompare(b))
+    for (const d of dates) {
+      const m = new Date(d)
+      const monthKey = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), 1)).toISOString().slice(0,10)
+      const current = byMonth.get(monthKey)
+      const total = totalsByDate.get(d) || 0
+      if (!current || d > current.date) byMonth.set(monthKey, { date: d, total })
+    }
+
+    return Array.from(byMonth.entries())
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([month, obj]) => ({ month_eom: month, total_value: obj.total }))
   }
 
   // Cached function for optimized holdings with assets
@@ -188,39 +204,42 @@ export class PortfolioService {
     { ttl: 2 * 60 * 1000 } // 2 minutes
   )
 
-  // Snapshot por ativo (free/premium) 
+  // Snapshot por ativo via ClickHouse (free/premium) 
   async getHoldingsAt(date: string): Promise<HoldingAt[]> {
-    // Try optimized RPC with assets first
     try {
-      const data = await this.getHoldingsWithAssets(this.userId, date)
-      return data
-    } catch (e) {
-      console.warn('Falha RPC otimizada, tentando RPC original:', e)
+      const query = ClickHouseHelpers.buildCurrentHoldingsQuery(this.userId, `'${date}'`)
+      const result = await clickhouse.query({ query })
+      const data = await result.json<{
+        asset_id: string;
+        symbol: string;
+        class: string;
+        units: number;
+        current_price: number;
+        value: number;
+        unrealized_pnl: number;
+        unrealized_pnl_pct: number;
+      }[]>()
       
-      // Fallback to original RPC
-      try {
-        const { data: fallbackData, error } = await supabase.rpc('api_holdings_at', { 
-          p_date: date
-        })
-        if (!error && Array.isArray(fallbackData)) {
-          // Enrich with asset metadata
-          const assetIds = fallbackData.map(h => h.asset_id)
-          const assetsData = await this.getAssetsBatch(assetIds)
-          const assetMap = new Map(assetsData.map(a => [a.id, a]))
-          
-          return fallbackData.map(holding => ({
-            ...holding,
-            symbol: assetMap.get(holding.asset_id)?.symbol,
-            class: assetMap.get(holding.asset_id)?.class
-          }))
-        }
-      } catch (fallbackError) {
-        console.warn('Falha RPC api_holdings_at, tentando tabela:', fallbackError)
-      }
+      return data.map(row => ({
+        asset_id: row.asset_id,
+        units: row.units,
+        value: row.value,
+        symbol: row.symbol,
+        class: row.class
+      }))
+      
+    } catch (error) {
+      console.error('ClickHouse holdings failed:', error)
+      // Fallback para método antigo
+      return await this.getHoldingsAtFallback(date)
     }
-    // Fallback: agregando daily_positions_acct por asset_id nesse dia
-    // Primeiro, tente achar a última data disponível (<= date) para o usuário
+  }
+  
+  // Método fallback para compatibilidade
+  private async getHoldingsAtFallback(date: string): Promise<HoldingAt[]> {
+    console.warn('Using Supabase fallback for holdings')
     let targetDate = date
+    
     try {
       const { data: lastRow } = await supabase
         .from('daily_positions_acct')
@@ -241,10 +260,9 @@ export class PortfolioService {
       .eq('user_id', this.userId)
       .eq('date', targetDate)
       .eq('is_final', true)
-    if (error) {
-      console.error('Fallback holdings via tabela falhou:', error)
-      throw new Error('Erro ao carregar posições do portfólio')
-    }
+    
+    if (error) throw new Error('Erro ao carregar posições do portfólio')
+    
     const agg = new Map<string, { units: number, value: number }>()
     for (const r of rows || []) {
       const id = (r as any).asset_id as string
@@ -253,12 +271,14 @@ export class PortfolioService {
       const prev = agg.get(id) || { units: 0, value: 0 }
       agg.set(id, { units: prev.units + u, value: prev.value + v })
     }
+    
     if (agg.size === 0) return []
-    // enriquecer com símbolo/classe (cached)
+    
     const assetIds = Array.from(agg.keys())
     const assetsData = await this.getAssetsBatch(assetIds)
     const assetMap = new Map<string, { symbol?: string, class?: string }>()
     for (const a of assetsData) assetMap.set(a.id, { symbol: a.symbol, class: a.class })
+    
     const result: any[] = []
     for (const [asset_id, { units, value }] of agg.entries()) {
       const meta = assetMap.get(asset_id) || {}
@@ -403,80 +423,59 @@ export class PortfolioService {
     }
   }
 
-  // Obter breakdown por ativo (Premium) - dados reais
+  // Obter breakdown por ativo via ClickHouse (Premium)
   async getAssetBreakdown(from: string, to: string) {
     this.checkPremiumAccess('breakdown por ativo')
 
-    // Tentar primeiro a função RPC se disponível
-    let raw: any[] = []
     try {
-      const { data, error } = await supabase.rpc('api_portfolio_daily_detailed', {
-        p_from: from,
-        p_to: to
-      })
-
-      if (!error && Array.isArray(data) && data.length > 0) {
-        raw = data
-      }
-    } catch {
-      console.warn('RPC api_portfolio_daily_detailed não disponível, usando fallback')
+      const query = ClickHouseHelpers.buildAssetBreakdownQuery(this.userId, from, to)
+      const result = await clickhouse.query({ query })
+      const data = await result.json<{
+        date: string;
+        asset_id: string;
+        asset_symbol: string;
+        asset_class: string;
+        value: number;
+        percentage: number;
+        volatility: number;
+        sharpe_ratio: number;
+        max_drawdown: number;
+      }[]>()
+      
+      return data.map(row => ({
+        date: row.date,
+        asset_id: row.asset_id,
+        asset_symbol: row.asset_symbol,
+        asset_class: row.asset_class,
+        value: row.value,
+        percentage: row.percentage
+      }))
+      
+    } catch (error) {
+      console.error('ClickHouse asset breakdown failed:', error)
+      // Fallback usando holdings atuais
+      return await this.getAssetBreakdownFallback(from, to)
     }
+  }
+  
+  // Método fallback para compatibilidade
+  private async getAssetBreakdownFallback(from: string, to: string) {
+    console.warn('Using fallback for asset breakdown')
+    const holdings = await this.getHoldingsAt(to)
+    if (!holdings || holdings.length === 0) return []
 
-    // Fallback: Usar dados de holdings atual como aproximação (um único dia)
-    if (!raw || raw.length === 0) {
-      const holdings = await this.getHoldingsAt(to)
-      if (!holdings || holdings.length === 0) {
-        return []
-      }
+    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
 
-      const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
-
-      raw = holdings
-        .filter((h: any) => (h.value || 0) > 0.01)
-        .map((holding: any) => ({
-          date: to,
-          asset_id: holding.asset_id,
-          asset_symbol: holding.symbol || holding.asset_id,
-          asset_class: holding.class || 'unknown',
-          value: holding.value || 0,
-          percentage: totalValue > 0 ? ((holding.value || 0) / totalValue) * 100 : 0,
-        }))
-    }
-
-    // Normalizar o formato de saída para sempre ter { date, asset_id, asset_symbol, asset_class, value, percentage }
-    // 1) Determinar chaves prováveis no retorno RPC e mapear
-    // 2) Calcular percentage por data quando não fornecido
-    const normalized = (raw as any[]).map((item: any) => {
-      const date: string = item.date || item.d || item.day || item.month_eom || ''
-      const value: number = Number(item.value ?? item.asset_value ?? item.total_value ?? item.amount ?? 0)
-      const symbol: string = item.asset_symbol || item.symbol || item.asset?.symbol || item.asset_id
-      const klass: string = item.asset_class || item.class || item.asset?.class || 'unknown'
-      const pct: number | undefined =
-        (typeof item.percentage === 'number' ? item.percentage : undefined)
-
-      return {
-        date,
-        asset_id: item.asset_id,
-        asset_symbol: symbol,
-        asset_class: klass,
-        value,
-        percentage: pct, // pode estar vazio, calculamos abaixo
-      }
-    })
-
-    // Calcular percentuais por data caso não estejam presentes
-    const byDateTotals = new Map<string, number>()
-    for (const it of normalized) {
-      if (!byDateTotals.has(it.date)) byDateTotals.set(it.date, 0)
-      byDateTotals.set(it.date, (byDateTotals.get(it.date) || 0) + (it.value || 0))
-    }
-    const withPct = normalized.map(it => {
-      if (typeof it.percentage === 'number') return it
-      const total = byDateTotals.get(it.date) || 0
-      return { ...it, percentage: total > 0 ? (it.value / total) * 100 : 0 }
-    })
-
-    return withPct
+    return holdings
+      .filter((h: any) => (h.value || 0) > 0.01)
+      .map((holding: any) => ({
+        date: to,
+        asset_id: holding.asset_id,
+        asset_symbol: holding.symbol || holding.asset_id,
+        asset_class: holding.class || 'unknown',
+        value: holding.value || 0,
+        percentage: totalValue > 0 ? ((holding.value || 0) / totalValue) * 100 : 0,
+      }))
   }
 
   // Obter dados por conta (Premium) - dados reais  
@@ -584,13 +583,54 @@ export class PortfolioService {
     }))
   }
 
-  // Obter análise avançada de performance por ativo (Premium) - NOVO
+  // Análise avançada de performance via ClickHouse (Premium)
   async getAssetPerformanceAnalysis(from: string, to: string) {
     this.checkPremiumAccess('análise de performance')
+
+    try {
+      const query = ClickHouseHelpers.buildPerformanceAnalysisQuery(this.userId, from, to)
+      const result = await clickhouse.query({ query })
+      const data = await result.json<{
+        asset_id: string;
+        asset_symbol: string;
+        asset_class: string;
+        first_value: number;
+        last_value: number;
+        total_return: number;
+        total_return_percent: number;
+        volatility: number;
+        sharpe_ratio: number;
+        data_points: number;
+        daily_values: Array<[string, number]>;
+      }[]>()
+      
+      return data.map(row => ({
+        asset_id: row.asset_id,
+        asset_symbol: row.asset_symbol,
+        asset_class: row.asset_class,
+        firstValue: row.first_value,
+        lastValue: row.last_value,
+        totalReturn: row.total_return,
+        totalReturnPercent: row.total_return_percent,
+        volatility: row.volatility,
+        sharpeRatio: row.sharpe_ratio,
+        dataPoints: row.data_points,
+        daily_values: row.daily_values.map(([date, value]) => ({ date, value }))
+      }))
+      
+    } catch (error) {
+      console.error('ClickHouse performance analysis failed:', error)
+      // Fallback para cálculo manual
+      return await this.getAssetPerformanceAnalysisFallback(from, to)
+    }
+  }
+  
+  // Método fallback para cálculos manuais
+  private async getAssetPerformanceAnalysisFallback(from: string, to: string) {
+    console.warn('Using manual calculation for performance analysis')
     const breakdown = await this.getAssetBreakdown(from, to)
     if (!breakdown || breakdown.length === 0) return []
 
-    // Agrupar por ativo e calcular métricas
     const assetGroups = breakdown.reduce((acc: any, item: any) => {
       if (!acc[item.asset_id]) {
         acc[item.asset_id] = {
@@ -607,7 +647,6 @@ export class PortfolioService {
       return acc
     }, {})
 
-    // Calcular métricas para cada ativo
     return Object.values(assetGroups).map((asset: any) => {
       const values = asset.daily_values.sort((a: any, b: any) => a.date.localeCompare(b.date))
       const firstValue = values[0]?.value || 0
@@ -615,7 +654,6 @@ export class PortfolioService {
       const totalReturn = lastValue - firstValue
       const totalReturnPercent = firstValue > 0 ? (totalReturn / firstValue) * 100 : 0
       
-      // Calcular volatilidade (desvio padrão dos retornos diários)
       const dailyReturns = []
       for (let i = 1; i < values.length; i++) {
         const prevValue = values[i - 1].value
@@ -627,7 +665,7 @@ export class PortfolioService {
       const avgReturn = dailyReturns.reduce((sum, ret) => sum + ret, 0) / dailyReturns.length
       const volatility = Math.sqrt(
         dailyReturns.reduce((sum, ret) => sum + Math.pow(ret - avgReturn, 2), 0) / dailyReturns.length
-      ) * Math.sqrt(252) * 100 // Anualizada em %
+      ) * Math.sqrt(252) * 100
 
       return {
         ...asset,
@@ -687,17 +725,17 @@ export class PortfolioService {
 }
 
 // Singleton instances cache
-const serviceInstances = new Map<string, PortfolioService>()
+const serviceInstances = new Map<string, HybridPortfolioService>()
 
-// Factory function to get or create PortfolioService instance
-export function getPortfolioService(userId: string, options?: { assumedPlan?: 'free' | 'premium' }): PortfolioService {
+// Factory function to get or create HybridPortfolioService instance
+export function getPortfolioService(userId: string, options?: { assumedPlan?: 'free' | 'premium' }): HybridPortfolioService {
   const cacheKey = `${userId}_${options?.assumedPlan || 'auto'}`
   
   if (!serviceInstances.has(cacheKey)) {
-    console.log(`Creating new PortfolioService instance for ${cacheKey}`)
-    serviceInstances.set(cacheKey, new PortfolioService(userId, options))
+    console.log(`Creating new HybridPortfolioService instance for ${cacheKey}`)
+    serviceInstances.set(cacheKey, new HybridPortfolioService(userId, options))
   } else {
-    console.log(`Reusing PortfolioService instance for ${cacheKey}`)
+    console.log(`Reusing HybridPortfolioService instance for ${cacheKey}`)
   }
   
   return serviceInstances.get(cacheKey)!
