@@ -113,7 +113,7 @@ export default function Hero() {
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl blur-xl" />
             <div className="relative">
               <p className="text-lg text-muted-foreground mb-6 font-medium">
-                <span className="text-primary font-semibold">Plano Free</span> para começar • <span className="text-secondary font-semibold">Premium R$ 19,90/mês</span>
+                <span className="text-primary font-semibold">Plano Free</span> para começar • <span className="text-foreground font-semibold">Premium R$ 19,90/mês</span>
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 

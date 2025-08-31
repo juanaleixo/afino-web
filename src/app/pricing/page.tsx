@@ -9,9 +9,9 @@ export default function PricingPage() {
       period: "/mês",
       description: "Plano básico para começar",
       features: [
-        "Conexão Open Finance básica",
+        // "Conexão Open Finance básica",
         "Dashboard consolidado",
-        "Histórico de 30 dias",
+        "Timeline de dados mensal",
         "Relatórios básicos",
         "Suporte por email"
       ],
@@ -25,14 +25,14 @@ export default function PricingPage() {
       period: "/mês",
       description: "Histórico completo, automações e insights",
       features: [
-        "Histórico completo ilimitado",
-        "Automações avançadas",
+        "Histórico diário completo e ilimitado",
+        // "Automações avançadas",
         "Insights personalizados",
-        "Pagamentos inteligentes",
-        "APIs de cripto e investimentos",
+        // "Pagamentos inteligentes",
+        // "APIs de cripto e investimentos",
         "Relatórios premium",
         "Suporte prioritário",
-        "Exportação de dados"
+        // "Exportação de dados"
       ],
       popular: true,
       cta: "Começar Premium",

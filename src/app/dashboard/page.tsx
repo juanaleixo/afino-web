@@ -169,11 +169,11 @@ export default function DashboardPage() {
         let chartData: any[] = []
         
         if (isPremium) {
-          // Premium: last 30 days daily data
-          const thirtyDaysAgo = new Date(today)
-          thirtyDaysAgo.setDate(today.getDate() - 30)
+          // Premium: last 6 months daily data
+          const sixMonthsAgo = new Date(today)
+          sixMonthsAgo.setMonth(today.getMonth() - 6)
           
-          const from = thirtyDaysAgo.toISOString().split('T')[0]!
+          const from = sixMonthsAgo.toISOString().split('T')[0]!
           const to = today.toISOString().split('T')[0]!
           
           const dailyData = await portfolioService.getDailySeries(from, to)
@@ -309,7 +309,7 @@ export default function DashboardPage() {
     }).format(value)
   }
 
-  const calculate30DayPerformance = () => {
+  const calculate6MonthPerformance = () => {
     if (miniTimelineData.length < 2) return { percentage: 0, isPositive: true }
     
     const firstValue = miniTimelineData[0]?.value || 0
@@ -489,10 +489,10 @@ export default function DashboardPage() {
                       {portfolioStats ? formatCurrency(portfolioStats.totalValue) : 'R$ 0,00'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      {timelinePreviewData?.series && calculate30DayPerformance().percentage !== 0 ? (
-                        <StatusBadge variant={calculate30DayPerformance().isPositive ? "success" : "error"} size="sm">
-                          {calculate30DayPerformance().isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                          {calculate30DayPerformance().isPositive ? '+' : ''}{calculate30DayPerformance().percentage.toFixed(1)}%
+                      {timelinePreviewData?.series && calculate6MonthPerformance().percentage !== 0 ? (
+                        <StatusBadge variant={calculate6MonthPerformance().isPositive ? "success" : "error"} size="sm">
+                          {calculate6MonthPerformance().isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                          {calculate6MonthPerformance().isPositive ? '+' : ''}{calculate6MonthPerformance().percentage.toFixed(1)}%
                         </StatusBadge>
                       ) : (
                         <StatusBadge variant="neutral" size="sm">
@@ -698,7 +698,7 @@ export default function DashboardPage() {
             )}
 
             {/* Ações Rápidas */}
-            <div className="animate-fade-in-up delay-450">
+            {/* <div className="animate-fade-in-up delay-450">
               <h3 className="text-lg font-semibold mb-4">Ações Rápidas</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Link href="/dashboard/patrimony/new?operation=add_existing">
@@ -720,7 +720,7 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </div> */}
           </div>
 
         </main>
