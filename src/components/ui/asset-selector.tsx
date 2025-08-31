@@ -69,21 +69,40 @@ export function AssetSelector({
     )
   }, [assetsToShow, searchQuery])
 
-  const selectedAsset = assets.find(asset => asset.id === value)
+  const selectedAsset = [...assets, ...customAssets].find(asset => asset.id === value)
 
 
-  // Agrupar assets por categoria para exibição
-  const groupedAssets = React.useMemo(() => {
-    const groups: { [key: string]: Asset[] } = {}
-    filteredAssets.forEach(asset => {
-      const classLabel = getAssetClassLabel(asset.class)
-      if (!groups[classLabel]) {
-        groups[classLabel] = []
-      }
-      groups[classLabel].push(asset)
-    })
-    return groups
-  }, [filteredAssets])
+  // Separar e agrupar assets
+  const organizedAssets = React.useMemo(() => {
+    if (!searchQuery) {
+      // Sem busca: mostrar organizadamente
+      const customFiltered = customAssets
+      const globalFiltered = globalAssets.slice(0, 20) // Limitar globais
+
+      const globalGrouped: { [key: string]: Asset[] } = {}
+      globalFiltered.forEach(asset => {
+        const classLabel = getAssetClassLabel(asset.class)
+        if (!globalGrouped[classLabel]) {
+          globalGrouped[classLabel] = []
+        }
+        globalGrouped[classLabel].push(asset)
+      })
+
+      return { custom: customFiltered, global: globalGrouped }
+    } else {
+      // Com busca: mostrar tudo junto filtrado
+      const allFiltered = filteredAssets
+      const grouped: { [key: string]: Asset[] } = {}
+      allFiltered.forEach(asset => {
+        const classLabel = getAssetClassLabel(asset.class)
+        if (!grouped[classLabel]) {
+          grouped[classLabel] = []
+        }
+        grouped[classLabel].push(asset)
+      })
+      return { custom: [], global: grouped, searching: true }
+    }
+  }, [customAssets, globalAssets, filteredAssets, searchQuery])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -103,6 +122,11 @@ export function AssetSelector({
                 showLabel={false}
               />
               <span className="truncate">{getAssetDisplayLabel(selectedAsset)}</span>
+              {(selectedAsset as any).meta?.is_custom && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                  PERSONALIZADO
+                </span>
+              )}
               {getAssetDisplayLabel(selectedAsset)?.toUpperCase?.() !== selectedAsset.symbol?.toUpperCase?.() && (
                 <span className="text-xs text-muted-foreground">({selectedAsset.symbol})</span>
               )}
@@ -124,57 +148,114 @@ export function AssetSelector({
           />
         </div>
         <div className="max-h-[300px] overflow-y-auto">
-          {Object.keys(groupedAssets).length === 0 ? (
+          {organizedAssets.custom.length === 0 && Object.keys(organizedAssets.global).length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               Nenhum ativo encontrado
             </div>
           ) : (
-            Object.entries(groupedAssets).map(([classLabel, classAssets]) => (
-              <div key={classLabel}>
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50">
-                  {classLabel} ({classAssets.length})
-                </div>
-                {classAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
-                      value === asset.id && "bg-accent text-accent-foreground"
-                    )}
-                    onClick={() => {
-                      onValueChange?.(asset.id)
-                      setOpen(false)
-                      setSearchQuery("")
-                    }}
-                  >
-                    <AssetBadge 
-                      assetClass={asset.class as any}
-                      size="sm"
-                      showLabel={false}
-                    />
-                    <div className="flex-1 text-left">
-                      <div className="font-medium">{getAssetDisplayLabel(asset)}</div>
-                      {getAssetDisplayLabel(asset)?.toUpperCase?.() !== asset.symbol?.toUpperCase?.() && (
-                        <div className="text-xs text-muted-foreground">{asset.symbol}</div>
-                      )}
-                    </div>
-                    <Check
+            <>
+              {/* Meus Ativos Personalizados */}
+              {organizedAssets.custom.length > 0 && !organizedAssets.searching && (
+                <>
+                  <div className="px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400 border-b">
+                    🏠 Meus Ativos ({organizedAssets.custom.length})
+                  </div>
+                  {organizedAssets.custom.map((asset) => (
+                    <button
+                      key={asset.id}
                       className={cn(
-                        "ml-auto h-4 w-4",
-                        value === asset.id ? "opacity-100" : "opacity-0"
+                        "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
+                        value === asset.id && "bg-accent text-accent-foreground"
                       )}
-                    />
-                  </button>
-                ))}
-              </div>
-            ))
+                      onClick={() => {
+                        onValueChange?.(asset.id)
+                        setOpen(false)
+                        setSearchQuery("")
+                      }}
+                    >
+                      <AssetBadge 
+                        assetClass={asset.class as any}
+                        size="sm"
+                        showLabel={false}
+                      />
+                      <div className="flex-1 text-left">
+                        <div className="font-medium flex items-center gap-2">
+                          {getAssetDisplayLabel(asset)}
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                            PERSONALIZADO
+                          </span>
+                        </div>
+                        {getAssetDisplayLabel(asset)?.toUpperCase?.() !== asset.symbol?.toUpperCase?.() && (
+                          <div className="text-xs text-muted-foreground">{asset.symbol}</div>
+                        )}
+                      </div>
+                      <Check
+                        className={cn(
+                          "ml-auto h-4 w-4",
+                          value === asset.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* Ativos Globais */}
+              {Object.keys(organizedAssets.global).length > 0 && (
+                <>
+                  {organizedAssets.custom.length > 0 && !organizedAssets.searching && (
+                    <div className="border-t"></div>
+                  )}
+                  {!organizedAssets.searching && (
+                    <div className="px-3 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400 border-b">
+                      🌐 Ativos Globais
+                    </div>
+                  )}
+                  
+                  {Object.entries(organizedAssets.global).map(([classLabel, classAssets]) => (
+                    <div key={classLabel}>
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/30">
+                        {classLabel} ({classAssets.length})
+                      </div>
+                      {classAssets.map((asset) => (
+                        <button
+                          key={asset.id}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
+                            value === asset.id && "bg-accent text-accent-foreground"
+                          )}
+                          onClick={() => {
+                            onValueChange?.(asset.id)
+                            setOpen(false)
+                            setSearchQuery("")
+                          }}
+                        >
+                          <AssetBadge 
+                            assetClass={asset.class as any}
+                            size="sm"
+                            showLabel={false}
+                          />
+                          <div className="flex-1 text-left">
+                            <div className="font-medium">{getAssetDisplayLabel(asset)}</div>
+                            {getAssetDisplayLabel(asset)?.toUpperCase?.() !== asset.symbol?.toUpperCase?.() && (
+                              <div className="text-xs text-muted-foreground">{asset.symbol}</div>
+                            )}
+                          </div>
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              value === asset.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
           )}
         </div>
-        {!showOnlyCustom && customAssets.length > 0 && (
-          <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-            💡 Para ver apenas seus ativos customizados, use o filtro na aba Ativos
-          </div>
-        )}
       </PopoverContent>
     </Popover>
   )

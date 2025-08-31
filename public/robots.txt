@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://afino.finance/sitemap.xml
+# Block dashboard routes for crawlers
+Disallow: /dashboard/
+
+Sitemap: https://afino.com.br/sitemap.xml

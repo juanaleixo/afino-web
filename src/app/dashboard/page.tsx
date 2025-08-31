@@ -435,15 +435,13 @@ export default function DashboardPage() {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="relative p-2 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 shadow-md">
-                  <Image
-                    src="/icon.svg"
-                    alt="Afino Finance"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 drop-shadow-sm"
-                  />
-                </div>
+                <Image
+                  src="/icon.svg"
+                  alt="Afino Finance"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8"
+                />
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">Afino</h1>
                   <p className="text-sm text-muted-foreground font-medium">Visualização de Ativos</p>

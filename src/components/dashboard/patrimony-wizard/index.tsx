@@ -128,13 +128,13 @@ export function PatrimonyWizard({
     loadData()
   }, [loadData])
 
-  // Auto-avançar se operação pré-selecionada
+  // Auto-avançar se operação pré-selecionada (só na primeira vez)
   useEffect(() => {
-    if (preselectedOperation && currentStep === 0) {
+    if (preselectedOperation && currentStep === 0 && !selectedOperation) {
       setSelectedOperation(preselectedOperation)
       setCurrentStep(1)
     }
-  }, [preselectedOperation, currentStep])
+  }, [preselectedOperation]) // Removido currentStep das dependências
 
   const handleOperationSelect = (operation: OperationType) => {
     setSelectedOperation(operation)

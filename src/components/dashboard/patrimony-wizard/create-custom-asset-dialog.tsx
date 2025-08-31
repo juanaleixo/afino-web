@@ -20,7 +20,7 @@ interface CreateCustomAssetDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   assetType: string
-  onSuccess: () => void
+  onSuccess: (assetId?: string) => void
 }
 
 export function CreateCustomAssetDialog({
@@ -55,24 +55,27 @@ export function CreateCustomAssetDialog({
       }
 
       // Criar ativo customizado
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('custom_assets')
         .insert([{
           user_id: user.id,
           label: formData.label,
           currency: formData.currency,
+          class: assetType, // Agora usando a coluna direta
+          symbol: formData.label.toUpperCase().replace(/\s+/g, '_'), // Symbol sem espaços
           meta: {
             is_custom: true,
-            asset_class: assetType,
             created_at: new Date().toISOString()
           }
         }])
+        .select()
 
       if (error) throw error
 
+      const createdAsset = data?.[0]
       toast.success('Ativo criado com sucesso!')
       setFormData({ label: '', currency: 'BRL' })
-      onSuccess()
+      onSuccess(createdAsset?.id)
     } catch (error: any) {
       console.error('Erro ao criar ativo:', error)
       toast.error(error.message || 'Erro ao criar ativo')

@@ -10,10 +10,35 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Afino - Hub Financeiro Inteligente",
-  description: "Centralize contas bancárias, cripto e investimentos com simplicidade e automação",
+  description: "Centralize contas bancárias, cripto e investimentos com simplicidade e automação. Conecte via Open Finance e APIs externas para uma visão consolidada do seu patrimônio.",
+  keywords: "gestão financeira, open finance, investimentos, cripto, contas bancárias, dashboard financeiro, automação financeira, brasil",
+  authors: [{ name: "Afino" }],
+  creator: "Afino",
+  publisher: "Afino",
+  robots: "index, follow",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.png",
+  },
+  openGraph: {
+    title: "Afino - Hub Financeiro Inteligente",
+    description: "Centralize contas bancárias, cripto e investimentos com simplicidade e automação",
+    type: "website",
+    locale: "pt_BR",
+    images: [
+      {
+        url: "/icon.png",
+        width: 512,
+        height: 512,
+        alt: "Afino Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Afino - Hub Financeiro Inteligente",
+    description: "Centralize contas bancárias, cripto e investimentos com simplicidade e automação",
+    images: ["/icon.png"],
   },
 }
 

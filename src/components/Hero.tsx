@@ -20,15 +20,13 @@ export default function Hero() {
         <div className="mx-auto max-w-4xl text-center">
           {/* Logo with enhanced styling */}
           <div className="flex justify-center mb-8 animate-fade-in-up">
-            <div className="relative p-4 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 backdrop-blur-sm border border-primary/20 shadow-lg">
-              <Image
-                src="/icon.svg"
-                alt="Afino Finance"
-                width={80}
-                height={80}
-                className="h-20 w-20 drop-shadow-lg"
-              />
-            </div>
+            <Image
+              src="/icon.svg"
+              alt="Afino Finance"
+              width={80}
+              height={80}
+              className="h-20 w-20"
+            />
           </div>
 
           {/* Enhanced Title with Gradient */}
