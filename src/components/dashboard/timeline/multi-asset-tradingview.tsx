@@ -421,7 +421,12 @@ export default function MultiAssetTradingView({
             
             {/* Asset Selection */}
             <div>
-              <h4 className="text-sm font-medium mb-2">Ativos Selecionados ({selectedAssets.length}/{chartType === 'candles' ? '5' : '10'})</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium">Ativos Selecionados</h4>
+                <Badge variant="outline" className="text-xs">
+                  {selectedAssets.length} / {chartType === 'candles' ? '5' : '10'}
+                </Badge>
+              </div>
               <Stagger staggerDelay={0.05} className="flex flex-wrap gap-2">
                 {assetsData.slice(0, 20).map((asset) => {
                   const isSelected = selectedAssets.includes(asset.asset_id)
@@ -434,16 +439,22 @@ export default function MultiAssetTradingView({
                       size="sm"
                       onClick={() => toggleAsset(asset.asset_id)}
                       disabled={!isSelected && selectedAssets.length >= (chartType === 'candles' ? 5 : 10)}
-                      className={`${isSelected ? 'border-2' : ''} transition-all duration-200 hover:scale-105`}
+                      className={`${isSelected ? 'border-2' : ''} transition-all duration-200 hover:scale-105 flex items-center gap-2`}
                       style={isSelected ? { borderColor: color, backgroundColor: color + '20' } : {}}
                     >
                       <div 
-                        className="w-2 h-2 rounded-full mr-2 transition-colors duration-200" 
+                        className="w-2 h-2 rounded-full transition-colors duration-200" 
                         style={{ backgroundColor: isSelected ? color : '#94a3b8' }}
                       />
-                      {asset.asset_symbol}
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {asset.asset_class}
+                      <span className={`font-medium ${
+                        isSelected 
+                          ? 'text-gray-900 dark:text-gray-100' 
+                          : ''
+                      }`}>
+                        {asset.asset_symbol}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                        {asset.asset_class.toUpperCase()}
                       </Badge>
                     </Button>
                   )

@@ -34,6 +34,7 @@ export default function MiniChart({
           strokeWidth={2}
           dot={showDots ? { fill: color, strokeWidth: 0, r: 2 } : false}
           activeDot={false}
+          isAnimationActive={false}
         />
       </LineChart>
     </ResponsiveContainer>

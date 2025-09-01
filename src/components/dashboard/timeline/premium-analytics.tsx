@@ -258,7 +258,22 @@ export default function PremiumAnalytics({
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [formatCurrency(value), 'Valor']} />
+                    <Tooltip 
+                      formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))',
+                        fontSize: '14px'
+                      }}
+                      labelStyle={{
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                      itemStyle={{
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                    />
                     <Legend />
                   </RechartsPie>
                 </ResponsiveContainer>
@@ -276,11 +291,37 @@ export default function PremiumAnalytics({
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <RechartsBar data={performanceBarData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value: number) => [formatPercent(value), 'Performance']} />
-                    <Bar dataKey="performance" fill="#8884d8" />
+                    <CartesianGrid 
+                      strokeDasharray="2 4" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      strokeOpacity={0.2}
+                    />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => formatPercent(value)}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [formatPercent(value), 'Performance']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="performance" 
+                      fill="hsl(var(--primary))"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </RechartsBar>
                 </ResponsiveContainer>
               </CardContent>
@@ -365,10 +406,31 @@ export default function PremiumAnalytics({
                   <RechartsLine data={
                     performanceData.find(a => a.asset_id === selectedAsset)?.daily_values || []
                   }>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <CartesianGrid 
+                      strokeDasharray="2 4" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      strokeOpacity={0.2}
+                    />
+                    <XAxis 
+                      dataKey="date"
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                    />
                     <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
                   </RechartsLine>
                 </ResponsiveContainer>
@@ -386,10 +448,34 @@ export default function PremiumAnalytics({
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <RechartsBar data={performanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="asset_symbol" />
-                    <YAxis />
-                    <Tooltip />
+                    <CartesianGrid 
+                      strokeDasharray="2 4" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      strokeOpacity={0.2}
+                    />
+                    <XAxis 
+                      dataKey="asset_symbol"
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        `${value.toFixed(2)}%`, 
+                        name === 'volatility' ? 'Volatilidade' : 'Retorno'
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '8px',
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                    />
                     <Bar dataKey="volatility" fill="#ff8042" name="Volatilidade %" />
                     <Bar dataKey="totalReturnPercent" fill="#8884d8" name="Retorno %" />
                   </RechartsBar>

@@ -247,14 +247,33 @@ export default function AssetDrillDown({
                   <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="formattedDate" />
-              <YAxis />
+              <CartesianGrid 
+                strokeDasharray="2 4" 
+                stroke="hsl(var(--muted-foreground))" 
+                strokeOpacity={0.2}
+              />
+              <XAxis 
+                dataKey="formattedDate"
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
+                tickLine={{ stroke: 'hsl(var(--border))' }}
+              />
+              <YAxis 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
+                tickLine={{ stroke: 'hsl(var(--border))' }}
+              />
               <Tooltip 
                 formatter={(value: number) => 
                   viewType === 'value' ? formatCurrency(value) : formatUnits(value)
                 } 
                 labelFormatter={(label) => `Data: ${label}`}
+                contentStyle={{ 
+                  backgroundColor: 'hsl(var(--popover))', 
+                  border: '1px solid hsl(var(--border))', 
+                  borderRadius: '8px',
+                  color: 'hsl(var(--popover-foreground))'
+                }}
               />
               <Area 
                 type="monotone" 
@@ -325,13 +344,32 @@ export default function AssetDrillDown({
               {/* Gráfico da Conta */}
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsLine data={accountChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="formattedDate" />
-                  <YAxis />
+                  <CartesianGrid 
+                    strokeDasharray="2 4" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    strokeOpacity={0.2}
+                  />
+                  <XAxis 
+                    dataKey="formattedDate"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <YAxis 
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                  />
                   <Tooltip 
                     formatter={(value: number) => 
                       viewType === 'value' ? formatCurrency(value) : formatUnits(value)
-                    } 
+                    }
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--popover))', 
+                      border: '1px solid hsl(var(--border))', 
+                      borderRadius: '8px',
+                      color: 'hsl(var(--popover-foreground))'
+                    }}
                   />
                   <Line 
                     type="monotone" 
