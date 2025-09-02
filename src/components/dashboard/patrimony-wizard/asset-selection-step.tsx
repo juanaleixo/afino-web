@@ -82,6 +82,7 @@ export function AssetSelectionStep({
   onReload
 }: AssetSelectionStepProps) {
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [selectedAssetType, setSelectedAssetType] = React.useState<string>("all")
   const [deleteAsset, setDeleteAsset] = React.useState<{ id: string; name: string } | null>(null)
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
@@ -93,16 +94,98 @@ export function AssetSelectionStep({
   const allAssets = [...assets, ...customAssets]
   const selectedAsset = allAssets.find(a => a.id === selectedAssetId)
   
-  // Filtrar assets baseado na busca
-  const filteredAssets = React.useMemo(() => {
-    if (!searchQuery) return []
+  // Buscar assets dinamicamente no servidor conforme o usuário digita
+  const [searchResults, setSearchResults] = React.useState<Asset[]>([])
+  const [searching, setSearching] = React.useState(false)
+  const [hasSearched, setHasSearched] = React.useState(false)
+
+  // Função para validar CNPJ (apenas formato)
+  const isValidCNPJFormat = (cnpj: string) => {
+    const cleaned = cnpj.replace(/\D/g, '')
+    return cleaned.length === 14
+  }
+
+  // Função para formatar CNPJ
+  const formatCNPJ = (cnpj: string) => {
+    const cleaned = cnpj.replace(/\D/g, '')
+    if (cleaned.length === 14) {
+      return `${cleaned.slice(0,2)}.${cleaned.slice(2,5)}.${cleaned.slice(5,8)}/${cleaned.slice(8,12)}-${cleaned.slice(12,14)}`
+    }
+    return cleaned
+  }
+
+  // Função para buscar assets no servidor
+  const searchAssets = React.useCallback(async (query: string, assetType: string) => {
+    // Para fundos, só buscar se tiver CNPJ completo
+    const cleanedQuery = query.replace(/\D/g, '')
+    const isCNPJQuery = /^\d+$/.test(cleanedQuery) && cleanedQuery.length >= 8
     
-    const query = searchQuery.toLowerCase()
-    return assets.filter(asset => 
-      asset.symbol.toLowerCase().includes(query) ||
-      (asset.label_ptbr && asset.label_ptbr.toLowerCase().includes(query))
-    ).slice(0, 10) // Limitar resultados
-  }, [assets, searchQuery])
+    if (assetType === 'fund' && isCNPJQuery && !isValidCNPJFormat(query)) {
+      // CNPJ incompleto para fundos - não buscar ainda
+      setSearchResults([])
+      setHasSearched(false)
+      return
+    }
+    
+    if (!query || (assetType !== 'fund' && query.length < 2) || (assetType === 'fund' && !isCNPJQuery && query.length < 3)) {
+      setSearchResults([])
+      setHasSearched(false)
+      return
+    }
+    
+    try {
+      setSearching(true)
+      setHasSearched(false)
+      
+      let supabaseQuery = supabase.from('global_assets').select('*')
+      
+      // Filtrar por tipo de ativo
+      if (assetType === 'stock') {
+        supabaseQuery = supabaseQuery.eq('class', 'stock')
+      } else if (assetType === 'crypto') {
+        supabaseQuery = supabaseQuery.eq('class', 'crypto')
+      } else if (assetType === 'fund') {
+        supabaseQuery = supabaseQuery.in('class', ['fund', 'etf', 'reit'])
+      }
+      
+      // Lógica de busca baseada no tipo
+      if (assetType === 'fund' && isCNPJQuery) {
+        // Busca por CNPJ formatado
+        const formattedCNPJ = formatCNPJ(query)
+        supabaseQuery = supabaseQuery.ilike('symbol', `%${formattedCNPJ}%`)
+      } else {
+        // Busca normal por symbol e label
+        supabaseQuery = supabaseQuery.or(`symbol.ilike.%${query}%,label_ptbr.ilike.%${query}%`)
+      }
+      
+      const { data, error } = await supabaseQuery
+        .limit(50)
+        .order('symbol', { ascending: true })
+      
+      if (error) throw error
+      
+      setSearchResults(data || [])
+      setHasSearched(true)
+      console.log(`🔍 Server search for "${query}" (type: ${assetType}):`, data?.length || 0, 'results')
+    } catch (error) {
+      console.error('Erro na busca de assets:', error)
+      setSearchResults([])
+      setHasSearched(true)
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  // Debounce da busca
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      searchAssets(searchQuery, selectedAssetType)
+    }, 300) // 300ms delay
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, selectedAssetType, searchAssets])
+
+  const filteredAssets = searchResults
 
   // Determinar se precisa de conta baseado na operação
   const requiresAccount = ['money_in', 'money_out', 'purchase'].includes(selectedOperation)
@@ -254,20 +337,20 @@ export function AssetSelectionStep({
                     onClick={() => form.setValue('asset_id', asset.id)}
                     className="w-full text-left"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-10 w-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
                         <AssetBadge assetClass={asset.class as any} size="sm" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="font-medium text-gray-900 dark:text-gray-100 break-words">
                           {(asset as any).label || asset.symbol}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {asset.currency} • Personalizado
                         </div>
                       </div>
                       {selectedAssetId === asset.id && (
-                        <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
+                        <div className="flex-shrink-0 h-2 w-2 bg-blue-600 rounded-full mt-2"></div>
                       )}
                     </div>
                   </button>
@@ -286,14 +369,35 @@ export function AssetSelectionStep({
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">Buscar Ativos Globais</h4>
           </div>
           
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input
-              placeholder="Digite o código ou nome (ex: PETR4, Bitcoin, Apple)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base border-2 border-gray-200 focus:border-green-400 rounded-xl dark:border-gray-700 dark:focus:border-green-600"
-            />
+          <div className="flex gap-2">
+            <Select value={selectedAssetType} onValueChange={setSelectedAssetType}>
+              <SelectTrigger className="w-40 h-12 border-2 border-gray-200 focus:border-green-400 rounded-xl dark:border-gray-700 dark:focus:border-green-600">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="stock">📈 Ações</SelectItem>
+                <SelectItem value="fund">🏦 Fundos</SelectItem>
+                <SelectItem value="crypto">₿ Criptomoedas</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder={
+                  selectedAssetType === 'fund' 
+                    ? "Digite o nome ou CNPJ do fundo (14 dígitos)" 
+                    : selectedAssetType === 'stock'
+                    ? "Digite o código da ação (ex: PETR4, VALE3)"
+                    : selectedAssetType === 'crypto'
+                    ? "Digite o nome da criptomoeda (ex: Bitcoin, Ethereum)"
+                    : "Digite o código ou nome (ex: PETR4, Bitcoin, Apple)"
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 h-12 text-base border-2 border-gray-200 focus:border-green-400 rounded-xl dark:border-gray-700 dark:focus:border-green-600"
+              />
+            </div>
           </div>
           
           {searchQuery && filteredAssets.length > 0 && (
@@ -321,11 +425,31 @@ export function AssetSelectionStep({
             </div>
           )}
           
-          {searchQuery && filteredAssets.length === 0 && (
+          {searchQuery && !searching && hasSearched && filteredAssets.length === 0 && searchQuery.length >= 2 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <div className="text-4xl mb-2">🔍</div>
               <p>Nenhum ativo encontrado</p>
               <p className="text-sm mt-1">Tente criar um ativo personalizado abaixo</p>
+            </div>
+          )}
+          
+          {searching && (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-2xl mb-2">⏳</div>
+              <p>Buscando ativos...</p>
+            </div>
+          )}
+          
+          {searchQuery && ((selectedAssetType !== 'fund' && searchQuery.length < 2) || 
+           (selectedAssetType === 'fund' && /^\d+$/.test(searchQuery.replace(/\D/g, '')) && !isValidCNPJFormat(searchQuery))) && (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-2xl mb-2">✏️</div>
+              <p>
+                {selectedAssetType === 'fund' && /^\d+$/.test(searchQuery.replace(/\D/g, ''))
+                  ? "Digite o CNPJ completo (14 dígitos) para buscar fundos"
+                  : "Digite pelo menos 2 caracteres para buscar"
+                }
+              </p>
             </div>
           )}
         </div>

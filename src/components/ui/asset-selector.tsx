@@ -77,7 +77,7 @@ export function AssetSelector({
     if (!searchQuery) {
       // Sem busca: mostrar organizadamente
       const customFiltered = customAssets
-      const globalFiltered = globalAssets.slice(0, 20) // Limitar globais
+      const globalFiltered = globalAssets // Remover limitação artificial
 
       const globalGrouped: { [key: string]: Asset[] } = {}
       globalFiltered.forEach(asset => {

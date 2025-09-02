@@ -1,20 +1,13 @@
 -- Table: global_price_daily
 -- Description: Stores the daily price of global assets.
 
-CREATE TABLE public.global_price_daily (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    asset_id uuid NOT NULL,
-    date date NOT NULL,
-    price numeric NOT NULL
-);
+create table public.global_price_daily (
+  id uuid not null default gen_random_uuid (),
+  date date not null,
+  price numeric not null,
+  asset_symbol text null,
+  constraint global_price_daily_pkey primary key (id),
+  constraint global_price_daily_asset_symbol_fkey foreign KEY (asset_symbol) references global_assets (symbol) on delete RESTRICT
+) TABLESPACE pg_default;
 
 ALTER TABLE public.global_price_daily OWNER TO postgres;
-
-ALTER TABLE ONLY public.global_price_daily
-ADD CONSTRAINT global_price_daily_pkey PRIMARY KEY (id);
-
-ALTER TABLE ONLY public.global_price_daily
-ADD CONSTRAINT global_price_daily_asset_id_date_key UNIQUE (asset_id, date);
-
-ALTER TABLE ONLY public.global_price_daily
-ADD CONSTRAINT global_price_daily_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.global_assets(id) ON DELETE CASCADE;
