@@ -8,8 +8,15 @@ DECLARE
   v_class text;
   v_symbol text;
 BEGIN
+  -- Buscar primeiro em global_assets (por symbol)
   SELECT ga.class, ga.symbol INTO v_class, v_symbol
   FROM public.global_assets ga WHERE ga.symbol = COALESCE(NEW.asset_symbol, OLD.asset_symbol);
+
+  -- Se não encontrou, buscar em custom_assets (por id)
+  IF v_class IS NULL THEN
+    SELECT ca.class, ca.symbol INTO v_class, v_symbol
+    FROM public.custom_assets ca WHERE ca.id = COALESCE(NEW.asset_symbol, OLD.asset_symbol)::uuid;
+  END IF;
 
   IF v_class IS NULL THEN
     RAISE EXCEPTION 'Ativo % não encontrado', COALESCE(NEW.asset_symbol, OLD.asset_symbol);

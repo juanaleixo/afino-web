@@ -5,7 +5,8 @@ CREATE TABLE public.custom_asset_valuations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     asset_id uuid NOT NULL,
     date date NOT NULL,
-    value numeric NOT NULL
+    value numeric NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 ALTER TABLE ONLY public.custom_asset_valuations FORCE ROW LEVEL SECURITY;

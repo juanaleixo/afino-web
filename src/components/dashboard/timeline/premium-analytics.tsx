@@ -97,8 +97,9 @@ export default function PremiumAnalytics({
     color: COLORS[index % COLORS.length]
   }))
 
-  // Preparar dados para gráfico de barras (performance)
+  // Preparar dados para gráfico de barras (performance) - filtrar ativos com 0% de variação
   const performanceBarData = performanceData
+    .filter(asset => asset.totalReturnPercent !== 0)
     .sort((a, b) => b.totalReturnPercent - a.totalReturnPercent)
     .map(asset => ({
       name: asset.asset_symbol,
@@ -347,7 +348,9 @@ export default function PremiumAnalytics({
                     </tr>
                   </thead>
                   <tbody>
-                    {performanceData.map((asset, index) => (
+                    {performanceData
+                      .filter(asset => asset.totalReturnPercent !== 0)
+                      .map((asset, index) => (
                       <tr key={asset.asset_id} className="border-b hover:bg-muted/50">
                         <td className="p-2 font-medium">{asset.asset_symbol || asset.asset_id}</td>
                         <td className="p-2">

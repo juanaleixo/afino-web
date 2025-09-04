@@ -101,17 +101,50 @@ export default function DashboardPage() {
   const loadAssetSymbols = async (assetIds: string[]) => {
     try {
       setLoadingSymbols(true)
-      const { data, error } = await supabase
-        .from('global_assets')
-        .select('symbol')
-        .in('symbol', assetIds)
-      
-      if (error) throw error
       
       const symbolMap = new Map<string, string>()
-      data?.forEach(asset => {
-        symbolMap.set(asset.symbol, asset.symbol)
+      const globalAssetIds: string[] = []
+      const customAssetIds: string[] = []
+      
+      // Separate global assets (symbols) from custom assets (UUIDs)
+      assetIds.forEach(id => {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        if (isUUID) {
+          customAssetIds.push(id)
+        } else {
+          globalAssetIds.push(id)
+        }
       })
+      
+      // Load global assets
+      if (globalAssetIds.length > 0) {
+        const { data: globalData, error: globalError } = await supabase
+          .from('global_assets')
+          .select('symbol')
+          .in('symbol', globalAssetIds)
+        
+        if (!globalError && globalData) {
+          globalData.forEach(asset => {
+            symbolMap.set(asset.symbol, asset.symbol)
+          })
+        }
+      }
+      
+      // Load custom assets
+      if (customAssetIds.length > 0) {
+        const { data: customData, error: customError } = await supabase
+          .from('custom_assets')
+          .select('id, label, symbol')
+          .in('id', customAssetIds)
+        
+        if (!customError && customData) {
+          customData.forEach(asset => {
+            // Use symbol if available, otherwise use label
+            const displayName = asset.symbol || asset.label
+            symbolMap.set(asset.id, displayName)
+          })
+        }
+      }
       
       setAssetSymbols(symbolMap)
     } catch (error) {
@@ -341,9 +374,8 @@ export default function DashboardPage() {
       return { symbol: '...', percentage: isNaN(percentage) ? 0 : percentage, loading: true }
     }
     
-    // Try to get symbol from loaded symbols, fallback to abbreviated ID
-    const symbol = assetSymbols.get(assetId) || 
-                  (assetId.length > 8 ? assetId.substring(0, 8).toUpperCase() : assetId)
+    // Get symbol from loaded symbols, fallback to asset ID
+    const symbol = assetSymbols.get(assetId) || assetId
     
     return { 
       symbol, 

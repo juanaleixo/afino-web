@@ -451,12 +451,13 @@ export class PortfolioService {
       const value: number = Number(item.value ?? item.asset_value ?? item.total_value ?? item.amount ?? 0)
       const symbol: string = item.asset_symbol || item.symbol || item.asset?.symbol || item.asset_id
       const klass: string = item.asset_class || item.class || item.asset?.class || 'unknown'
+      
       const pct: number | undefined =
         (typeof item.percentage === 'number' ? item.percentage : undefined)
 
       return {
         date,
-        asset_id: item.asset_id,
+        asset_id: symbol, // Use symbol as asset_id for consistent display
         asset_symbol: symbol,
         asset_class: klass,
         value,
@@ -464,7 +465,6 @@ export class PortfolioService {
       }
     })
 
-    console.log('Normalized breakdown sample:', normalized.slice(0, 2))
 
 
     // Calcular percentuais por data caso não estejam presentes
@@ -611,7 +611,6 @@ export class PortfolioService {
       return acc
     }, {})
     
-    console.log('AssetGroups criados:', Object.keys(assetGroups).slice(0, 3), 'primeira entrada:', Object.values(assetGroups)[0])
 
     // Calcular métricas para cada ativo
     return Object.values(assetGroups).map((asset: any) => {

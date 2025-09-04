@@ -229,12 +229,21 @@ export function PatrimonyWizard({
 
       const eventData: any = {
         user_id: user.id,
-        asset_symbol: (selectedCustom?.symbol || formData.asset_id),
+        asset_symbol: isCustom ? selectedCustom.id : formData.asset_id,
         account_id: formData.account_id === "" ? null : formData.account_id,
         kind: eventKind,
         tstamp: formData.date,
         meta: formData.notes ? { note: formData.notes } : {}
       }
+
+      // Debug log para investigar o problema
+      console.log('DEBUG: Dados do evento sendo criado:', {
+        asset_id: formData.asset_id,
+        selectedCustom: selectedCustom,
+        isCustom: isCustom,
+        asset_symbol: eventData.asset_symbol,
+        eventData
+      })
 
       // Adicionar campos específicos por tipo
       switch (eventKind) {
@@ -253,10 +262,13 @@ export function PatrimonyWizard({
       }
 
       // Criar evento
-      const { error } = await supabase
+      console.log('DEBUG: Enviando dados para Supabase:', eventData)
+      const { data, error } = await supabase
         .from('events')
         .insert([eventData])
+        .select()
 
+      console.log('DEBUG: Resposta do Supabase:', { data, error })
       if (error) throw error
 
       // Trigger background price filling for global assets

@@ -38,18 +38,19 @@ BEGIN
   -- Return holdings with asset metadata
   RETURN QUERY
   SELECT
-    COALESCE(ga.symbol, dp.asset_id::text) as asset_id, -- Retornar símbolo como asset_id
-    ga.symbol,
-    ga.class,
-    ga.label_ptbr,
+    COALESCE(ga.symbol, ca.symbol, dp.asset_id::text) as asset_id, -- Priorizar símbolo global, depois custom
+    COALESCE(ga.symbol, ca.symbol, dp.asset_id::text) as symbol,
+    COALESCE(ga.class, ca.class, 'unknown'::text) as class,
+    COALESCE(ga.label_ptbr, ca.label) as label_ptbr,
     SUM(dp.units)::numeric AS units,
     SUM(dp.value)::numeric AS value
   FROM public.daily_positions_acct dp
   LEFT JOIN public.global_assets ga ON ga.symbol = dp.asset_id::text
+  LEFT JOIN public.custom_assets ca ON ca.id::text = dp.asset_id::text AND ca.user_id = current_user_id
   WHERE dp.user_id = current_user_id
     AND dp.date = target_date
     AND COALESCE(dp.is_final, true) = true
-  GROUP BY dp.asset_id, ga.symbol, ga.class, ga.label_ptbr
+  GROUP BY dp.asset_id, ga.symbol, ga.class, ga.label_ptbr, ca.symbol, ca.class, ca.label
   HAVING SUM(dp.value) > 0.01
   ORDER BY SUM(dp.value) DESC;
 END;
