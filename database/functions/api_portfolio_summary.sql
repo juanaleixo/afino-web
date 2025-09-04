@@ -46,7 +46,7 @@ BEGIN
     'top_assets', COALESCE(
       json_agg(
         json_build_object(
-          'asset_id', ranked_assets.asset_id,
+          'asset_id', COALESCE(ranked_assets.symbol, ranked_assets.asset_id::text),
           'symbol', ranked_assets.symbol,
           'value', ranked_assets.asset_value,
           'percentage', ROUND((ranked_assets.asset_value / NULLIF(ranked_assets.total_portfolio_value, 0)) * 100, 2)
@@ -65,7 +65,7 @@ BEGIN
       SUM(SUM(dp.value)) OVER () as total_portfolio_value,
       ROW_NUMBER() OVER (ORDER BY SUM(dp.value) DESC) as rn
     FROM public.daily_positions_acct dp
-    LEFT JOIN public.global_assets ga ON ga.id = dp.asset_id
+    LEFT JOIN public.global_assets ga ON ga.symbol = dp.asset_id::text
     WHERE dp.user_id = current_user_id 
       AND dp.date = target_date
       AND COALESCE(dp.is_final, true) = true

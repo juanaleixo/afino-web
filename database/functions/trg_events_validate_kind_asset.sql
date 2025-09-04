@@ -9,10 +9,10 @@ DECLARE
   v_symbol text;
 BEGIN
   SELECT ga.class, ga.symbol INTO v_class, v_symbol
-  FROM public.global_assets ga WHERE ga.id = COALESCE(NEW.asset_id, OLD.asset_id);
+  FROM public.global_assets ga WHERE ga.symbol = COALESCE(NEW.asset_symbol, OLD.asset_symbol);
 
   IF v_class IS NULL THEN
-    RAISE EXCEPTION 'Ativo % não encontrado', COALESCE(NEW.asset_id, OLD.asset_id);
+    RAISE EXCEPTION 'Ativo % não encontrado', COALESCE(NEW.asset_symbol, OLD.asset_symbol);
   END IF;
 
   -- Regras:

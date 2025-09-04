@@ -3,14 +3,14 @@
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
-import { EventWizard } from "@/components/dashboard/event-wizard"
+import { PatrimonyWizard } from "@/components/dashboard/patrimony-wizard"
 import { Calendar } from "lucide-react"
 
 function NewEventInner() {
   const searchParams = useSearchParams()
   
   const preselectedAssetId = searchParams.get('asset_id') ?? undefined
-  const preselectedKind = searchParams.get('kind') as any ?? undefined
+  const preselectedOperation = searchParams.get('operation') as any ?? undefined
   const preselectedAccountId = searchParams.get('account_id') ?? undefined
 
   return (
@@ -26,9 +26,9 @@ function NewEventInner() {
       ]}
     >
       <div className="flex justify-center">
-        <EventWizard
+        <PatrimonyWizard
           {...(preselectedAssetId && { preselectedAssetId })}
-          {...(preselectedKind && { preselectedKind })}
+          {...(preselectedOperation && { preselectedOperation })}
           {...(preselectedAccountId && { preselectedAccountId })}
         />
       </div>

@@ -40,7 +40,7 @@ export const eventSchema = z.object({
   id: schemas.uuid.optional(),
   kind: schemas.eventKind,
   tstamp: z.string().datetime(),
-  asset_id: schemas.uuid,
+  asset_id: z.string().min(1, 'Asset is required'), // Pode ser UUID (custom) ou symbol (global)
   account_id: schemas.uuid,
   units_delta: z.number(),
   price_close: schemas.positiveNumber.optional(),
@@ -71,7 +71,7 @@ export const portfolioQuerySchema = z.object({
   from: schemas.date,
   to: schemas.date,
   account_id: schemas.uuid.optional(),
-  asset_id: schemas.uuid.optional(),
+  asset_id: z.string().optional(), // Pode ser UUID (custom) ou symbol (global)
 })
 
 // Validation helper functions

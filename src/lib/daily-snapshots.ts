@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { enrichEventsWithAssets } from './utils/asset-info-helper'
 
 // Types for the daily snapshot system
 export interface DailySnapshot {
@@ -241,21 +242,18 @@ export async function getDailySnapshot(
   }
 
   // Fetch all user events from database
-  const { data: events, error } = await supabase
+  const { data: rawEvents, error } = await supabase
     .from('events')
     .select(`
       id,
       user_id,
-      asset_id,
+      asset_symbol,
+      account_id,
       tstamp,
       kind,
       units_delta,
       price_override,
-      price_close,
-      global_assets (
-        symbol,
-        class
-      )
+      price_close
     `)
     .eq('user_id', userId)
     .order('tstamp', { ascending: true })
@@ -263,6 +261,9 @@ export async function getDailySnapshot(
   if (error) {
     throw new Error(`Failed to fetch events: ${error.message}`)
   }
+
+  // Enrich events with asset information
+  const events = await enrichEventsWithAssets(rawEvents || [])
 
   // Transform the data to match our interface (Supabase returns array, we expect object)
   const transformedEvents = (events || []).map((event: any) => ({

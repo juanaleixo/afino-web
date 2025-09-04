@@ -3,7 +3,7 @@
 
 CREATE OR REPLACE FUNCTION public.api_holdings_with_assets(p_date date DEFAULT CURRENT_DATE)
 RETURNS TABLE (
-  asset_id UUID,
+  asset_id TEXT,
   symbol TEXT,
   class TEXT,
   label_ptbr TEXT,
@@ -38,14 +38,14 @@ BEGIN
   -- Return holdings with asset metadata
   RETURN QUERY
   SELECT
-    dp.asset_id,
+    COALESCE(ga.symbol, dp.asset_id::text) as asset_id, -- Retornar símbolo como asset_id
     ga.symbol,
     ga.class,
     ga.label_ptbr,
     SUM(dp.units)::numeric AS units,
     SUM(dp.value)::numeric AS value
   FROM public.daily_positions_acct dp
-  JOIN public.global_assets ga ON ga.id = dp.asset_id
+  LEFT JOIN public.global_assets ga ON ga.symbol = dp.asset_id::text
   WHERE dp.user_id = current_user_id
     AND dp.date = target_date
     AND COALESCE(dp.is_final, true) = true

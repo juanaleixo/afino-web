@@ -1,7 +1,7 @@
--- Function: fn_dpa_keep_zero_borders(uuid, uuid, uuid, date, date, numeric)
+-- Function: fn_dpa_keep_zero_borders(uuid, uuid, text, date, date, numeric)
 -- Description: Deletes zero-value borders in the daily positions.
 
-CREATE FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric DEFAULT 0.000000001) RETURNS void
+CREATE FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric DEFAULT 0.000000001) RETURNS void
 LANGUAGE sql
 AS $$
 WITH rng AS (
@@ -39,9 +39,9 @@ AND d.asset_id = p_asset
 AND d.date = x.date;
 $$;
 
-ALTER FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric) OWNER TO postgres;
+ALTER FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric) OWNER TO postgres;
 
-GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric) TO supabase_admin;
-GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric) TO anon;
-GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric) TO authenticated;
-GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset uuid, p_from date, p_to date, p_eps numeric) TO service_role;
+GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric) TO supabase_admin;
+GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric) TO anon;
+GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric) TO authenticated;
+GRANT ALL ON FUNCTION public.fn_dpa_keep_zero_borders(p_user uuid, p_account uuid, p_asset text, p_from date, p_to date, p_eps numeric) TO service_role;

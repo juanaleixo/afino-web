@@ -451,7 +451,7 @@ export default function MultiAssetTradingView({
                           ? 'text-gray-900 dark:text-gray-100' 
                           : ''
                       }`}>
-                        {asset.asset_symbol}
+                        {asset.asset_symbol || asset.asset_id}
                       </span>
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 leading-none">
                         {asset.asset_class.toUpperCase()}
@@ -512,7 +512,7 @@ export default function MultiAssetTradingView({
                             className="w-3 h-3 rounded transition-transform hover:scale-110" 
                             style={{ backgroundColor: color }}
                           />
-                          <span className="text-sm font-medium">{asset.asset_symbol}</span>
+                          <span className="text-sm font-medium">{asset.asset_symbol || asset.asset_id}</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
                           {new Intl.NumberFormat('pt-BR', {

@@ -45,15 +45,15 @@ export class PortfolioService {
     }
   }
 
-  // Cached function for asset batch lookup
+  // Cached function for asset batch lookup (por symbol)
   private getAssetsBatch = withCache(
-    async (assetIds: string[]) => {
-      if (assetIds.length === 0) return []
+    async (assetSymbols: string[]) => {
+      if (assetSymbols.length === 0) return []
       
       const { data, error } = await supabase
         .from('global_assets')
-        .select('id, symbol, class, label_ptbr')
-        .in('id', assetIds)
+        .select('symbol, class, label_ptbr')
+        .in('symbol', assetSymbols)
       
       if (error) {
         console.warn('Erro ao buscar ativos:', error)
@@ -62,8 +62,8 @@ export class PortfolioService {
       
       return data || []
     },
-    (assetIds: string[]) => `assets_batch:${assetIds.sort().join(',')}`,
-    { ttl: 15 * 60 * 1000 } // 15 minutes (assets change infrequently)
+    (assetSymbols: string[]) => `assets_batch:${assetSymbols.sort().join(',')}`,
+    { ttl: 15 * 60 * 1000 }
   )
 
   // Verificar se o usuário tem acesso premium
@@ -204,9 +204,9 @@ export class PortfolioService {
         })
         if (!error && Array.isArray(fallbackData)) {
           // Enrich with asset metadata
-          const assetIds = fallbackData.map(h => h.asset_id)
-          const assetsData = await this.getAssetsBatch(assetIds)
-          const assetMap = new Map(assetsData.map(a => [a.id, a]))
+          const assetSymbols = fallbackData.map(h => h.asset_id)
+          const assetsData = await this.getAssetsBatch(assetSymbols)
+          const assetMap = new Map(assetsData.map(a => [a.symbol, a]))
           
           return fallbackData.map(holding => ({
             ...holding,
@@ -255,10 +255,10 @@ export class PortfolioService {
     }
     if (agg.size === 0) return []
     // enriquecer com símbolo/classe (cached)
-    const assetIds = Array.from(agg.keys())
-    const assetsData = await this.getAssetsBatch(assetIds)
+    const assetSymbols = Array.from(agg.keys())
+    const assetsData = await this.getAssetsBatch(assetSymbols)
     const assetMap = new Map<string, { symbol?: string, class?: string }>()
-    for (const a of assetsData) assetMap.set(a.id, { symbol: a.symbol, class: a.class })
+    for (const a of assetsData) assetMap.set(a.symbol, { symbol: a.symbol, class: a.class })
     const result: any[] = []
     for (const [asset_id, { units, value }] of agg.entries()) {
       const meta = assetMap.get(asset_id) || {}
@@ -364,14 +364,14 @@ export class PortfolioService {
         if (ids.length) {
           const { data: ga } = await supabase
             .from('global_assets')
-            .select('id, symbol, class, label_ptbr')
-            .in('id', ids)
-          const map = new Map<string, any>((ga || []).map((a: any) => [a.id, a]))
-          return ids.map(id => ({ 
-            id, 
-            symbol: map.get(id)?.symbol || id, 
-            class: map.get(id)?.class || 'unknown',
-            label: map.get(id)?.label_ptbr || map.get(id)?.symbol || id
+            .select('symbol, class, label_ptbr')
+            .in('symbol', ids)
+          const map = new Map<string, any>((ga || []).map((a: any) => [a.symbol, a]))
+          return ids.map(symbol => ({ 
+            id: symbol, 
+            symbol,
+            class: map.get(symbol)?.class || 'unknown',
+            label: map.get(symbol)?.label_ptbr || symbol
           }))
         }
       }
@@ -382,16 +382,16 @@ export class PortfolioService {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('asset_id, global_assets(symbol, class, label_ptbr)')
+        .select('asset_symbol, global_assets(symbol, class, label_ptbr)')
         .eq('user_id', this.userId)
         .not('global_assets', 'is', null)
       if (error) throw error
       const uniqueAssets = data?.reduce((acc: any[], item: any) => {
         const asset = {
-          id: item.asset_id,
-          symbol: item.global_assets?.symbol || item.asset_id,
+          id: item.asset_symbol,
+          symbol: item.global_assets?.symbol || item.asset_symbol,
           class: item.global_assets?.class || 'unknown',
-          label: item.global_assets?.label_ptbr || item.global_assets?.symbol || item.asset_id
+          label: item.global_assets?.label_ptbr || item.global_assets?.symbol || item.asset_symbol
         }
         if (!acc.find(a => a.id === asset.id)) acc.push(asset)
         return acc
@@ -463,6 +463,9 @@ export class PortfolioService {
         percentage: pct, // pode estar vazio, calculamos abaixo
       }
     })
+
+    console.log('Normalized breakdown sample:', normalized.slice(0, 2))
+
 
     // Calcular percentuais por data caso não estejam presentes
     const byDateTotals = new Map<string, number>()
@@ -592,20 +595,23 @@ export class PortfolioService {
 
     // Agrupar por ativo e calcular métricas
     const assetGroups = breakdown.reduce((acc: any, item: any) => {
-      if (!acc[item.asset_id]) {
-        acc[item.asset_id] = {
-          asset_id: item.asset_id,
+      const assetKey = item.asset_symbol || item.asset_id
+      if (!acc[assetKey]) {
+        acc[assetKey] = {
+          asset_id: item.asset_symbol || item.asset_id, // Use symbol as ID for display
           asset_symbol: item.asset_symbol,
           asset_class: item.asset_class,
           daily_values: []
         }
       }
-      acc[item.asset_id].daily_values.push({
+      acc[assetKey].daily_values.push({
         date: item.date,
         value: (item as any).value ?? (item as any).asset_value ?? 0
       })
       return acc
     }, {})
+    
+    console.log('AssetGroups criados:', Object.keys(assetGroups).slice(0, 3), 'primeira entrada:', Object.values(assetGroups)[0])
 
     // Calcular métricas para cada ativo
     return Object.values(assetGroups).map((asset: any) => {
@@ -661,23 +667,23 @@ export class PortfolioService {
     try {
       // First get user's holdings to find which assets they have
       const holdings = await this.getHoldingsAt(new Date().toISOString().split('T')[0]!)
-      const assetIds = holdings.map(h => h.asset_id)
+      const assetSymbols = holdings.map(h => (h as any).asset_symbol || h.asset_id)
       
-      if (assetIds.length === 0) return []
+      if (assetSymbols.length === 0) return []
       
       // Then get asset details from global_assets table
       const { data, error } = await supabase
         .from('global_assets')
-        .select('id, symbol, class, label_ptbr')
-        .in('id', assetIds)
+        .select('symbol, class, label_ptbr')
+        .in('symbol', assetSymbols)
       
       if (error) throw error
       
       return data?.map(asset => ({
-        id: asset.id,
-        symbol: asset.symbol || asset.id,
+        id: asset.symbol,
+        symbol: asset.symbol,
         class: asset.class || 'unknown',
-        label: asset.label_ptbr || asset.symbol || asset.id
+        label: asset.label_ptbr || asset.symbol
       })) || []
     } catch (error) {
       console.error('Erro ao carregar ativos do usuário:', error)

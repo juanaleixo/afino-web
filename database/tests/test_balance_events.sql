@@ -60,8 +60,8 @@ WITH maybe AS (
   WHERE NOT EXISTS (SELECT 1 FROM maybe)
   RETURNING id
 )
-INSERT INTO public.global_price_daily(asset_id, date, price)
-SELECT COALESCE((SELECT id FROM maybe), (SELECT id FROM create_equity)), d::date, p
+INSERT INTO public.global_price_daily(asset_symbol, date, price)  
+SELECT 'TEST_EQUITY', d::date, p
 FROM (VALUES
   (CURRENT_DATE - 3, 98.50),
   (CURRENT_DATE - 2, 100.00),

@@ -7,14 +7,14 @@ AS $$
 DECLARE rec RECORD;
 BEGIN
 FOR rec IN
-SELECT user_id, account_id, asset_id,
+SELECT user_id, account_id, asset_symbol,
 MIN((tstamp)::date) AS from_date,
 MAX((tstamp)::date) AS to_date
 FROM new_rows
-WHERE user_id IS NOT NULL AND account_id IS NOT NULL AND asset_id IS NOT NULL
+WHERE user_id IS NOT NULL AND account_id IS NOT NULL AND asset_symbol IS NOT NULL
 GROUP BY 1,2,3
 LOOP
-PERFORM public.fn_recalc_positions_acct(rec.user_id, rec.account_id, rec.asset_id, rec.from_date);
+PERFORM public.fn_recalc_positions_acct(rec.user_id, rec.account_id, rec.asset_symbol, rec.from_date);
 END LOOP;
 RETURN NULL;
 END$$;

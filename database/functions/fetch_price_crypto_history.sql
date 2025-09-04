@@ -10,16 +10,16 @@ data jsonb;
 item jsonb;
 date_value date;
 close_value numeric;
-v_asset_id uuid;
+v_asset_symbol text;
 BEGIN
 -- Garantir que o ativo existe em global_assets (cria se não existir)
-SELECT id INTO v_asset_id FROM global_assets
+SELECT symbol INTO v_asset_symbol FROM global_assets
 WHERE lower(symbol) = lower(v_symbol) AND class = v_class AND currency = v_currency;
-IF v_asset_id IS NULL THEN
+IF v_asset_symbol IS NULL THEN
 -- Insere normalizado (gatilho garante UPPER e label)
 INSERT INTO global_assets (id, symbol, class, currency)
-VALUES (gen_random_uuid(), v_symbol, v_class, v_currency)
-RETURNING id INTO v_asset_id;
+VALUES (gen_random_uuid(), v_symbol, v_class, v_currency);
+v_asset_symbol := v_symbol;
 END IF;
 -- Buscar histórico (CryptoCompare)
 SELECT content::jsonb INTO response
@@ -34,9 +34,9 @@ FOR item IN SELECT * FROM jsonb_array_elements(data)
 LOOP
 date_value := to_timestamp((item->>'time')::bigint)::date;
 close_value := (item->>'close')::numeric;
-INSERT INTO global_price_daily (asset_id, date, price)
-VALUES (v_asset_id, date_value, close_value)
-ON CONFLICT (asset_id, date) DO UPDATE SET price = EXCLUDED.price;
+INSERT INTO global_price_daily (asset_symbol, date, price)
+VALUES (v_asset_symbol, date_value, close_value)
+ON CONFLICT (asset_symbol, date) DO UPDATE SET price = EXCLUDED.price;
 END LOOP;
 END;
 $$;

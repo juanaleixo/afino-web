@@ -17,6 +17,7 @@ import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-por
 import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
 import MultiAssetTradingView from "@/components/dashboard/timeline/multi-asset-tradingview"
 import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
+import { supabase } from "@/lib/supabase"
 import AssetDrillDown from "@/components/dashboard/timeline/asset-drill-down"
 import { benchmarkService } from "@/lib/benchmarks"
 import { FadeIn, Stagger } from "@/components/ui/fade-in"
@@ -44,6 +45,7 @@ export default function TimelinePage() {
   const [assetBreakdownData, setAssetBreakdownData] = useState<any>(null)
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
   const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
+  const [normalizedPerformance, setNormalizedPerformance] = useState<any[]>([])
   const [selectedAssetForDrillDown, setSelectedAssetForDrillDown] = useState<string | null>(null)
   const [assetDailyPositions, setAssetDailyPositions] = useState<any[]>([])
   
@@ -152,6 +154,47 @@ export default function TimelinePage() {
   useEffect(() => {
     loadTimelineData()
   }, [loadTimelineData])
+
+  // Normalizar tickers: quando vierem UUIDs, tenta resolver via global_assets.id -> symbol
+  useEffect(() => {
+    const normalize = async () => {
+      try {
+        if (!performanceAnalysis || performanceAnalysis.length === 0) {
+          setNormalizedPerformance([])
+          return
+        }
+        const needs = performanceAnalysis.filter((a: any) => !a.asset_symbol || /[0-9a-fA-F-]{36}/.test(a.asset_id))
+        if (needs.length === 0) {
+          setNormalizedPerformance(performanceAnalysis)
+          return
+        }
+        const ids = Array.from(new Set(needs.map((a: any) => a.asset_id).filter(Boolean)))
+        if (ids.length === 0) {
+          setNormalizedPerformance(performanceAnalysis)
+          return
+        }
+        // Tentar mapear via global_assets.id -> symbol
+        const { data, error } = await supabase
+          .from('global_assets')
+          .select('id, symbol, class, label_ptbr')
+          .in('id', ids)
+        const map = new Map<string, any>((data || []).map((row: any) => [row.id, row]))
+        if (!error) {
+          setNormalizedPerformance(performanceAnalysis.map((a: any) => ({
+            ...a,
+            asset_symbol: a.asset_symbol || map.get(a.asset_id)?.symbol || a.asset_id,
+            asset_class: a.asset_class || map.get(a.asset_id)?.class || 'unknown'
+          })))
+          return
+        }
+        // Fallback: sem mapping possível
+        setNormalizedPerformance(performanceAnalysis)
+      } catch {
+        setNormalizedPerformance(performanceAnalysis)
+      }
+    }
+    normalize()
+  }, [performanceAnalysis])
 
   const handleFiltersChange = (newFilters: Partial<TimelineFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
@@ -495,7 +538,7 @@ export default function TimelinePage() {
                 <FadeIn className="space-y-6">
                   {/* Multi-Asset Chart */}
                   <MultiAssetTradingView
-                    assetsData={performanceAnalysis.map((asset, index) => ({
+                    assetsData={normalizedPerformance.map((asset, index) => ({
                       asset_id: asset.asset_id,
                       asset_symbol: asset.asset_symbol,
                       asset_class: asset.asset_class,
@@ -510,7 +553,7 @@ export default function TimelinePage() {
                   {/* Performance Analysis - Naturally flows below */}
                   <FadeIn delay={300}>
                     <PremiumAnalytics
-                      performanceData={performanceAnalysis}
+                      performanceData={normalizedPerformance}
                       benchmarkData={benchmarkData}
                       isLoading={loading}
                       period={{ from: getDateRange().from, to: getDateRange().to }}

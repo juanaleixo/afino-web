@@ -1,7 +1,7 @@
--- Function: fn_recalc_positions_acct(uuid, uuid, uuid, date)
+-- Function: fn_recalc_positions_acct(uuid, uuid, text, date)
 -- Description: Recalculates the daily positions for a given account and asset from a given date.
 
-CREATE OR REPLACE FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) RETURNS void
+CREATE OR REPLACE FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
@@ -12,6 +12,7 @@ v_curr text;
 v_asset_class text;
 v_manual_price numeric(20,10);
 v_base_units numeric(38,18) := 0;
+v_is_custom_asset boolean := false;
 BEGIN
 IF p_user IS NULL OR p_asset IS NULL OR p_account IS NULL OR p_from IS NULL THEN
 RAISE EXCEPTION 'fn_recalc_positions_acct: argumentos inválidos';
@@ -26,24 +27,45 @@ PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text||':'||p_account::tex
 v_from := p_from;
 -- garantir partições no range
 PERFORM ensure_daily_positions_partitions(v_from, v_to);
--- info do ativo (apenas currency para gravar)
-SELECT ga.currency, ga.class, ga.manual_price
-INTO v_curr, v_asset_class, v_manual_price
-FROM public.global_assets ga
-WHERE ga.id = p_asset;
-IF v_curr IS NULL THEN
-RAISE EXCEPTION 'Ativo % não encontrado em global_assets', p_asset;
+
+-- Determina se é custom asset (UUID) ou global asset (symbol)
+v_is_custom_asset := p_asset ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+
+-- Busca informações do ativo
+IF v_is_custom_asset THEN
+  -- Custom asset - busca informações incluindo possível preço manual no meta
+  SELECT ca.currency, COALESCE(ca.class, 'custom'), 
+         CASE 
+           WHEN ca.meta::jsonb ? 'manual_price' THEN (ca.meta->>'manual_price')::numeric(20,10)
+           ELSE NULL 
+         END
+  INTO v_curr, v_asset_class, v_manual_price
+  FROM public.custom_assets ca
+  WHERE ca.id = p_asset::uuid AND ca.user_id = p_user;
+ELSE
+  -- Global asset
+  SELECT ga.currency, ga.class, ga.manual_price
+  INTO v_curr, v_asset_class, v_manual_price
+  FROM public.global_assets ga
+  WHERE ga.symbol = p_asset;
 END IF;
--- limpa janela e reconstroi
+
+IF v_curr IS NULL THEN
+  RAISE EXCEPTION 'Ativo % não encontrado', p_asset;
+END IF;
+
+-- limpa janela e reconstrói
 DELETE FROM public.daily_positions_acct
 WHERE user_id=p_user AND account_id=p_account AND asset_id=p_asset
 AND date BETWEEN v_from AND v_to;
+
 -- unidades acumuladas até a véspera de v_from (baseline)
 SELECT COALESCE(SUM(e.units_delta),0)::numeric(38,18)
 INTO v_base_units
 FROM public.events e
-WHERE e.user_id=p_user AND e.account_id=p_account AND e.asset_id=p_asset
+WHERE e.user_id=p_user AND e.account_id=p_account AND e.asset_symbol=p_asset
 AND (e.tstamp)::date < v_from;
+
 WITH cal AS (
 SELECT gs::date AS date
 FROM generate_series(v_from::timestamp, v_to::timestamp, interval '1 day') AS gs
@@ -51,7 +73,7 @@ FROM generate_series(v_from::timestamp, v_to::timestamp, interval '1 day') AS gs
 ev AS (
 SELECT (e.tstamp)::date AS date, SUM(e.units_delta)::numeric(38,18) AS delta
 FROM public.events e
-WHERE e.user_id=p_user AND e.account_id=p_account AND e.asset_id=p_asset
+WHERE e.user_id=p_user AND e.account_id=p_account AND e.asset_symbol=p_asset
   AND (e.tstamp)::date BETWEEN v_from AND v_to
 GROUP BY 1
 ),
@@ -65,18 +87,36 @@ FROM steps s
 ),
 price AS (
 SELECT c.date,
-(SELECT g.price
-FROM public.global_price_daily g
-WHERE g.asset_id=p_asset AND g.date<=c.date
-ORDER BY g.date DESC
-LIMIT 1)::numeric(20,10) AS price
+CASE 
+  WHEN v_is_custom_asset THEN
+    -- Para custom assets, primeiro tenta custom_asset_valuations, depois manual_price
+    COALESCE(
+      (CASE WHEN v_is_custom_asset THEN
+        (SELECT cv.value
+         FROM public.custom_asset_valuations cv
+         WHERE cv.asset_id = p_asset::uuid AND cv.date <= c.date
+         ORDER BY cv.date DESC
+         LIMIT 1)::numeric(20,10)
+       ELSE NULL END),
+      v_manual_price
+    )
+  ELSE
+    -- Para global assets, busca por global_price_daily
+    (SELECT g.price
+     FROM public.global_price_daily g
+     WHERE g.asset_symbol = p_asset AND g.date <= c.date
+     ORDER BY g.date DESC
+     LIMIT 1)::numeric(20,10)
+END AS price
 FROM cal c
 ),
-cav AS ( -- valuation custom por conta/ativo/dia
+cav AS ( -- custom account valuations (apenas para custom assets) 
 SELECT v.date, v.value::numeric(20,10) AS value
 FROM public.custom_account_valuations v
-WHERE v.account_id=p_account AND v.asset_id=p_asset
-AND v.date BETWEEN v_from AND v_to
+WHERE v_is_custom_asset 
+  AND v.account_id=p_account 
+  AND v.asset_id=(CASE WHEN v_is_custom_asset THEN p_asset::uuid ELSE NULL END)
+  AND v.date BETWEEN v_from AND v_to
 )
 INSERT INTO public.daily_positions_acct
 (user_id, account_id, asset_id, date, units, price, value, currency, source_price, is_final)
@@ -196,9 +236,9 @@ WHERE t.user_id=p_user
 
 END$$;
 
-ALTER FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) OWNER TO postgres;
+ALTER FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) OWNER TO postgres;
 
-GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) TO supabase_admin;
-GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) TO anon;
-GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) TO authenticated;
-GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset uuid, p_from date) TO service_role;
+GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) TO supabase_admin;
+GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) TO anon;
+GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) TO authenticated;
+GRANT ALL ON FUNCTION public.fn_recalc_positions_acct(p_user uuid, p_account uuid, p_asset text, p_from date) TO service_role;

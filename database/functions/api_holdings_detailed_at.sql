@@ -3,7 +3,7 @@
 
 CREATE OR REPLACE FUNCTION public.api_holdings_detailed_at(p_date date) 
 RETURNS TABLE(
-    asset_id uuid, 
+    asset_id text, 
     units numeric, 
     value numeric,
     symbol text,
@@ -14,14 +14,14 @@ LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
     SELECT
-        dp.asset_id,
+        COALESCE(ga.symbol, dp.asset_id::text) as asset_id, -- Retornar símbolo como asset_id
         SUM(dp.units)::numeric AS units,
         SUM(dp.value)::numeric AS value,
         COALESCE(ga.symbol, dp.asset_id::text) as symbol,
         COALESCE(ga.class, 'unknown') as class,
         ga.label_ptbr
     FROM public.daily_positions_acct dp
-    LEFT JOIN public.global_assets ga ON ga.id = dp.asset_id
+    LEFT JOIN public.global_assets ga ON ga.symbol = dp.asset_id::text
     WHERE dp.user_id = app_current_user()
       AND dp.date = p_date
     GROUP BY dp.asset_id, ga.symbol, ga.class, ga.label_ptbr

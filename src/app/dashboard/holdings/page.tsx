@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Loader2, ArrowLeft, Layers, Plus, Minus, Shuffle, TrendingUp, TrendingDown, Calendar } from "lucide-react"
 
+import { getAssetLinkValueFromMap } from "@/lib/utils/asset-helpers"
+
 type HoldingRow = {
   asset_id: string
   symbol: string
@@ -185,12 +187,12 @@ export default function HoldingsPage() {
                                   {(r.class === 'currency' || r.class === 'cash') ? (
                                     <>
                                       <Button asChild size="sm" variant="secondary">
-                                        <Link href={`/dashboard/events/new?kind=deposit&asset_id=${r.asset_id}`}>
+                                        <Link href={`/dashboard/events/new?kind=deposit&asset_id=${getAssetLinkValueFromMap(r.asset_id, assetsMap)}`}>
                                           <Plus className="h-4 w-4 mr-1" /> Depósito
                                         </Link>
                                       </Button>
                                       <Button asChild size="sm" variant="outline">
-                                        <Link href={`/dashboard/events/new?kind=withdraw&asset_id=${r.asset_id}`}>
+                                        <Link href={`/dashboard/events/new?kind=withdraw&asset_id=${getAssetLinkValueFromMap(r.asset_id, assetsMap)}`}>
                                           <Minus className="h-4 w-4 mr-1" /> Saque
                                         </Link>
                                       </Button>
@@ -199,12 +201,12 @@ export default function HoldingsPage() {
                                   ) : (
                                     <>
                                       <Button asChild size="sm" variant="secondary">
-                                        <Link href={`/dashboard/events/new?kind=buy&asset_id=${r.asset_id}`}>
+                                        <Link href={`/dashboard/events/new?kind=buy&asset_id=${getAssetLinkValueFromMap(r.asset_id, assetsMap)}`}>
                                           <TrendingUp className="h-4 w-4 mr-1" /> Comprar
                                         </Link>
                                       </Button>
                                       <Button asChild size="sm" variant="ghost">
-                                        <Link href={`/dashboard/events/new?kind=valuation&asset_id=${r.asset_id}`}>
+                                        <Link href={`/dashboard/events/new?kind=valuation&asset_id=${getAssetLinkValueFromMap(r.asset_id, assetsMap)}`}>
                                           <Calendar className="h-4 w-4 mr-1" /> Avaliar
                                         </Link>
                                       </Button>

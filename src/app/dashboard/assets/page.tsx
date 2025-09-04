@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/lib/auth";
 import { supabase, Asset } from "@/lib/supabase";
+
+import { getAssetLinkValue } from "@/lib/utils/asset-helpers"
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -64,7 +66,7 @@ function AssetsTable({
       </TableHeader>
       <TableBody>
         {assets.map((asset) => (
-          <TableRow key={asset.id}>
+          <TableRow key={asset.symbol || asset.id}>
             <TableCell className="font-medium">
               <div className="flex flex-col">
                 <span>{getAssetDisplayLabel(asset)}</span>
@@ -89,18 +91,18 @@ function AssetsTable({
                     Manual
                   </Badge>
                 </span>
-              ) : latestPrices[asset.id] ? (
+              ) : latestPrices[asset.symbol] ? (
                 <span>
-                  {formatBRL(latestPrices[asset.id]?.price || 0)}
+                  {formatBRL(latestPrices[asset.symbol]?.price || 0)}
                 </span>
               ) : (
                 <span className="text-muted-foreground">--</span>
               )}
             </TableCell>
             <TableCell>
-              {latestPrices[asset.id]?.date ? (
+              {latestPrices[asset.symbol]?.date ? (
                 <span className="text-xs text-muted-foreground">
-                  {formatDate(latestPrices[asset.id]?.date || '')}
+                  {formatDate(latestPrices[asset.symbol]?.date || '')}
                 </span>
               ) : (
                 <span className="text-muted-foreground">--</span>
@@ -118,7 +120,7 @@ function AssetsTable({
                         title="Entrada de Caixa"
                       >
                         <Link
-                          href={`/dashboard/events/new?kind=deposit&asset_id=${asset.id}`}
+                          href={`/dashboard/events/new?kind=deposit&asset_id=${getAssetLinkValue(asset)}`}
                         >
                           <Plus className="h-4 w-4 mr-1" /> Entrada
                         </Link>
@@ -130,7 +132,7 @@ function AssetsTable({
                         title="Saída de Caixa"
                       >
                         <Link
-                          href={`/dashboard/events/new?kind=withdraw&asset_id=${asset.id}`}
+                          href={`/dashboard/events/new?kind=withdraw&asset_id=${getAssetLinkValue(asset)}`}
                         >
                           <TrendingDown className="h-4 w-4 mr-1" /> Saída
                         </Link>
@@ -145,7 +147,7 @@ function AssetsTable({
                         title="Comprar"
                       >
                         <Link
-                          href={`/dashboard/events/new?kind=buy&asset_id=${asset.id}`}
+                          href={`/dashboard/events/new?kind=buy&asset_id=${getAssetLinkValue(asset)}`}
                         >
                           <TrendingUp className="h-4 w-4 mr-1" /> Comprar
                         </Link>
@@ -157,7 +159,7 @@ function AssetsTable({
                         title="Avaliar"
                       >
                         <Link
-                          href={`/dashboard/events/new?kind=valuation&asset_id=${asset.id}`}
+                          href={`/dashboard/events/new?kind=valuation&asset_id=${getAssetLinkValue(asset)}`}
                         >
                           <Calendar className="h-4 w-4 mr-1" /> Avaliar
                         </Link>
@@ -189,7 +191,7 @@ export default function AssetsPage() {
       const { data, error } = await supabase
         .from("global_assets")
         .select(
-          "id, symbol, class, currency, meta, created_at, manual_price, label_ptbr"
+          "symbol, class, currency, meta, created_at, manual_price, label_ptbr"
         )
         .order("label_ptbr", { ascending: true, nullsFirst: false })
         .order("symbol", { ascending: true });
@@ -199,19 +201,19 @@ export default function AssetsPage() {
       setAssets(list);
 
       // Carregar último preço por ativo (quando aplicável)
-      const ids = list.map((a) => a.id);
-      if (ids.length > 0) {
+      const symbols = list.map((a) => a.symbol);
+      if (symbols.length > 0) {
         const { data: prices, error: priceErr } = await supabase
           .from("global_price_daily")
-          .select("asset_id, date, price")
-          .in("asset_id", ids)
+          .select("asset_symbol, date, price")
+          .in("asset_symbol", symbols)
           .order("date", { ascending: false });
         if (!priceErr && prices) {
           const map: Record<string, { date: string; price: number }> = {};
           for (const row of prices as any[]) {
-            const aid = row.asset_id as string;
-            if (!map[aid]) {
-              map[aid] = { date: row.date, price: Number(row.price) || 0 };
+            const symbol = row.asset_symbol as string;
+            if (!map[symbol]) {
+              map[symbol] = { date: row.date, price: Number(row.price) || 0 };
             }
           }
           setLatestPrices(map);

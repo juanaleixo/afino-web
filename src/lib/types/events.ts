@@ -8,7 +8,8 @@ export type EventKind = 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valua
 export interface EventWithRelations {
   id: string
   user_id: string
-  asset_id: string
+  asset_symbol?: string  // Para global_assets (referencia symbol)
+  asset_id?: string      // Para custom_assets (referencia id)
   account_id?: string
   tstamp: string
   kind: EventKind
@@ -17,6 +18,11 @@ export interface EventWithRelations {
   price_close?: number
   global_assets?: {
     symbol: string
+    class: string
+  }
+  custom_assets?: {
+    id: string
+    label: string
     class: string
   }
   accounts?: {
@@ -33,6 +39,29 @@ export interface EventTypeOption {
   forCurrency?: boolean
   forAssets?: boolean
   isNew?: boolean
+}
+
+// Helper functions para trabalhar com assets
+export function getEventAssetId(event: EventWithRelations): string {
+  return event.asset_symbol || event.asset_id || ''
+}
+
+export function isGlobalAsset(event: EventWithRelations): boolean {
+  return !!event.asset_symbol && !!event.global_assets
+}
+
+export function isCustomAsset(event: EventWithRelations): boolean {
+  return !!event.asset_id && !!event.custom_assets
+}
+
+export function getEventAssetSymbol(event: EventWithRelations): string {
+  if (isGlobalAsset(event)) {
+    return event.global_assets?.symbol || event.asset_symbol || ''
+  }
+  if (isCustomAsset(event)) {
+    return event.custom_assets?.label || event.asset_id || ''
+  }
+  return event.asset_symbol || event.asset_id || ''
 }
 
 // Event kind display metadata

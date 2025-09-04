@@ -24,25 +24,7 @@ import {
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-
-interface EventWithRelations {
-  id: string
-  user_id: string
-  asset_id: string
-  account_id?: string
-  tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
-  units_delta?: number
-  price_override?: number
-  price_close?: number
-  global_assets?: {
-    symbol: string
-    class: string
-  }
-  accounts?: {
-    label: string
-  }
-}
+import { EventWithRelations } from "@/lib/types/events"
 
 interface FilterConfig {
   searchTerm: string

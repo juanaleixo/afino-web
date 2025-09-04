@@ -29,6 +29,8 @@ const assetBadgeVariants = cva(
         real_estate: "asset-real-estate",
         commodity: "asset-commodity",
         vehicle: "asset-vehicle",
+        unknown: "asset-stock", // Use stock styling as fallback
+        etf: "asset-fund", // Use fund styling for ETFs
         default: "bg-muted text-muted-foreground",
       },
       size: {
@@ -56,6 +58,8 @@ const assetIcons = {
   real_estate: Building,
   commodity: Package,
   vehicle: Car,
+  unknown: TrendingUp,
+  etf: PiggyBank,
 }
 
 const assetLabels = {
@@ -70,6 +74,8 @@ const assetLabels = {
   real_estate: "Imóvel", 
   commodity: "Commodity",
   vehicle: "Veículo",
+  unknown: "Ativo",
+  etf: "ETF",
 }
 
 export interface AssetBadgeProps

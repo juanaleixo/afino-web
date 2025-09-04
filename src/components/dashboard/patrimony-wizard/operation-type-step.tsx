@@ -29,25 +29,25 @@ interface OperationOption {
 const operationOptions: OperationOption[] = [
   {
     type: 'add_existing',
-    title: 'Adicionar Patrimônio Existente',
+    title: 'Adicionar Posição Existente',
     description: 'Registre ativos que você já possui hoje',
     icon: Home,
     color: 'text-purple-600 bg-purple-50 dark:bg-purple-950',
-    examples: ['Imóvel próprio', 'Veículo', 'Investimentos atuais', 'Saldo em conta'],
+    examples: ['Ações em carteira', 'Fundos atuais', 'Criptomoedas', 'Imóveis'],
     recommended: true
   },
   {
     type: 'money_in',
     title: 'Entrada de Dinheiro',
-    description: 'Registre recebimento de valores',
+    description: 'Registre recebimento de valores em caixa',
     icon: ArrowDownCircle,
     color: 'text-green-600 bg-green-50 dark:bg-green-950',
-    examples: ['Salário', 'Rendimentos', 'Vendas', 'Presentes']
+    examples: ['Depósito', 'Salário', 'Rendimentos', 'Dividendos']
   },
   {
     type: 'money_out',
-    title: 'Saída de Dinheiro',
-    description: 'Registre gastos ou retiradas',
+    title: 'Saída de Dinheiro', 
+    description: 'Registre retiradas de caixa',
     icon: ArrowUpCircle,
     color: 'text-red-600 bg-red-50 dark:bg-red-950',
     examples: ['Despesas', 'Transferências', 'Impostos', 'Saques']
@@ -74,27 +74,40 @@ interface OperationTypeStepProps {
   selectedOperation: OperationType | null
   onOperationSelect: (operation: OperationType) => void
   hasAssets: boolean
+  isCurrencyAsset?: boolean
 }
 
 export function OperationTypeStep({ 
   selectedOperation, 
   onOperationSelect,
-  hasAssets 
+  hasAssets,
+  isCurrencyAsset = false
 }: OperationTypeStepProps) {
   
-  // Se não tem ativos, mostrar apenas adicionar patrimônio e entrada
-  const availableOptions = hasAssets 
-    ? operationOptions 
-    : operationOptions.filter(opt => ['add_existing', 'money_in'].includes(opt.type))
+  // Filtrar opções baseado no contexto
+  let availableOptions = operationOptions
+  
+  if (!hasAssets) {
+    // Se não tem ativos, mostrar apenas adicionar patrimônio e entrada
+    availableOptions = operationOptions.filter(opt => ['add_existing', 'money_in'].includes(opt.type))
+  } else if (isCurrencyAsset) {
+    // Para ativos de caixa, só permitir entrada/saída de dinheiro
+    availableOptions = operationOptions.filter(opt => ['money_in', 'money_out'].includes(opt.type))
+  } else {
+    // Para outros ativos, não permitir entrada/saída direta de dinheiro
+    availableOptions = operationOptions.filter(opt => !['money_in', 'money_out'].includes(opt.type))
+  }
 
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <h3 className="text-2xl font-semibold">O que você deseja fazer?</h3>
         <p className="text-muted-foreground">
-          {hasAssets 
-            ? 'Escolha a operação que melhor descreve o que você quer registrar'
-            : 'Comece adicionando seu patrimônio atual ou fazendo um depósito inicial'
+          {!hasAssets 
+            ? 'Comece adicionando seu patrimônio atual ou fazendo um depósito inicial'
+            : isCurrencyAsset
+            ? 'Para ativos de caixa, você pode registrar entradas ou saídas de dinheiro'
+            : 'Para ativos de investimento, você pode comprar, adicionar posições existentes ou atualizar valores'
           }
         </p>
       </div>

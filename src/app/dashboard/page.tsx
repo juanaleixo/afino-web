@@ -103,14 +103,14 @@ export default function DashboardPage() {
       setLoadingSymbols(true)
       const { data, error } = await supabase
         .from('global_assets')
-        .select('id, symbol')
-        .in('id', assetIds)
+        .select('symbol')
+        .in('symbol', assetIds)
       
       if (error) throw error
       
       const symbolMap = new Map<string, string>()
       data?.forEach(asset => {
-        symbolMap.set(asset.id, asset.symbol || asset.id)
+        symbolMap.set(asset.symbol, asset.symbol)
       })
       
       setAssetSymbols(symbolMap)
@@ -422,7 +422,7 @@ export default function DashboardPage() {
       title: "Transações",
       description: "Eventos e movimentações",
       icon: Activity,
-      href: "/dashboard/events",
+      href: "/dashboard/transactions",
       badge: "info",
     },
   ]
@@ -637,7 +637,7 @@ export default function DashboardPage() {
                     <div className="text-center">
                       <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">Nenhum dado disponível</p>
-                      <Link href="/dashboard/events/new">
+                      <Link href="/dashboard/patrimony/new">
                         <Button variant="outline" className="mt-2">
                           Adicionar Primeiro Evento
                         </Button>

@@ -13,18 +13,18 @@ DECLARE
   i int;
   ts bigint;
   close_val numeric;
-  v_asset_id uuid;
+  v_asset_symbol text;
   v_symbol_yh text;
   v_from bigint := extract(epoch FROM (CURRENT_DATE - INTERVAL '365 days'))::bigint;
   v_to bigint := extract(epoch FROM (CURRENT_DATE + INTERVAL '1 day'))::bigint;
 BEGIN
   -- Normalizar/assegurar ativo existe
-  SELECT id INTO v_asset_id FROM public.global_assets
+  SELECT symbol INTO v_asset_symbol FROM public.global_assets
   WHERE lower(symbol) = lower(v_symbol) AND class = 'stock' AND currency = v_currency;
-  IF v_asset_id IS NULL THEN
+  IF v_asset_symbol IS NULL THEN
     INSERT INTO public.global_assets(id, symbol, class, currency)
-    VALUES (gen_random_uuid(), v_symbol, 'stock', v_currency)
-    RETURNING id INTO v_asset_id;
+    VALUES (gen_random_uuid(), v_symbol, 'stock', v_currency);
+    v_asset_symbol := v_symbol;
   END IF;
 
   -- Ajuste de sufixo para Yahoo (BRL -> .SA)
@@ -57,9 +57,9 @@ BEGIN
     ts := (timestamps -> i)::text::bigint;
     close_val := NULLIF((closes -> i)::text, 'null')::numeric;
     IF close_val IS NULL THEN CONTINUE; END IF;
-    INSERT INTO public.global_price_daily(asset_id, date, price)
-    VALUES (v_asset_id, to_timestamp(ts)::date, close_val)
-    ON CONFLICT (asset_id, date) DO UPDATE SET price = EXCLUDED.price;
+    INSERT INTO public.global_price_daily(asset_symbol, date, price)
+    VALUES (v_asset_symbol, to_timestamp(ts)::date, close_val)
+    ON CONFLICT (asset_symbol, date) DO UPDATE SET price = EXCLUDED.price;
   END LOOP;
 END;
 $$;

@@ -22,10 +22,10 @@ CREATE TABLE IF NOT EXISTS global_assets (
 -- Preços diários históricos dos ativos globais
 CREATE TABLE IF NOT EXISTS global_price_daily (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  asset_id uuid REFERENCES global_assets(id) ON DELETE CASCADE,
+  asset_symbol text REFERENCES global_assets(symbol) ON DELETE CASCADE,
   date date NOT NULL,
   price numeric(20,10) NOT NULL,
-  UNIQUE(asset_id, date)
+  CONSTRAINT global_price_daily_asset_symbol_date_key UNIQUE (asset_symbol, date)
 );
 
 -- Ativos customizados por usuário

@@ -349,7 +349,7 @@ export default function PremiumAnalytics({
                   <tbody>
                     {performanceData.map((asset, index) => (
                       <tr key={asset.asset_id} className="border-b hover:bg-muted/50">
-                        <td className="p-2 font-medium">{asset.asset_symbol}</td>
+                        <td className="p-2 font-medium">{asset.asset_symbol || asset.asset_id}</td>
                         <td className="p-2">
                           <Badge variant="outline" className="text-xs">
                             {asset.asset_class}
@@ -387,7 +387,7 @@ export default function PremiumAnalytics({
               <SelectContent>
                 {performanceData.map(asset => (
                   <SelectItem key={asset.asset_id} value={asset.asset_id}>
-                    {asset.asset_symbol} - {asset.asset_class}
+                    {asset.asset_symbol || asset.asset_id} - {asset.asset_class}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -398,7 +398,7 @@ export default function PremiumAnalytics({
             <Card>
               <CardHeader>
                 <CardTitle>
-                  Evolução - {performanceData.find(a => a.asset_id === selectedAsset)?.asset_symbol}
+                  Evolução - {performanceData.find(a => a.asset_id === selectedAsset)?.asset_symbol || performanceData.find(a => a.asset_id === selectedAsset)?.asset_id}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -495,7 +495,7 @@ export default function PremiumAnalytics({
                       <div key={asset.asset_id} className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Badge variant="outline">{index + 1}</Badge>
-                          <span className="font-medium">{asset.asset_symbol}</span>
+                          <span className="font-medium">{asset.asset_symbol || asset.asset_id}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Progress 

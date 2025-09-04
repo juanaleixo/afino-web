@@ -14,7 +14,7 @@ create table public.events (
   created_at timestamp with time zone null default now(),
   asset_symbol text null,
   constraint events_pkey primary key (id),
-  constraint events_asset_symbol_fkey foreign KEY (asset_symbol) references global_assets (symbol) on delete RESTRICT,
+  -- Removed FK constraint to allow both global asset symbols and custom asset UUIDs
   constraint events_user_id_fkey foreign KEY (user_id) references auth.users (id),
   constraint events_account_id_fkey foreign KEY (account_id) references accounts (id),
   constraint events_kind_check check (

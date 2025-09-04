@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth"
 import { supabase, Account, Asset } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingState } from "@/components/ui/loading-state"
+import { useBackgroundPriceFill } from "@/lib/hooks/use-background-price-fill"
 
 // Tipos de operação mais intuitivos
 export type OperationType = 
@@ -61,7 +62,6 @@ export function PatrimonyWizard({
   const [currentStep, setCurrentStep] = useState(0)
   const [selectedOperation, setSelectedOperation] = useState<OperationType | null>(preselectedOperation || null)
   const [accounts, setAccounts] = useState<Account[]>([])
-  const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [customAssets, setCustomAssets] = useState<Asset[]>([])
@@ -80,24 +80,74 @@ export function PatrimonyWizard({
   })
 
   const selectedAssetId = form.watch('asset_id')
-  const selectedAsset = [...assets, ...customAssets].find(a => a.id === selectedAssetId)
-  const isCashAsset = selectedAsset?.class === 'currency' || selectedAsset?.class === 'cash'
+  // State to store the selected asset info for currency detection
+  const [selectedAssetInfo, setSelectedAssetInfo] = React.useState<{class: string} | null>(null)
+  
+  // Hook for background price filling
+  const { triggerPriceFillForAsset } = useBackgroundPriceFill()
+  
+  // Detect if selected asset is currency/cash
+  React.useEffect(() => {
+    const detectAssetType = async () => {
+      if (!selectedAssetId) {
+        setSelectedAssetInfo(null)
+        return
+      }
+      
+      try {
+        // Check if selectedAssetId looks like a UUID (custom asset)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAssetId)
+        
+        if (isUUID) {
+          // Check custom assets using UUID
+          const { data: customAsset } = await supabase
+            .from('custom_assets')
+            .select('class')
+            .eq('id', selectedAssetId)
+            .single()
+          
+          if (customAsset) {
+            setSelectedAssetInfo({ class: customAsset.class })
+            return
+          }
+        } else {
+          // Check global assets using symbol
+          const { data: globalAsset } = await supabase
+            .from('global_assets')
+            .select('class')
+            .eq('symbol', selectedAssetId)
+            .single()
+            
+          if (globalAsset) {
+            setSelectedAssetInfo({ class: globalAsset.class })
+            return
+          }
+        }
+        
+        // Default to non-currency if not found
+        setSelectedAssetInfo({ class: 'stock' })
+      } catch (error) {
+        console.error('Error detecting asset type:', error)
+        setSelectedAssetInfo({ class: 'stock' })
+      }
+    }
+    
+    detectAssetType()
+  }, [selectedAssetId])
+  
+  const isCashAsset = selectedAssetInfo?.class === 'currency' || selectedAssetInfo?.class === 'cash'
 
   // Carregar dados iniciais
   const loadData = useCallback(async () => {
     if (!user) return
 
     try {
-      const [accountsData, globalAssetsData, customAssetsData] = await Promise.all([
+      const [accountsData, customAssetsData] = await Promise.all([
         supabase
           .from('accounts')
           .select('*')
           .eq('user_id', user.id)
           .order('label', { ascending: true }),
-        supabase
-          .from('global_assets')
-          .select('*')
-          .order('symbol', { ascending: true }),
         supabase
           .from('custom_assets')
           .select('*')
@@ -106,10 +156,9 @@ export function PatrimonyWizard({
       ])
 
       if (accountsData.error) throw accountsData.error
-      if (globalAssetsData.error) throw globalAssetsData.error
+      if (customAssetsData.error) throw customAssetsData.error
 
       setAccounts(accountsData.data || [])
-      setAssets(globalAssetsData.data || [])
       setCustomAssets(customAssetsData.data || [])
       
       // Auto-selecionar primeira conta se necessário
@@ -170,9 +219,17 @@ export function PatrimonyWizard({
       }
 
       // Preparar dados do evento
+      // Determinar identificador do ativo conforme origem
+      const selectedCustom = customAssets.find(a => a.id === formData.asset_id)
+      const isCustom = !!selectedCustom
+
+      if (isCustom && !selectedCustom?.symbol) {
+        throw new Error('Ativo personalizado precisa ter um símbolo definido para registrar eventos.')
+      }
+
       const eventData: any = {
         user_id: user.id,
-        asset_id: formData.asset_id,
+        asset_symbol: (selectedCustom?.symbol || formData.asset_id),
         account_id: formData.account_id === "" ? null : formData.account_id,
         kind: eventKind,
         tstamp: formData.date,
@@ -202,6 +259,11 @@ export function PatrimonyWizard({
 
       if (error) throw error
 
+      // Trigger background price filling for global assets
+      if (formData.asset_id) {
+        triggerPriceFillForAsset(formData.asset_id)
+      }
+
       toast.success('Patrimônio atualizado com sucesso!')
       router.push('/dashboard')
     } catch (error: any) {
@@ -230,14 +292,15 @@ export function PatrimonyWizard({
             <OperationTypeStep
               selectedOperation={selectedOperation}
               onOperationSelect={handleOperationSelect}
-              hasAssets={assets.length > 0 || customAssets.length > 0}
+              hasAssets={customAssets.length > 0}
+              isCurrencyAsset={isCashAsset}
             />
           )}
 
           {currentStep === 1 && selectedOperation && (
             <AssetSelectionStep
               form={form}
-              assets={assets}
+              assets={[]} // Não carregar mais todos os assets globais
               customAssets={customAssets}
               accounts={accounts}
               selectedOperation={selectedOperation}
@@ -251,7 +314,7 @@ export function PatrimonyWizard({
             <DetailsFormStep
               form={form}
               selectedOperation={selectedOperation}
-              selectedAsset={selectedAsset}
+              selectedAsset={undefined}
               onSubmit={handleSubmit}
               onBack={handleBack}
               isSubmitting={isSubmitting}

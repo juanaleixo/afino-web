@@ -4,7 +4,7 @@
 CREATE TABLE public.daily_positions_acct (
     user_id uuid NOT NULL,
     account_id uuid NOT NULL,
-    asset_id uuid NOT NULL,
+    asset_id text NOT NULL,
     date date NOT NULL,
     units numeric(38,18) NOT NULL,
     price numeric(20,10),

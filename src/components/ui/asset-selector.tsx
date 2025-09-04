@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import { AssetBadge } from "@/components/ui/asset-badge"
-import { Asset } from "@/lib/supabase"
+import { Asset, supabase } from "@/lib/supabase"
 import { getAssetDisplayLabel, getAssetClassLabel } from "@/lib/utils/assets"
+import { isAssetSelected, getAssetFormValue } from "@/lib/utils/asset-helpers"
 
 interface AssetSelectorProps {
-  assets: Asset[]
   value?: string
   onValueChange?: (value: string) => void
   placeholder?: string
@@ -27,7 +27,6 @@ interface AssetSelectorProps {
 }
 
 export function AssetSelector({
-  assets,
   value,
   onValueChange,
   placeholder = "Selecionar ativo...",
@@ -38,62 +37,133 @@ export function AssetSelector({
 }: AssetSelectorProps) {
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [searchResults, setSearchResults] = React.useState<Asset[]>([])
+  const [customAssets, setCustomAssets] = React.useState<Asset[]>([])
+  const [searching, setSearching] = React.useState(false)
+  const [hasSearched, setHasSearched] = React.useState(false)
+  const [selectedAssetData, setSelectedAssetData] = React.useState<Asset | null>(null)
 
-  // Separar ativos em categorias
-  const customAssets = assets.filter(asset => 
-    asset.meta && typeof asset.meta === 'object' && 'is_custom' in asset.meta && asset.meta.is_custom
-  )
-  const globalAssets = assets.filter(asset => 
-    !asset.meta || typeof asset.meta !== 'object' || !('is_custom' in asset.meta) || !asset.meta.is_custom
-  )
+  // Load custom assets on mount
+  React.useEffect(() => {
+    const loadCustomAssets = async () => {
+      try {
+        const { data } = await supabase
+          .from('custom_assets')
+          .select('*')
+          .order('label', { ascending: true })
+        
+        setCustomAssets(data || [])
+      } catch (error) {
+        console.error('Error loading custom assets:', error)
+      }
+    }
+    
+    loadCustomAssets()
+  }, [])
 
-  // Assets a serem mostrados baseado no filtro
-  let assetsToShow = showOnlyCustom ? customAssets : assets
-  
-  // Filtrar cash/currency se solicitado
-  if (excludeCash) {
-    assetsToShow = assetsToShow.filter(asset => 
-      asset.class !== 'cash' && asset.class !== 'currency'
-    )
-  }
+  // Clear stored asset data when value changes externally
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedAssetData(null)
+    } else if (selectedAssetData && !isAssetSelected(selectedAssetData, value)) {
+      setSelectedAssetData(null)
+    }
+  }, [value, selectedAssetData])
 
-  // Filtrar assets baseado na pesquisa
-  const filteredAssets = React.useMemo(() => {
-    if (!searchQuery) return assetsToShow
+  // Search assets dynamically
+  const searchAssets = React.useCallback(async (query: string) => {
+    if (!query || query.length < 2) {
+      setSearchResults([])
+      setHasSearched(false)
+      return
+    }
+    
+    try {
+      setSearching(true)
+      setHasSearched(false)
+      
+      let supabaseQuery = supabase.from('global_assets').select('*')
+      
+      // Apply filters
+      if (excludeCash) {
+        supabaseQuery = supabaseQuery.not('class', 'in', '("cash","currency")')
+      }
+      
+      // Search by symbol and label - using case insensitive search
+      const searchPattern = `%${query.toLowerCase()}%`
+      supabaseQuery = supabaseQuery.or(`symbol.ilike.${searchPattern},label_ptbr.ilike.${searchPattern}`)
+      
+      const { data, error } = await supabaseQuery
+        .limit(50)
+        .order('symbol', { ascending: true })
+      
+      if (error) {
+        console.error('Supabase query error:', error)
+        throw error
+      }
+      
+      console.log('Asset search results for query:', query, 'Results:', data)
+      setSearchResults(data || [])
+      setHasSearched(true)
+    } catch (error) {
+      console.error('Error searching assets:', error)
+      setSearchResults([])
+      setHasSearched(true)
+    } finally {
+      setSearching(false)
+    }
+  }, [excludeCash])
 
-    const query = searchQuery.toLowerCase()
-    return assetsToShow.filter(asset => 
-      asset.symbol.toLowerCase().includes(query) ||
-      (asset.label_ptbr && asset.label_ptbr.toLowerCase().includes(query)) ||
-      getAssetClassLabel(asset.class).toLowerCase().includes(query)
-    )
-  }, [assetsToShow, searchQuery])
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      searchAssets(searchQuery)
+    }, 300)
 
-  const selectedAsset = [...assets, ...customAssets].find(asset => asset.id === value)
+    return () => clearTimeout(timer)
+  }, [searchQuery, searchAssets])
+
+  // Find selected asset - use stored data or search in current lists
+  const selectedAsset = React.useMemo(() => {
+    if (!value) return undefined
+    
+    // If we have stored data and it matches the current value, use it
+    if (selectedAssetData && isAssetSelected(selectedAssetData, value)) {
+      return selectedAssetData
+    }
+    
+    // Otherwise, search in current lists
+    const customSelected = customAssets.find(asset => isAssetSelected(asset, value))
+    if (customSelected) return customSelected
+    
+    const searchSelected = searchResults.find(asset => isAssetSelected(asset, value))
+    if (searchSelected) return searchSelected
+    
+    // If not found anywhere, create a minimal display object
+    // This happens when an asset was selected but is no longer in current results
+    return {
+      symbol: value,
+      id: value,
+      class: 'stock', // Default to stock instead of unknown
+      currency: 'BRL',
+      label_ptbr: value
+    } as Asset
+  }, [customAssets, searchResults, value, selectedAssetData])
 
 
-  // Separar e agrupar assets
+  // Organize assets for display
   const organizedAssets = React.useMemo(() => {
+    if (showOnlyCustom) {
+      return { custom: customAssets, global: {}, searching: false }
+    }
+    
     if (!searchQuery) {
-      // Sem busca: mostrar organizadamente
-      const customFiltered = customAssets
-      const globalFiltered = globalAssets // Remover limitação artificial
-
-      const globalGrouped: { [key: string]: Asset[] } = {}
-      globalFiltered.forEach(asset => {
-        const classLabel = getAssetClassLabel(asset.class)
-        if (!globalGrouped[classLabel]) {
-          globalGrouped[classLabel] = []
-        }
-        globalGrouped[classLabel].push(asset)
-      })
-
-      return { custom: customFiltered, global: globalGrouped }
+      // No search: show custom assets only
+      return { custom: customAssets, global: {}, searching: false }
     } else {
-      // Com busca: mostrar tudo junto filtrado
-      const allFiltered = filteredAssets
+      // With search: show search results grouped by class
       const grouped: { [key: string]: Asset[] } = {}
-      allFiltered.forEach(asset => {
+      searchResults.forEach(asset => {
         const classLabel = getAssetClassLabel(asset.class)
         if (!grouped[classLabel]) {
           grouped[classLabel] = []
@@ -102,7 +172,7 @@ export function AssetSelector({
       })
       return { custom: [], global: grouped, searching: true }
     }
-  }, [customAssets, globalAssets, filteredAssets, searchQuery])
+  }, [customAssets, searchResults, searchQuery, showOnlyCustom])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -148,9 +218,20 @@ export function AssetSelector({
           />
         </div>
         <div className="max-h-[300px] overflow-y-auto">
-          {organizedAssets.custom.length === 0 && Object.keys(organizedAssets.global).length === 0 ? (
+          {searching ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              Nenhum ativo encontrado
+              <div className="text-2xl mb-2">⏳</div>
+              <p>Buscando ativos...</p>
+            </div>
+          ) : searchQuery && hasSearched && Object.keys(organizedAssets.global).length === 0 && organizedAssets.custom.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              <div className="text-4xl mb-2">🔍</div>
+              <p>Nenhum ativo encontrado</p>
+            </div>
+          ) : searchQuery && searchQuery.length < 2 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              <div className="text-2xl mb-2">✏️</div>
+              <p>Digite pelo menos 2 caracteres para buscar</p>
             </div>
           ) : (
             <>
@@ -165,10 +246,12 @@ export function AssetSelector({
                       key={asset.id}
                       className={cn(
                         "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
-                        value === asset.id && "bg-accent text-accent-foreground"
+                        isAssetSelected(asset, value || '') && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => {
-                        onValueChange?.(asset.id)
+                        const formValue = getAssetFormValue(asset)
+                        onValueChange?.(formValue)
+                        setSelectedAssetData(asset)
                         setOpen(false)
                         setSearchQuery("")
                       }}
@@ -192,7 +275,7 @@ export function AssetSelector({
                       <Check
                         className={cn(
                           "ml-auto h-4 w-4",
-                          value === asset.id ? "opacity-100" : "opacity-0"
+                          isAssetSelected(asset, value || '') ? "opacity-100" : "opacity-0"
                         )}
                       />
                     </button>
@@ -219,13 +302,15 @@ export function AssetSelector({
                       </div>
                       {classAssets.map((asset) => (
                         <button
-                          key={asset.id}
+                          key={asset.id || asset.symbol}
                           className={cn(
                             "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
-                            value === asset.id && "bg-accent text-accent-foreground"
+                            isAssetSelected(asset, value || '') && "bg-accent text-accent-foreground"
                           )}
                           onClick={() => {
-                            onValueChange?.(asset.id)
+                            const formValue = getAssetFormValue(asset)
+                            onValueChange?.(formValue)
+                            setSelectedAssetData(asset)
                             setOpen(false)
                             setSearchQuery("")
                           }}
@@ -244,7 +329,7 @@ export function AssetSelector({
                           <Check
                             className={cn(
                               "ml-auto h-4 w-4",
-                              value === asset.id ? "opacity-100" : "opacity-0"
+                              isAssetSelected(asset, value || '') ? "opacity-100" : "opacity-0"
                             )}
                           />
                         </button>

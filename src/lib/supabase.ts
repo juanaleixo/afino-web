@@ -35,13 +35,15 @@ export interface Account {
 }
 
 export interface Asset {
-  id: string
+  // Para ativos globais, use `symbol` como identificador lógico.
+  // Para ativos customizados, `id` (uuid) permanece.
+  id?: string
   symbol: string
   class: string
   manual_price?: number
   currency: string
   meta?: Record<string, unknown>
-  created_at: string
+  created_at?: string
   connector?: string
   external_account_id?: string
   label_ptbr?: string
@@ -50,7 +52,8 @@ export interface Asset {
 export interface Event {
   id: string
   user_id: string
-  asset_id: string
+  asset_symbol?: string  // Para global_assets (referencia symbol)
+  asset_id?: string      // Para custom_assets (referencia id)
   account_id?: string
   tstamp: string
   kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
@@ -61,7 +64,8 @@ export interface Event {
 
 export interface Holding {
   user_id: string
-  asset_id: string
+  asset_symbol?: string  // Para global_assets
+  asset_id?: string      // Para custom_assets
   units: number
 }
 
@@ -77,7 +81,8 @@ export interface PortfolioValueDaily {
 
 export interface PriceDaily {
   user_id: string
-  asset_id: string
+  asset_symbol?: string  // Para global_assets
+  asset_id?: string      // Para custom_assets
   d: string
   close: number
 }
@@ -94,14 +99,16 @@ export interface PortfolioMonthly {
 }
 
 export interface HoldingAt {
-  asset_id: string
+  asset_symbol?: string  // Para global_assets
+  asset_id?: string      // Para custom_assets
   units: number
   value: number
 }
 
 export interface HoldingAccount {
   account_id: string
-  asset_id: string
+  asset_symbol?: string  // Para global_assets
+  asset_id?: string      // Para custom_assets
   units: number
   value: number
 }

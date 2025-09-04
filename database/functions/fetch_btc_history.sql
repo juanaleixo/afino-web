@@ -22,9 +22,9 @@ LOOP
 date_value := to_timestamp((item->>'time')::bigint)::date;
 close_value := (item->>'close')::numeric;
 -- Insere ou atualiza
-INSERT INTO global_price_daily (asset_id, date, price)
-VALUES ('asset_btc', date_value, close_value)
-ON CONFLICT (asset_id, date) DO UPDATE SET price = EXCLUDED.price;
+INSERT INTO global_price_daily (asset_symbol, date, price)
+VALUES ('BTC', date_value, close_value)
+ON CONFLICT (asset_symbol, date) DO UPDATE SET price = EXCLUDED.price;
 END LOOP;
 END;
 $$;

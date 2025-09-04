@@ -7,7 +7,8 @@ create table public.global_price_daily (
   price numeric not null,
   asset_symbol text null,
   constraint global_price_daily_pkey primary key (id),
-  constraint global_price_daily_asset_symbol_fkey foreign KEY (asset_symbol) references global_assets (symbol) on delete RESTRICT
+  constraint global_price_daily_asset_symbol_fkey foreign KEY (asset_symbol) references global_assets (symbol) on delete RESTRICT,
+  constraint global_price_daily_asset_symbol_date_key UNIQUE (asset_symbol, date)
 ) TABLESPACE pg_default;
 
 ALTER TABLE public.global_price_daily OWNER TO postgres;

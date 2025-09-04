@@ -35,8 +35,8 @@ WITH vars AS (
   RETURNING id AS eq_id
 )
 -- Ensure some price history for ACME3 and BRL
-INSERT INTO public.global_price_daily(asset_id, date, price)
-SELECT COALESCE((SELECT id FROM public.global_assets WHERE symbol='ACME3'), (SELECT eq_id FROM create_equity)), d, p
+INSERT INTO public.global_price_daily(asset_symbol, date, price)
+SELECT 'ACME3', d, p
 FROM (VALUES
   (CURRENT_DATE - 3, 98.50),
   (CURRENT_DATE - 2, 100.00),

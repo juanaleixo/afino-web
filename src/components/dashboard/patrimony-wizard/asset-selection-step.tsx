@@ -7,6 +7,8 @@ import { Account, Asset } from "@/lib/supabase"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Building, Car, Briefcase, Palette, DollarSign, Trash2, MoreVertical } from "lucide-react"
+
+import { isAssetSelected, getAssetFormValue, findAssetByValue } from "@/lib/utils/asset-helpers"
 import { OperationType } from "./index"
 import { CreateCustomAssetDialog } from "./create-custom-asset-dialog"
 import { Input } from "@/components/ui/input"
@@ -92,7 +94,7 @@ export function AssetSelectionStep({
   
   // Combinar assets globais e customizados
   const allAssets = [...assets, ...customAssets]
-  const selectedAsset = allAssets.find(a => a.id === selectedAssetId)
+  const selectedAsset = findAssetByValue(allAssets, selectedAssetId)
   
   // Buscar assets dinamicamente no servidor conforme o usuário digita
   const [searchResults, setSearchResults] = React.useState<Asset[]>([])
@@ -299,10 +301,10 @@ export function AssetSelectionStep({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {customAssets.map((asset) => (
                 <div
-                  key={asset.id}
+                  key={getAssetFormValue(asset)}
                   className={cn(
                     "relative p-4 rounded-xl border transition-all duration-200 group hover:shadow-md",
-                    selectedAssetId === asset.id 
+                    isAssetSelected(asset, selectedAssetId) 
                       ? "border-blue-200 bg-blue-50 shadow-sm ring-2 ring-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:ring-blue-900" 
                       : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/50 dark:border-gray-700 dark:hover:border-blue-700 dark:hover:bg-blue-950/50"
                   )}
@@ -322,7 +324,7 @@ export function AssetSelectionStep({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem 
-                          onSelect={() => setDeleteAsset({ id: asset.id, name: (asset as any).label || asset.symbol })} 
+                          onSelect={() => setDeleteAsset({ id: getAssetFormValue(asset), name: (asset as any).label || asset.symbol })} 
                           className="text-red-600 dark:text-red-400"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -334,7 +336,9 @@ export function AssetSelectionStep({
 
                   {/* Conteúdo do card - agora clicável */}
                   <button
-                    onClick={() => form.setValue('asset_id', asset.id)}
+                    onClick={() => {
+                      form.setValue('asset_id', getAssetFormValue(asset))
+                    }}
                     className="w-full text-left"
                   >
                     <div className="flex items-start gap-3">
@@ -349,7 +353,7 @@ export function AssetSelectionStep({
                           {asset.currency} • Personalizado
                         </div>
                       </div>
-                      {selectedAssetId === asset.id && (
+                      {isAssetSelected(asset, selectedAssetId) && (
                         <div className="flex-shrink-0 h-2 w-2 bg-blue-600 rounded-full mt-2"></div>
                       )}
                     </div>
@@ -405,9 +409,10 @@ export function AssetSelectionStep({
               <div className="max-h-64 overflow-y-auto">
                 {filteredAssets.map((asset) => (
                   <button
-                    key={asset.id}
+                    key={asset.symbol || asset.id}
                     onClick={() => {
-                      form.setValue('asset_id', asset.id)
+                      // Para global assets (resultado da busca), usar symbol
+                      form.setValue('asset_id', asset.symbol)
                       setSearchQuery("")
                     }}
                     className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 last:border-b-0 transition-colors"

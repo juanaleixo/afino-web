@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { EventWithRelations } from "@/lib/types/events"
 import { useAuth } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
@@ -17,29 +18,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { enrichEventsWithAssets } from "@/lib/utils/asset-info-helper"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Plus, Calendar, TrendingUp, TrendingDown, Trash2, Activity, Info, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
-interface EventWithRelations {
-  id: string
-  user_id: string
-  asset_id: string
-  account_id?: string
-  tstamp: string
-  kind: 'deposit' | 'withdraw' | 'buy' | 'position_add' | 'valuation'
-  units_delta?: number
-  price_override?: number
-  price_close?: number
-  global_assets?: {
-    symbol: string
-    class: string
-  }
-  accounts?: {
-    label: string
-  }
-}
+// Using shared type from lib/types/events
 
 export default function EventsPage() {
   const { user } = useAuth()
@@ -83,7 +68,6 @@ export default function EventsPage() {
           .from('events')
           .select(`
             *,
-            global_assets(symbol, class),
             accounts(label)
           `)
           .eq('user_id', user.id)
@@ -97,8 +81,11 @@ export default function EventsPage() {
 
       if (eventsRes.error) throw eventsRes.error
       if (accountsRes.error) console.warn('Erro ao carregar contas:', accountsRes.error)
+
+      // Enrich events with asset information
+      const enrichedEvents = await enrichEventsWithAssets(eventsRes.data || [])
       
-      setEvents(eventsRes.data || [])
+      setEvents(enrichedEvents || [])
       setAccounts(accountsRes.data || [])
     } catch (error) {
       console.error('Erro ao carregar eventos:', error)
@@ -123,7 +110,7 @@ export default function EventsPage() {
         .order('symbol', { ascending: true })
         .limit(1)
         .maybeSingle()
-      if (!error && data) setCashAssetId(data.id)
+      if (!error && data) setCashAssetId(data.symbol)
     }
     loadCash()
   }, [user?.id])
@@ -377,10 +364,10 @@ export default function EventsPage() {
         setPortfolioToday(lastPortfolio?.total_value ?? 0)
 
         // 2) Caixa: considerar classes 'currency' e 'cash' e usar a última data disponível ≤ hoje
-        const { data: assets, error: e2 } = await supabase.from('global_assets').select('id').in('class', ['currency','cash'])
+        const { data: assets, error: e2 } = await supabase.from('global_assets').select('symbol').in('class', ['currency','cash'])
         if (e2) console.warn('global_assets error', e2)
-        const currencyIds = (assets || []).map(a => a.id)
-        if (currencyIds.length === 0) {
+        const currencySymbols = (assets || []).map(a => a.symbol)
+        if (currencySymbols.length === 0) {
           setCashToday(0)
           return
         }
