@@ -134,8 +134,14 @@ export async function enrichEventsWithAssets<T extends { asset_symbol?: string }
 
   const assetInfo = await getAssetInfoBatch(assetIds)
 
-  return events.map(event => ({
-    ...event,
-    global_assets: event.asset_symbol ? assetInfo[event.asset_symbol] : undefined
-  }))
+  return events.map(event => {
+    const result: T & { global_assets?: AssetInfo } = { ...event }
+    if (event.asset_symbol) {
+      const asset = assetInfo[event.asset_symbol]
+      if (asset) {
+        result.global_assets = asset
+      }
+    }
+    return result
+  })
 }
