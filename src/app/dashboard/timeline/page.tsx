@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Eye, Crown, Loader2, DollarSign, Zap, Settings, Monitor, Target, Activity, PieChart } from "lucide-react"
+import { TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Eye, Crown, Loader2, DollarSign, Zap, Settings, Monitor, Target, Activity, PieChart, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useUserPlan } from "@/contexts/UserPlanContext"
 import PortfolioChart from "@/components/PortfolioChart"
@@ -48,6 +48,7 @@ export default function TimelinePage() {
   const [normalizedPerformance, setNormalizedPerformance] = useState<any[]>([])
   const [selectedAssetForDrillDown, setSelectedAssetForDrillDown] = useState<string | null>(null)
   const [assetDailyPositions, setAssetDailyPositions] = useState<any[]>([])
+  const [refreshing, setRefreshing] = useState(false)
   
   const [filters, setFilters] = useState<TimelineFilters>({
     period: '1Y',
@@ -150,6 +151,45 @@ export default function TimelinePage() {
       setLoading(false)
     }
   }, [user?.id, getDateRange, isPremium, filters.benchmark, filters.granularity])
+
+  const handleRefresh = async () => {
+    if (!user?.id || refreshing) return
+    
+    setRefreshing(true)
+    
+    try {
+      // Clear timeline-specific cache
+      if (typeof window !== 'undefined') {
+        const keysToDelete = []
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i)
+          if (key && key.includes('timeline')) {
+            keysToDelete.push(key)
+          }
+        }
+        keysToDelete.forEach(key => sessionStorage.removeItem(key))
+        
+        toast.success('Cache da timeline limpo com sucesso!')
+      }
+      
+      // Reset data
+      setPortfolioData(null)
+      setAssetBreakdownData(null)
+      setBenchmarkData(null)
+      setPerformanceAnalysis([])
+      setNormalizedPerformance([])
+      setAssetDailyPositions([])
+      
+      // Reload data
+      await loadTimelineData()
+      
+    } catch (error) {
+      console.error('Erro ao recarregar timeline:', error)
+      toast.error('Erro ao recarregar dados da timeline')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     loadTimelineData()
@@ -291,6 +331,15 @@ export default function TimelinePage() {
       ]}
       actions={
         <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Recarregar
+          </Button>
           {isPremium ? (
             <Badge variant="default" className="flex items-center space-x-1">
               <Crown className="h-3 w-3" />

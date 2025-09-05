@@ -26,7 +26,8 @@ import {
   ArrowDown,
   Clock,
   Users,
-  Edit3
+  Edit3,
+  RefreshCw
 } from "lucide-react"
 import MiniChart from "@/components/ui/mini-chart"
 import PortfolioChart from "@/components/PortfolioChart"
@@ -50,6 +51,7 @@ export default function DashboardPage() {
   const [loadingTimelinePreview, setLoadingTimelinePreview] = useState(true)
   const [assetSymbols, setAssetSymbols] = useState<Map<string, string>>(new Map())
   const [loadingSymbols, setLoadingSymbols] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Cached version of last event timestamp (for cache invalidation)
   const getLastEventTimestamp = async (userId: string): Promise<string> => {
@@ -335,6 +337,111 @@ export default function DashboardPage() {
     setIsLoading(false)
   }
 
+  const handleRefresh = async () => {
+    if (!user?.id || refreshing) return
+    
+    setRefreshing(true)
+    
+    try {
+      // Clear all sessionStorage cache
+      if (typeof window !== 'undefined') {
+        const keysToDelete = []
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i)
+          if (key && (
+            key.includes(`mini-timeline-${user.id}`) ||
+            key.includes(`timeline-preview-${user.id}`) ||
+            key.includes(`last_event:${user.id}`)
+          )) {
+            keysToDelete.push(key)
+          }
+        }
+        keysToDelete.forEach(key => sessionStorage.removeItem(key))
+        
+        toast.success('Cache limpo com sucesso!')
+      }
+      
+      // Reset all state
+      setPortfolioStats(null)
+      setMiniTimelineData([])
+      setTimelinePreviewData(null)
+      setAssetSymbols(new Map())
+      setLoadingStats(true)
+      setLoadingMiniTimeline(true)
+      setLoadingTimelinePreview(true)
+      
+      // Reload data using existing functions
+      const loadDashboardStats = async (userId: string) => {
+        try {
+          setLoadingStats(true)
+          const portfolioService = getPortfolioService(userId)
+          const today = new Date().toISOString().split('T')[0]!
+          const stats = await portfolioService.getPortfolioStats(today)
+          setPortfolioStats(stats)
+        } catch (error) {
+          console.error('Erro ao carregar estatísticas:', error)
+          toast.error('Erro ao carregar dados do dashboard')
+        } finally {
+          setLoadingStats(false)
+        }
+      }
+      
+      const loadMiniTimelineData = async (userId: string) => {
+        try {
+          setLoadingMiniTimeline(true)
+          const portfolioService = getPortfolioService(userId)
+          await portfolioService.initialize()
+          
+          const today = new Date()
+          let chartData: any[] = []
+          
+          if (isPremium) {
+            const sixMonthsAgo = new Date(today)
+            sixMonthsAgo.setMonth(today.getMonth() - 6)
+            const from = sixMonthsAgo.toISOString().split('T')[0]!
+            const to = today.toISOString().split('T')[0]!
+            const dailyData = await portfolioService.getDailySeries(from, to)
+            chartData = dailyData.map(item => ({
+              date: item.date,
+              value: item.total_value
+            }))
+          } else {
+            const twelveMonthsAgo = new Date(today)
+            twelveMonthsAgo.setMonth(today.getMonth() - 12)
+            const from = twelveMonthsAgo.toISOString().split('T')[0]!
+            const to = today.toISOString().split('T')[0]!
+            const monthlyData = await portfolioService.getMonthlySeries(from, to)
+            chartData = monthlyData.map(item => ({
+              date: item.month_eom,
+              value: item.total_value
+            }))
+          }
+          
+          setMiniTimelineData(chartData)
+        } catch (error) {
+          console.error('Erro ao carregar mini timeline:', error)
+        } finally {
+          setLoadingMiniTimeline(false)
+        }
+      }
+      
+      await loadDashboardStats(user.id)
+      
+      if (isPremium !== undefined) {
+        await Promise.all([
+          loadMiniTimelineData(user.id),
+          loadTimelinePreview(user.id)
+        ])
+      }
+      
+    } catch (error) {
+      console.error('Erro ao recarregar:', error)
+      toast.error('Erro ao recarregar dados')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -486,6 +593,15 @@ export default function DashboardPage() {
                   {user?.email}
                 </Badge>
                 <ThemeSwitch />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Recarregar
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
