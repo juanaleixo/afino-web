@@ -159,7 +159,7 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
 
   return (
     <FadeIn>
-      <Card className="card-hover">
+      <Card className="card-hover select-none">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5" />

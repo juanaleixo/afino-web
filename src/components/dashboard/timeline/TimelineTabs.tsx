@@ -12,10 +12,13 @@ import {
   Loader2,
   Crown 
 } from "lucide-react"
-import MultiAssetTradingView from "@/components/dashboard/timeline/multi-asset-tradingview"
-import PremiumAnalytics from "@/components/dashboard/timeline/premium-analytics"
+import { lazy, Suspense, useMemo } from "react"
 import { TimelineChart } from "./TimelineChart"
 import { TimelineFilters } from "./TimelineFilters"
+
+// Lazy loading dos componentes pesados
+const MultiAssetTradingView = lazy(() => import("@/components/dashboard/timeline/multi-asset-tradingview"))
+const PremiumAnalytics = lazy(() => import("@/components/dashboard/timeline/premium-analytics"))
 
 interface TimelineTabsProps {
   view: 'overview' | 'assets' | 'details'
@@ -52,8 +55,8 @@ export function TimelineTabs({
   getDateRange
 }: TimelineTabsProps) {
 
-  // Função para obter série ativa baseada na granularidade
-  const getActiveSeries = () => {
+  // Função para obter série ativa baseada na granularidade (memoizada)
+  const activeSeries = useMemo(() => {
     if (!portfolioData) return []
     const dailySeries = portfolioData.dailySeries || null
     const monthlySeries = portfolioData.monthlySeries || portfolioData.series || []
@@ -61,7 +64,18 @@ export function TimelineTabs({
     return (isPremium && filters.granularity === 'daily' && dailySeries)
       ? dailySeries 
       : monthlySeries
-  }
+  }, [portfolioData, isPremium, filters.granularity])
+
+  // Mapear dados normalizados para performance (memoizado)
+  const normalizedAssetData = useMemo(() => {
+    return normalizedPerformance.map((asset, index) => ({
+      asset_id: asset.asset_id,
+      asset_symbol: asset.asset_symbol,
+      asset_class: asset.asset_class,
+      daily_values: asset.daily_values || [],
+      color: ASSET_COLORS[index % ASSET_COLORS.length] || '#2563eb'
+    }))
+  }, [normalizedPerformance])
 
   return (
     <Tabs value={view} onValueChange={(value) => onViewChange(value as any)}>
@@ -104,27 +118,45 @@ export function TimelineTabs({
           {filters.granularity === 'daily' ? (
             <FadeIn className="space-y-6">
               {/* Multi-Asset Chart */}
-              <MultiAssetTradingView
-                assetsData={normalizedPerformance.map((asset, index) => ({
-                  asset_id: asset.asset_id,
-                  asset_symbol: asset.asset_symbol,
-                  asset_class: asset.asset_class,
-                  daily_values: asset.daily_values || [],
-                  color: ASSET_COLORS[index % ASSET_COLORS.length] || '#2563eb'
-                }))}
-                portfolioData={portfolioData}
-                isPremium={isPremium}
-                isLoading={loading}
-              />
+              <div className="select-none">
+                <Suspense fallback={
+                  <Card className="card-hover">
+                    <CardContent className="flex items-center justify-center h-64">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <span>Carregando gráfico de ativos...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                }>
+                  <MultiAssetTradingView
+                    assetsData={normalizedAssetData}
+                    portfolioData={portfolioData}
+                    isPremium={isPremium}
+                    isLoading={loading}
+                  />
+                </Suspense>
+              </div>
               
               {/* Performance Analysis */}
               <FadeIn delay={300}>
-                <PremiumAnalytics
-                  performanceData={normalizedPerformance}
-                  benchmarkData={benchmarkData}
-                  isLoading={loading}
-                  period={getDateRange()}
-                />
+                <Suspense fallback={
+                  <Card className="card-hover">
+                    <CardContent className="flex items-center justify-center h-64">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <span>Carregando análises avançadas...</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                }>
+                  <PremiumAnalytics
+                    performanceData={normalizedPerformance}
+                    benchmarkData={benchmarkData}
+                    isLoading={loading}
+                    period={getDateRange()}
+                  />
+                </Suspense>
               </FadeIn>
             </FadeIn>
           ) : (
@@ -170,7 +202,7 @@ export function TimelineTabs({
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
                   Carregando dados...
                 </div>
-              ) : getActiveSeries().length > 0 ? (
+              ) : activeSeries.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -182,7 +214,7 @@ export function TimelineTabs({
                       </tr>
                     </thead>
                     <tbody>
-                      {getActiveSeries().map((item: any, index: number, arr: any[]) => {
+                      {activeSeries.map((item: any, index: number, arr: any[]) => {
                         const previousValue = index > 0 ? arr[index - 1].total_value : 0
                         const change = item.total_value - previousValue
                         const percentChange = previousValue > 0 ? (change / previousValue) * 100 : 0

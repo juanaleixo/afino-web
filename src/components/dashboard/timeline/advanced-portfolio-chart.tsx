@@ -194,7 +194,7 @@ export default function AdvancedPortfolioChart({
 
   if (chartData.length === 0 && !isLoading) {
     return (
-      <Card>
+      <Card className="select-none">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5" />
@@ -211,7 +211,7 @@ export default function AdvancedPortfolioChart({
   }
 
   return (
-    <Card>
+    <Card className="select-none">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center space-x-2">

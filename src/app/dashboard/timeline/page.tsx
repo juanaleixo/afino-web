@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth"
 import { usePortfolioData } from "@/lib/hooks/usePortfolioData"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Crown } from "lucide-react"
+import { RefreshCw, Crown, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { useUserPlan } from "@/contexts/UserPlanContext"
 import { benchmarkService } from "@/lib/benchmarks"
@@ -185,6 +185,8 @@ export default function TimelinePage() {
     <DashboardLayout
       title="Timeline"
       description="Acompanhe a evolução do seu patrimônio ao longo do tempo"
+      backHref="/dashboard"
+      backLabel="Voltar para Dashboard"
       actions={
         <Button
           variant="outline"

@@ -3,12 +3,15 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import PortfolioChart from "@/components/PortfolioChart"
-import AdvancedPortfolioChart from "@/components/dashboard/timeline/advanced-portfolio-chart"
-import TradingViewChart from "@/components/dashboard/timeline/tradingview-chart"
 import { FadeIn } from "@/components/ui/fade-in"
 import { ChartSkeleton } from "@/components/ui/skeleton-loader"
-import { BarChart3, Crown, Zap } from "lucide-react"
+import { BarChart3, Crown, Zap, Loader2 } from "lucide-react"
 import { TimelineFilters } from "./TimelineFilters"
+import { lazy, Suspense } from "react"
+
+// Lazy loading dos gráficos avançados
+const AdvancedPortfolioChart = lazy(() => import("@/components/dashboard/timeline/advanced-portfolio-chart"))
+const TradingViewChart = lazy(() => import("@/components/dashboard/timeline/tradingview-chart"))
 
 interface TimelineChartProps {
   portfolioData: any
@@ -104,21 +107,34 @@ export function TimelineChart({
       </div>
 
       {/* Gráfico principal */}
-      {chartType === 'advanced' ? (
-        <AdvancedPortfolioChart
-          monthlyData={monthlySeries}
-          dailyData={dailySeries}
-          assetBreakdown={assetBreakdownData}
-          isLoading={loading}
-          granularity={filters.granularity}
-        />
-      ) : (
-        <PortfolioChart
-          monthlyData={monthlySeries}
-          dailyData={dailySeries}
-          isLoading={loading}
-        />
-      )}
+      <div className="select-none">
+        {chartType === 'advanced' ? (
+          <Suspense fallback={
+            <Card>
+              <CardContent className="flex items-center justify-center h-64">
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>Carregando gráfico avançado...</span>
+                </div>
+              </CardContent>
+            </Card>
+          }>
+            <AdvancedPortfolioChart
+              monthlyData={monthlySeries}
+              dailyData={dailySeries}
+              assetBreakdown={assetBreakdownData}
+              isLoading={loading}
+              granularity={filters.granularity}
+            />
+          </Suspense>
+        ) : (
+          <PortfolioChart
+            monthlyData={monthlySeries}
+            dailyData={dailySeries}
+            isLoading={loading}
+          />
+        )}
+      </div>
 
       {/* Hint para dados detalhados (Premium + Diário) */}
       {isPremium && 
@@ -132,7 +148,7 @@ export function TimelineChart({
                 <div className="flex items-center space-x-2">
                   <Zap className="h-4 w-4 text-primary" />
                   <span className="text-sm text-muted-foreground">
-                    Dados detalhados por ativo disponíveis na aba "Detalhes"
+                    Dados detalhados por ativo disponíveis na aba &ldquo;Detalhes&rdquo;
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">

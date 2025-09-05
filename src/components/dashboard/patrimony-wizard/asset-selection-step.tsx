@@ -650,7 +650,7 @@ export function AssetSelectionStep({
           <DialogHeader>
             <DialogTitle>Excluir ativo personalizado?</DialogTitle>
             <DialogDescription>
-              Esta ação não pode ser desfeita. O ativo "{deleteAsset?.name}" será permanentemente removido.
+              Esta ação não pode ser desfeita. O ativo &ldquo;{deleteAsset?.name}&rdquo; será permanentemente removido.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

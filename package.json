@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run lint:check && npm run type-check && next build",
+    "build:skip-lint": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "lint:check": "eslint . --quiet",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
