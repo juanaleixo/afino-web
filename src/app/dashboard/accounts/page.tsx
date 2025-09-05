@@ -18,7 +18,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Plus, Edit, Trash2, Wallet } from "lucide-react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
 
 const accountSchema = z.object({
   label: z.string().min(1, "Nome da conta é obrigatório"),

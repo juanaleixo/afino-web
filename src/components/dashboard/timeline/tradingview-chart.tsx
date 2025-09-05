@@ -41,7 +41,7 @@ export default function TradingViewChart({
                 </p>
               </div>
             </div>
-            <Button variant="outline" className="border-yellow-300 hover:bg-yellow-100">
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white transition-colors">
               <Crown className="h-4 w-4 mr-2" />
               Fazer Upgrade
             </Button>
