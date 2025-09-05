@@ -33,6 +33,13 @@ import {
 // Categorias de ativos para criação customizada
 const assetCategories = [
   {
+    type: 'cash',
+    label: 'Conta/Caixa',
+    icon: DollarSign,
+    examples: ['Conta corrente', 'Poupança', 'Carteira', 'Cofre'],
+    color: 'text-green-600 bg-green-50'
+  },
+  {
     type: 'real_estate',
     label: 'Imóvel',
     icon: Building,
@@ -51,7 +58,7 @@ const assetCategories = [
     label: 'Renda Fixa',
     icon: Briefcase,
     examples: ['CDB', 'LCI', 'LCA', 'Tesouro'],
-    color: 'text-green-600 bg-green-50'
+    color: 'text-blue-600 bg-blue-50'
   },
   {
     type: 'commodity',
@@ -92,8 +99,32 @@ export function AssetSelectionStep({
   const selectedAssetId = form.watch('asset_id')
   const selectedAccountId = form.watch('account_id')
   
-  // Combinar assets globais e customizados
-  const allAssets = [...assets, ...customAssets]
+  // Filtrar assets baseado na operação selecionada
+  const getRelevantAssetClasses = (operation: OperationType): string[] => {
+    switch (operation) {
+      case 'money_in':
+      case 'money_out':
+        return ['currency', 'cash'] // Apenas contas de caixa
+      case 'purchase':
+        return ['stock', 'fund', 'crypto', 'etf', 'reit'] // Ativos de investimento
+      case 'add_existing':
+        return ['stock', 'fund', 'crypto', 'real_estate', 'vehicle', 'commodity', 'bond', 'etf', 'reit', 'currency', 'cash'] // Todos
+      case 'update_value':
+        return ['real_estate', 'vehicle', 'commodity', 'bond'] // Ativos físicos
+      default:
+        return []
+    }
+  }
+
+  const relevantClasses = getRelevantAssetClasses(selectedOperation)
+  
+  // Filtrar custom assets baseado na operação
+  const filteredCustomAssets = customAssets.filter(asset => 
+    relevantClasses.length === 0 || relevantClasses.includes(asset.class)
+  )
+  
+  // Combinar assets globais e customizados filtrados
+  const allAssets = [...assets, ...filteredCustomAssets]
   const selectedAsset = findAssetByValue(allAssets, selectedAssetId)
   
   // Buscar assets dinamicamente no servidor conforme o usuário digita
@@ -141,14 +172,26 @@ export function AssetSelectionStep({
       
       let supabaseQuery = supabase.from('global_assets').select('*')
       
-      // Filtrar por tipo de ativo
+      // Filtrar por classes relevantes à operação
+      let allowedClasses = relevantClasses.length > 0 ? relevantClasses : ['stock', 'fund', 'crypto', 'etf', 'reit']
+      
+      // Aplicar filtro adicional se um tipo específico foi selecionado
       if (assetType === 'stock') {
-        supabaseQuery = supabaseQuery.eq('class', 'stock')
+        allowedClasses = allowedClasses.filter(c => c === 'stock')
       } else if (assetType === 'crypto') {
-        supabaseQuery = supabaseQuery.eq('class', 'crypto')
+        allowedClasses = allowedClasses.filter(c => c === 'crypto')
       } else if (assetType === 'fund') {
-        supabaseQuery = supabaseQuery.in('class', ['fund', 'etf', 'reit'])
+        allowedClasses = allowedClasses.filter(c => ['fund', 'etf', 'reit'].includes(c))
       }
+      
+      // Se não há classes permitidas, não fazer busca
+      if (allowedClasses.length === 0) {
+        setSearchResults([])
+        setHasSearched(true)
+        return
+      }
+      
+      supabaseQuery = supabaseQuery.in('class', allowedClasses)
       
       // Lógica de busca baseada no tipo
       if (assetType === 'fund' && isCNPJQuery) {
@@ -193,6 +236,25 @@ export function AssetSelectionStep({
   const requiresAccount = ['money_in', 'money_out', 'purchase'].includes(selectedOperation)
   
   const canContinue = selectedAssetId && (!requiresAccount || selectedAccountId)
+  
+  // Filtrar categorias de criação baseado na operação
+  const getRelevantCategories = (operation: OperationType) => {
+    switch (operation) {
+      case 'money_in':
+      case 'money_out':
+        return assetCategories.filter(cat => cat.type === 'cash')
+      case 'purchase':
+        return assetCategories.filter(cat => ['bond', 'commodity'].includes(cat.type))
+      case 'add_existing':
+        return assetCategories
+      case 'update_value':
+        return assetCategories.filter(cat => ['real_estate', 'vehicle', 'commodity'].includes(cat.type))
+      default:
+        return assetCategories
+    }
+  }
+  
+  const availableCategories = getRelevantCategories(selectedOperation)
 
   const handleAssetCreated = async (assetId?: string) => {
     setShowCreateDialog(false)
@@ -287,7 +349,7 @@ export function AssetSelectionStep({
       {/* Conteúdo principal */}
       <div className="space-y-6">
         {/* Quick Actions - Meus Ativos */}
-        {customAssets.length > 0 && (
+        {filteredCustomAssets.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
@@ -295,11 +357,11 @@ export function AssetSelectionStep({
               </div>
               <h4 className="font-semibold text-gray-900 dark:text-gray-100">Meus Ativos</h4>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full dark:bg-gray-800 dark:text-gray-400">
-                {customAssets.length}
+                {filteredCustomAssets.length}
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {customAssets.map((asset) => (
+              {filteredCustomAssets.map((asset) => (
                 <div
                   key={getAssetFormValue(asset)}
                   className={cn(
@@ -380,9 +442,15 @@ export function AssetSelectionStep({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="stock">📈 Ações</SelectItem>
-                <SelectItem value="fund">🏦 Fundos</SelectItem>
-                <SelectItem value="crypto">₿ Criptomoedas</SelectItem>
+                {relevantClasses.includes('stock') && (
+                  <SelectItem value="stock">📈 Ações</SelectItem>
+                )}
+                {(relevantClasses.includes('fund') || relevantClasses.includes('etf') || relevantClasses.includes('reit')) && (
+                  <SelectItem value="fund">🏦 Fundos</SelectItem>
+                )}
+                {relevantClasses.includes('crypto') && (
+                  <SelectItem value="crypto">₿ Criptomoedas</SelectItem>
+                )}
               </SelectContent>
             </Select>
             <div className="relative flex-1">
@@ -469,7 +537,7 @@ export function AssetSelectionStep({
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {assetCategories.map((category) => {
+            {availableCategories.map((category) => {
               const Icon = category.icon
               return (
                 <button
@@ -496,9 +564,10 @@ export function AssetSelectionStep({
             })}
           </div>
         </div>
+      </div>
 
-        {/* Seleção de conta se necessário */}
-        {requiresAccount && (
+      {/* Seleção de conta se necessário */}
+      {requiresAccount && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -564,7 +633,6 @@ export function AssetSelectionStep({
             </CardContent>
           </Card>
         )}
-      </div>
 
       <div className="flex justify-between pt-4">
         <Button variant="outline" onClick={onBack}>

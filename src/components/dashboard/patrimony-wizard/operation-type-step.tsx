@@ -1,10 +1,8 @@
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Home,
-  Car,
   TrendingUp,
   DollarSign,
   ArrowDownCircle,
@@ -24,6 +22,7 @@ interface OperationOption {
   color: string
   examples: string[]
   recommended?: boolean
+  assetClasses?: string[]
 }
 
 const operationOptions: OperationOption[] = [
@@ -34,7 +33,8 @@ const operationOptions: OperationOption[] = [
     icon: Home,
     color: 'text-purple-600 bg-purple-50 dark:bg-purple-950',
     examples: ['Ações em carteira', 'Fundos atuais', 'Criptomoedas', 'Imóveis'],
-    recommended: true
+    recommended: true,
+    assetClasses: ['stock', 'fund', 'crypto', 'real_estate', 'commodity']
   },
   {
     type: 'money_in',
@@ -42,7 +42,8 @@ const operationOptions: OperationOption[] = [
     description: 'Registre recebimento de valores em caixa',
     icon: ArrowDownCircle,
     color: 'text-green-600 bg-green-50 dark:bg-green-950',
-    examples: ['Depósito', 'Salário', 'Rendimentos', 'Dividendos']
+    examples: ['Depósito', 'Salário', 'Rendimentos', 'Dividendos'],
+    assetClasses: ['currency', 'cash']
   },
   {
     type: 'money_out',
@@ -50,7 +51,8 @@ const operationOptions: OperationOption[] = [
     description: 'Registre retiradas de caixa',
     icon: ArrowUpCircle,
     color: 'text-red-600 bg-red-50 dark:bg-red-950',
-    examples: ['Despesas', 'Transferências', 'Impostos', 'Saques']
+    examples: ['Despesas', 'Transferências', 'Impostos', 'Saques'],
+    assetClasses: ['currency', 'cash']
   },
   {
     type: 'purchase',
@@ -58,7 +60,8 @@ const operationOptions: OperationOption[] = [
     description: 'Registre aquisição de novos investimentos',
     icon: ShoppingCart,
     color: 'text-blue-600 bg-blue-50 dark:bg-blue-950',
-    examples: ['Compra de ações', 'Aquisição de crypto', 'Novos fundos']
+    examples: ['Compra de ações', 'Aquisição de crypto', 'Novos fundos'],
+    assetClasses: ['stock', 'fund', 'crypto', 'commodity']
   },
   {
     type: 'update_value',
@@ -66,37 +69,51 @@ const operationOptions: OperationOption[] = [
     description: 'Atualize o valor de mercado de um ativo',
     icon: RefreshCw,
     color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950',
-    examples: ['Novo valor do imóvel', 'Cotação atualizada', 'Avaliação de veículo']
+    examples: ['Novo valor do imóvel', 'Cotação atualizada', 'Avaliação de veículo'],
+    assetClasses: ['real_estate', 'vehicle', 'commodity', 'custom']
   }
 ]
+
 
 interface OperationTypeStepProps {
   selectedOperation: OperationType | null
   onOperationSelect: (operation: OperationType) => void
   hasAssets: boolean
   isCurrencyAsset?: boolean
+  selectedAssetClass?: string | undefined
 }
 
 export function OperationTypeStep({ 
   selectedOperation, 
   onOperationSelect,
   hasAssets,
-  isCurrencyAsset = false
+  isCurrencyAsset = false,
+  selectedAssetClass
 }: OperationTypeStepProps) {
   
-  // Filtrar opções baseado no contexto
-  let availableOptions = operationOptions
-  
-  if (!hasAssets) {
-    // Se não tem ativos, mostrar apenas adicionar patrimônio e entrada
-    availableOptions = operationOptions.filter(opt => ['add_existing', 'money_in'].includes(opt.type))
-  } else if (isCurrencyAsset) {
-    // Para ativos de caixa, só permitir entrada/saída de dinheiro
-    availableOptions = operationOptions.filter(opt => ['money_in', 'money_out'].includes(opt.type))
-  } else {
-    // Para outros ativos, não permitir entrada/saída direta de dinheiro
-    availableOptions = operationOptions.filter(opt => !['money_in', 'money_out'].includes(opt.type))
+  // Filtrar operações baseado no contexto (todos são eventos)
+  const getAvailableOperations = () => {
+    if (!hasAssets) {
+      // Se não tem ativos, mostrar apenas opções iniciais
+      return operationOptions.filter(opt => ['add_existing', 'money_in'].includes(opt.type))
+    }
+    
+    if (isCurrencyAsset || selectedAssetClass === 'currency' || selectedAssetClass === 'cash') {
+      // Para ativos de caixa, só mostrar operações de dinheiro
+      return operationOptions.filter(opt => ['money_in', 'money_out'].includes(opt.type))
+    }
+    
+    if (selectedAssetClass) {
+      // Filtrar operações baseadas na classe do ativo selecionado
+      return operationOptions.filter(opt => 
+        !opt.assetClasses || opt.assetClasses.includes(selectedAssetClass)
+      )
+    }
+    
+    return operationOptions
   }
+
+  const availableOptions = getAvailableOperations()
 
   return (
     <div className="space-y-6">
@@ -105,9 +122,11 @@ export function OperationTypeStep({
         <p className="text-muted-foreground">
           {!hasAssets 
             ? 'Comece adicionando seu patrimônio atual ou fazendo um depósito inicial'
-            : isCurrencyAsset
+            : selectedAssetClass === 'currency' || selectedAssetClass === 'cash' || isCurrencyAsset
             ? 'Para ativos de caixa, você pode registrar entradas ou saídas de dinheiro'
-            : 'Para ativos de investimento, você pode comprar, adicionar posições existentes ou atualizar valores'
+            : selectedAssetClass
+            ? `Para ativos do tipo ${selectedAssetClass}, escolha a operação desejada`
+            : 'Todos os registros são eventos. Escolha a operação que deseja realizar'
           }
         </p>
       </div>

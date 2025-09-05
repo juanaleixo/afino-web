@@ -306,6 +306,7 @@ export function PatrimonyWizard({
               onOperationSelect={handleOperationSelect}
               hasAssets={customAssets.length > 0}
               isCurrencyAsset={isCashAsset}
+              selectedAssetClass={selectedAssetInfo?.class}
             />
           )}
 
