@@ -166,15 +166,15 @@ export function TimelineFilters({
           </CardHeader>
           <CardContent>
             <Select 
-              value={filters.benchmark || ''} 
-              onValueChange={(value) => handleFiltersChange({ benchmark: value || undefined })}
+              value={filters.benchmark || 'none'} 
+              onValueChange={(value) => handleFiltersChange({ benchmark: value === 'none' ? undefined : value })}
               disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Nenhum benchmark selecionado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 <SelectItem value="cdi">CDI</SelectItem>
                 <SelectItem value="ibov">IBOVESPA</SelectItem>
                 <SelectItem value="sp500">S&P 500</SelectItem>

@@ -1,8 +1,6 @@
 "use client"
 
 import { useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { formatCurrency, formatPercentage } from "@/lib/utils/formatters"
 import { 
   DollarSign, 
@@ -11,10 +9,9 @@ import {
   Activity, 
   PieChart, 
   BarChart3,
-  Target,
-  Zap
+  Target
 } from "lucide-react"
-import { Stagger } from "@/components/ui/fade-in"
+import { StatsCard, StatsCardGrid, type StatsCardProps } from "@/components/ui/stats-card"
 
 interface TimelineStatsProps {
   portfolioData: any
@@ -123,32 +120,14 @@ export function TimelineStats({
     }
   }, [portfolioData, isPremium, granularity])
 
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 w-32 bg-gray-200 rounded animate-pulse mb-1" />
-              <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
 
-  const statsCards = [
+  const statsCards: StatsCardProps[] = [
     {
       title: "Valor Total",
       value: formatCurrency(metrics.totalValue),
       description: "Patrimônio atual",
       icon: DollarSign,
-      color: "text-blue-600",
+      trend: 'neutral',
       premium: false
     },
     {
@@ -156,7 +135,7 @@ export function TimelineStats({
       value: `${metrics.totalReturn >= 0 ? '+' : ''}${formatCurrency(metrics.totalReturn)}`,
       description: `${formatPercentage(metrics.totalReturnPercent)} no período`,
       icon: metrics.totalReturn >= 0 ? TrendingUp : TrendingDown,
-      color: metrics.totalReturn >= 0 ? "text-green-600" : "text-red-600",
+      trend: metrics.totalReturn >= 0 ? 'up' : 'down',
       premium: false
     },
     {
@@ -164,7 +143,7 @@ export function TimelineStats({
       value: `${formatPercentage(metrics.periodReturn)}`,
       description: `Último ${granularity === 'daily' ? 'dia' : 'mês'}`,
       icon: metrics.periodReturn >= 0 ? TrendingUp : TrendingDown,
-      color: metrics.periodReturn >= 0 ? "text-green-600" : "text-red-600",
+      trend: metrics.periodReturn >= 0 ? 'up' : 'down',
       premium: false
     },
     {
@@ -178,7 +157,7 @@ export function TimelineStats({
   ]
 
   // Cards premium adicionais
-  const premiumCards = []
+  const premiumCards: StatsCardProps[] = []
   if (isPremium && metrics.volatility !== undefined) {
     premiumCards.push({
       title: "Volatilidade",
@@ -204,40 +183,14 @@ export function TimelineStats({
   const allCards = [...statsCards, ...premiumCards]
 
   return (
-    <Stagger staggerDelay={0.1} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {allCards.map((card, index) => {
-        const IconComponent = card.icon
-        
-        return (
-          <Card key={index} className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center space-x-2">
-                <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-                {card.premium && (
-                  <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-                    <Zap className="h-2 w-2 mr-1" />
-                    Premium
-                  </Badge>
-                )}
-              </div>
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10">
-                <IconComponent className={`h-4 w-4 ${card.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${card.color}`}>
-                {card.value}
-              </div>
-              <p className={`text-xs ${card.color.includes('green') || card.color.includes('red') 
-                ? card.color 
-                : 'text-muted-foreground'
-              }`}>
-                {card.description}
-              </p>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </Stagger>
+    <StatsCardGrid
+      cards={allCards}
+      loading={loading}
+      columns={{
+        default: 1,
+        md: 2,
+        lg: 4
+      }}
+    />
   )
 }

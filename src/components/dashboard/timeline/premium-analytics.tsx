@@ -58,7 +58,8 @@ export default function PremiumAnalytics({
     }).format(value)
   }
 
-  const formatPercent = (value: number, decimals = 2) => {
+  const formatPercent = (value: number | undefined | null, decimals = 2) => {
+    if (value == null || isNaN(value)) return '0.00%'
     return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`
   }
 
@@ -215,7 +216,7 @@ export default function PremiumAnalytics({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
-              {highestSharpe ? highestSharpe.sharpeRatio.toFixed(2) : '-'}
+              {highestSharpe?.sharpeRatio?.toFixed(2) ?? '-'}
             </div>
             <p className="text-xs text-muted-foreground">
               {highestSharpe?.asset_symbol || 'N/A'}
@@ -370,7 +371,7 @@ export default function PremiumAnalytics({
                           {formatPercent(asset.volatility)}
                         </td>
                         <td className="p-2 text-right font-mono text-purple-600">
-                          {asset.sharpeRatio.toFixed(2)}
+                          {asset.sharpeRatio?.toFixed(2) ?? '-'}
                         </td>
                       </tr>
                     ))}
@@ -469,7 +470,7 @@ export default function PremiumAnalytics({
                     />
                     <Tooltip 
                       formatter={(value: number, name: string) => [
-                        `${value.toFixed(2)}%`, 
+                        `${value?.toFixed(2) ?? '0.00'}%`, 
                         name === 'volatility' ? 'Volatilidade' : 'Retorno'
                       ]}
                       contentStyle={{ 
@@ -506,7 +507,7 @@ export default function PremiumAnalytics({
                             className="w-20" 
                           />
                           <span className="font-mono text-sm w-12 text-right">
-                            {asset.sharpeRatio.toFixed(2)}
+                            {asset.sharpeRatio?.toFixed(2) ?? '-'}
                           </span>
                         </div>
                       </div>

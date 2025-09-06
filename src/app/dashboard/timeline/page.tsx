@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAuth } from "@/lib/auth"
-import { usePortfolioData } from "@/lib/hooks/usePortfolioData"
+import { usePortfolioData } from "@/lib/hooks"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Crown, ArrowLeft } from "lucide-react"
