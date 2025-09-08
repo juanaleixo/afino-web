@@ -7,7 +7,7 @@ SET search_path TO 'public'
 AS $$
 DECLARE
 v_from date;
-v_to date := CURRENT_DATE;
+v_to date := (CURRENT_DATE AT TIME ZONE 'America/Sao_Paulo')::date;
 v_curr text;
 v_asset_class text;
 v_manual_price numeric(20,10);
@@ -42,6 +42,16 @@ IF v_is_custom_asset THEN
   INTO v_curr, v_asset_class, v_manual_price
   FROM public.custom_assets ca
   WHERE ca.id = p_asset::uuid AND ca.user_id = p_user;
+  
+  -- Se não tem preço manual definido, tenta buscar o mais recente das valuations
+  IF v_manual_price IS NULL THEN
+    SELECT cv.value
+    INTO v_manual_price
+    FROM public.custom_asset_valuations cv
+    WHERE cv.asset_id = p_asset::uuid
+    ORDER BY cv.date DESC
+    LIMIT 1;
+  END IF;
 ELSE
   -- Global asset
   SELECT ga.currency, ga.class, ga.manual_price
@@ -133,6 +143,7 @@ SELECT
   END AS price,
   CASE
     WHEN cav.value IS NOT NULL THEN cav.value
+    WHEN COALESCE(cu.units,0) = 0 THEN 0::numeric(20,10)  -- Se não há unidades, valor é zero
     ELSE COALESCE(cu.units,0)
          * CASE WHEN v_asset_class = 'currency'
                 THEN 1::numeric(20,10)

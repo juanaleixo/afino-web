@@ -14,6 +14,9 @@ BEGIN
         IF NEW.units_delta <= 0 THEN
             RAISE EXCEPTION 'position_add events require positive units_delta';
         END IF;
+        IF NEW.price_close <= 0 THEN
+            RAISE EXCEPTION 'position_add events require positive price_close';
+        END IF;
     END IF;
     
     -- Validate buy events
@@ -23,6 +26,9 @@ BEGIN
         END IF;
         IF NEW.units_delta <= 0 THEN
             RAISE EXCEPTION 'buy events require positive units_delta';
+        END IF;
+        IF NEW.price_close <= 0 THEN
+            RAISE EXCEPTION 'buy events require positive price_close';
         END IF;
     END IF;
     

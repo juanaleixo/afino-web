@@ -49,7 +49,8 @@ export default function PremiumAnalytics({
     }
   }, [performanceData, selectedAsset])
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | undefined | null) => {
+    if (value == null || isNaN(value) || !isFinite(value)) return 'R$ 0'
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -59,44 +60,63 @@ export default function PremiumAnalytics({
   }
 
   const formatPercent = (value: number | undefined | null, decimals = 2) => {
-    if (value == null || isNaN(value)) return '0.00%'
+    if (value == null || isNaN(value) || !isFinite(value)) return '0.00%'
     return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`
   }
 
+
   const getBestPerformer = () => {
     if (!performanceData || performanceData.length === 0) return null
-    return performanceData.reduce((best, current) => 
+    const validData = performanceData.filter(asset => 
+      asset.totalReturnPercent != null && !isNaN(asset.totalReturnPercent) && isFinite(asset.totalReturnPercent)
+    )
+    if (validData.length === 0) return null
+    return validData.reduce((best, current) => 
       current.totalReturnPercent > best.totalReturnPercent ? current : best
     )
   }
 
   const getWorstPerformer = () => {
     if (!performanceData || performanceData.length === 0) return null
-    return performanceData.reduce((worst, current) => 
+    const validData = performanceData.filter(asset => 
+      asset.totalReturnPercent != null && !isNaN(asset.totalReturnPercent) && isFinite(asset.totalReturnPercent)
+    )
+    if (validData.length === 0) return null
+    return validData.reduce((worst, current) => 
       current.totalReturnPercent < worst.totalReturnPercent ? current : worst
     )
   }
 
   const getMostVolatile = () => {
     if (!performanceData || performanceData.length === 0) return null
-    return performanceData.reduce((most, current) => 
+    const validData = performanceData.filter(asset => 
+      asset.volatility != null && !isNaN(asset.volatility) && isFinite(asset.volatility) && asset.volatility > 0
+    )
+    if (validData.length === 0) return null
+    return validData.reduce((most, current) => 
       current.volatility > most.volatility ? current : most
     )
   }
 
   const getHighestSharpe = () => {
     if (!performanceData || performanceData.length === 0) return null
-    return performanceData.reduce((highest, current) => 
+    const validData = performanceData.filter(asset => 
+      asset.sharpeRatio != null && !isNaN(asset.sharpeRatio) && isFinite(asset.sharpeRatio)
+    )
+    if (validData.length === 0) return null
+    return validData.reduce((highest, current) => 
       current.sharpeRatio > highest.sharpeRatio ? current : highest
     )
   }
 
   // Preparar dados para gráfico de pizza (alocação atual)
-  const allocationData = performanceData.map((asset, index) => ({
-    name: asset.asset_symbol,
-    value: asset.lastValue,
-    color: COLORS[index % COLORS.length]
-  }))
+  const allocationData = performanceData
+    .filter(asset => asset.lastValue > 0 && !isNaN(asset.lastValue))
+    .map((asset, index) => ({
+      name: asset.asset_symbol,
+      value: asset.lastValue,
+      color: COLORS[index % COLORS.length]
+    }))
 
   // Preparar dados para gráfico de barras (performance) - filtrar ativos com 0% de variação
   const performanceBarData = performanceData
@@ -142,7 +162,6 @@ export default function PremiumAnalytics({
   const worstPerformer = getWorstPerformer()
   const mostVolatile = getMostVolatile()
   const highestSharpe = getHighestSharpe()
-  const totalValue = performanceData.reduce((sum, asset) => sum + asset.lastValue, 0)
 
   return (
     <div className="space-y-6">
@@ -351,7 +370,7 @@ export default function PremiumAnalytics({
                   <tbody>
                     {performanceData
                       .filter(asset => asset.totalReturnPercent !== 0)
-                      .map((asset, index) => (
+                      .map((asset) => (
                       <tr key={asset.asset_id} className="border-b hover:bg-muted/50">
                         <td className="p-2 font-medium">{asset.asset_symbol || asset.asset_id}</td>
                         <td className="p-2">
@@ -451,7 +470,11 @@ export default function PremiumAnalytics({
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <RechartsBar data={performanceData}>
+                  <RechartsBar data={performanceData.map(asset => ({
+                    asset_symbol: asset.asset_symbol,
+                    volatility: asset.volatility || 0,
+                    totalReturnPercent: asset.totalReturnPercent || 0
+                  }))}>
                     <CartesianGrid 
                       strokeDasharray="2 4" 
                       stroke="hsl(var(--muted-foreground))" 
@@ -471,7 +494,7 @@ export default function PremiumAnalytics({
                     <Tooltip 
                       formatter={(value: number, name: string) => [
                         `${value?.toFixed(2) ?? '0.00'}%`, 
-                        name === 'volatility' ? 'Volatilidade' : 'Retorno'
+                        name === 'volatility' ? 'Risco (Volatilidade)' : 'Retorno'
                       ]}
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--popover))', 
@@ -480,8 +503,8 @@ export default function PremiumAnalytics({
                         color: 'hsl(var(--popover-foreground))'
                       }}
                     />
-                    <Bar dataKey="volatility" fill="#ff8042" name="Volatilidade %" />
-                    <Bar dataKey="totalReturnPercent" fill="#8884d8" name="Retorno %" />
+                    <Bar dataKey="volatility" fill="#ff8042" name="Risco" />
+                    <Bar dataKey="totalReturnPercent" fill="#8884d8" name="Retorno" />
                   </RechartsBar>
                 </ResponsiveContainer>
               </CardContent>

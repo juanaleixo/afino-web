@@ -22,8 +22,8 @@ BEGIN
   SELECT symbol INTO v_asset_symbol FROM public.global_assets
   WHERE lower(symbol) = lower(v_symbol) AND class = 'stock' AND currency = v_currency;
   IF v_asset_symbol IS NULL THEN
-    INSERT INTO public.global_assets(id, symbol, class, currency)
-    VALUES (gen_random_uuid(), v_symbol, 'stock', v_currency);
+    INSERT INTO public.global_assets(symbol, class, currency)
+    VALUES (v_symbol, 'stock', v_currency);
     v_asset_symbol := v_symbol;
   END IF;
 

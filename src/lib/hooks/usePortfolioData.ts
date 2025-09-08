@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getPortfolioService } from '../portfolio'
 import { CacheService } from '../services/cacheService'
+import { calculateUTCDateRange } from '../utils/date-utils'
 
 export interface PortfolioDataOptions {
   period?: '1M' | '3M' | '6M' | '1Y' | '2Y' | 'ALL' | 'CUSTOM'
@@ -42,40 +43,6 @@ export interface PortfolioData {
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutos
 const CACHE_VERSION = '2.0'
 
-function calculateDateRange(period: string, customFrom?: string, customTo?: string) {
-  const today = new Date()
-  const endDate = customTo || today.toISOString().split('T')[0]!
-  
-  let startDate: string
-  
-  switch (period) {
-    case '1M':
-      startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    case '3M':
-      startDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    case '6M':
-      startDate = new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    case '1Y':
-      startDate = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    case '2Y':
-      startDate = new Date(today.getTime() - 730 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    case 'ALL':
-      startDate = new Date(2020, 0, 1).toISOString().split('T')[0]! // Start from 2020
-      break
-    case 'CUSTOM':
-      startDate = customFrom || new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-      break
-    default:
-      startDate = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
-  }
-  
-  return { from: startDate, to: endDate }
-}
 
 function calculatePerformanceMetrics(series: any[]) {
   if (!series || !Array.isArray(series) || series.length < 2) {
@@ -156,7 +123,7 @@ export function usePortfolioData(userId: string, options: PortfolioDataOptions =
 
   // Memoize date range calculation
   const dateRange = useMemo(() => {
-    return calculateDateRange(period, customFrom, customTo)
+    return calculateUTCDateRange(period, customFrom, customTo)
   }, [period, customFrom, customTo])
 
   // Memoize cache key

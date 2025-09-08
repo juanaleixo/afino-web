@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { formatCurrency, formatPercentage } from "@/lib/utils/formatters"
+import { parseUTCDate } from "@/lib/utils/date-utils"
 import { 
   DollarSign, 
   TrendingUp, 
@@ -13,7 +14,7 @@ import {
 } from "lucide-react"
 import { StatsCard, StatsCardGrid, type StatsCardProps } from "@/components/ui/stats-card"
 
-interface TimelineStatsProps {
+interface TimelineStatsProps {  
   portfolioData: any
   loading: boolean
   period: string
@@ -74,7 +75,7 @@ export function TimelineStats({
 
     // Calcular retornos
     const sortedSeries = activeSeries.sort((a: any, b: any) => 
-      new Date(a.date || a.month_eom).getTime() - new Date(b.date || b.month_eom).getTime()
+      parseUTCDate(a.date || a.month_eom).getTime() - parseUTCDate(b.date || b.month_eom).getTime()
     )
 
     const initial = sortedSeries[0]?.total_value || 0

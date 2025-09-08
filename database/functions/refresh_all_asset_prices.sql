@@ -8,7 +8,7 @@ AS $$
 DECLARE
   r record;
 BEGIN
-  FOR r IN SELECT id, symbol, class, currency FROM public.global_assets LOOP
+  FOR r IN SELECT symbol, class, currency FROM public.global_assets LOOP
     BEGIN
       IF r.class = 'crypto' THEN
         PERFORM public.fetch_price_crypto_history(r.symbol, 'crypto', r.currency);

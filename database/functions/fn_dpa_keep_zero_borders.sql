@@ -25,6 +25,7 @@ to_delete AS (
 SELECT date
 FROM mark
 WHERE date BETWEEN p_from AND p_to
+AND date < p_to  -- Nunca remove o último dia do período
 AND ABS(value) <= p_eps -- dia é zero
 AND prev_val IS NOT NULL -- ambos vizinhos existem
 AND next_val IS NOT NULL

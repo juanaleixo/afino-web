@@ -17,7 +17,8 @@ export const formatPercentage = (value: number, precision: number = 2): string =
 export const formatDate = (date: string | Date, format: 'short' | 'long' = 'short'): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: format === 'short' ? 'short' : 'medium'
+    dateStyle: format === 'short' ? 'short' : 'medium',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone // Use browser timezone
   }).format(dateObj)
 }
 
@@ -49,4 +50,17 @@ export const formatRelativeTime = (date: Date): string => {
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d atrás`
   
   return formatDate(date, 'short')
+}
+
+export const formatDateTimeWithTz = (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('pt-BR', {
+    ...options,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  }).format(dateObj)
+}
+
+export const formatDateUTC = (date: string | Date): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toISOString().split('T')[0]!
 }

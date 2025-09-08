@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils/formatters"
+import { formatCurrency, formatDateTimeWithTz } from "@/lib/utils/formatters"
 import { FadeIn } from "@/components/ui/fade-in"
 import { 
   TrendingUp, 
@@ -151,7 +151,7 @@ export function TimelineTabs({
                   </Card>
                 }>
                   <PremiumAnalytics
-                    performanceData={normalizedPerformance}
+                    performanceData={performanceAnalysis}
                     benchmarkData={benchmarkData}
                     isLoading={loading}
                     period={getDateRange()}
@@ -222,7 +222,7 @@ export function TimelineTabs({
                         return (
                           <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
                             <td className="p-2">
-                              {new Date(item.date || item.month_eom).toLocaleDateString('pt-BR', 
+                              {formatDateTimeWithTz(item.date || item.month_eom, 
                                 isPremium && filters.granularity === 'daily'
                                   ? { day: '2-digit', month: 'short', year: 'numeric' }
                                   : { month: 'long', year: 'numeric' }
