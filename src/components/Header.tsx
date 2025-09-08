@@ -41,18 +41,6 @@ export default function Header() {
             >
               Preços
             </Link>
-            <Link
-              href="/about"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              Sobre
-            </Link>
-            <Link
-              href="/contact"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              Contato
-            </Link>
           </nav>
           
           <div className="flex items-center space-x-2">
@@ -100,20 +88,6 @@ export default function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Preços
-              </Link>
-              <Link
-                href="/about"
-                className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Sobre
-              </Link>
-              <Link
-                href="/contact"
-                className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Contato
               </Link>
               <div className="pt-4 pb-3 border-t">
                 <Link

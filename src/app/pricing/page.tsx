@@ -9,7 +9,6 @@ export default function PricingPage() {
       period: "/mês",
       description: "Plano básico para começar",
       features: [
-        // "Conexão Open Finance básica",
         "Dashboard consolidado",
         "Timeline de dados mensal",
         "Relatórios básicos",

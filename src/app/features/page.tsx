@@ -4,40 +4,40 @@ import Link from "next/link"
 export default function FeaturesPage() {
   const features = [
     {
-      title: "Dashboard Inteligente",
-      description: "Visualize todas as suas finanças em um só lugar com gráficos interativos e métricas em tempo real.",
-      icon: "📊",
-      benefits: ["Visão geral completa", "Métricas personalizadas", "Alertas inteligentes"]
+      title: "Registro Manual de Patrimônio",
+      description: "Registre manualmente seus investimentos, contas e cripto para ter uma visão consolidada.",
+      icon: "📝",
+      benefits: ["Entrada manual de dados", "Múltiplos tipos de ativo", "Organização centralizada"]
     },
     {
-      title: "Controle de Receitas e Despesas",
-      description: "Categorize automaticamente suas transações e acompanhe seus gastos com facilidade.",
-      icon: "💰",
-      benefits: ["Categorização automática", "Relatórios detalhados", "Histórico completo"]
-    },
-    {
-      title: "Orçamento Inteligente",
-      description: "Crie orçamentos personalizados e receba alertas quando estiver próximo do limite.",
-      icon: "🎯",
-      benefits: ["Orçamentos flexíveis", "Alertas automáticos", "Acompanhamento em tempo real"]
-    },
-    {
-      title: "Metas Financeiras",
-      description: "Defina e acompanhe suas metas de economia, investimento e objetivos financeiros.",
-      icon: "🏆",
-      benefits: ["Metas personalizadas", "Progresso visual", "Celebração de conquistas"]
-    },
-    {
-      title: "Sincronização Bancária",
-      description: "Conecte suas contas bancárias e cartões para sincronização automática de transações.",
-      icon: "🔗",
-      benefits: ["Sincronização automática", "Múltiplas contas", "Segurança total"]
-    },
-    {
-      title: "Relatórios Avançados",
-      description: "Gere relatórios detalhados e exporte seus dados para análise externa.",
+      title: "Acompanhamento Histórico",
+      description: "Registre a evolução do seu patrimônio ao longo do tempo para visualizar tendências.",
       icon: "📈",
-      benefits: ["Relatórios personalizados", "Exportação de dados", "Análise temporal"]
+      benefits: ["Histórico personalizado", "Gráficos de evolução", "Comparação temporal"]
+    },
+    {
+      title: "Timeline de Investimentos",
+      description: "Visualize a linha do tempo dos seus investimentos com dados que você mesmo registra.",
+      icon: "⏱️",
+      benefits: ["Visualização temporal", "Marcos importantes", "Histórico organizado"]
+    },
+    {
+      title: "Gestão de Ativos Personalizados",
+      description: "Cadastre e gerencie seus próprios ativos, incluindo investimentos únicos ou personalizados.",
+      icon: "🏗️",
+      benefits: ["Ativos customizados", "Flexibilidade total", "Controle manual"]
+    },
+    {
+      title: "Dashboard Consolidado",
+      description: "Visualize todos seus dados registrados em um dashboard limpo e organizado.",
+      icon: "📊",
+      benefits: ["Visão unificada", "Métricas básicas", "Interface limpa"]
+    },
+    {
+      title: "Planos Free e Premium",
+      description: "Comece gratuitamente com funcionalidades básicas, upgrade para recursos avançados.",
+      icon: "⭐",
+      benefits: ["Versão gratuita", "Upgrade opcional", "Sem obrigatoriedade"]
     }
   ]
 
@@ -48,12 +48,12 @@ export default function FeaturesPage() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold mb-4">
-            Recursos que transformam sua{" "}
-            <span className="text-primary">gestão financeira</span>
+            Ferramenta simples para{" "}
+            <span className="text-primary">organizar seus investimentos</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Descubra como nossa plataforma pode ajudar você a tomar melhores decisões financeiras 
-            e alcançar seus objetivos com ferramentas inteligentes e interface intuitiva.
+            Registre manualmente seus investimentos e acompanhe a evolução do seu patrimônio 
+            com gráficos e relatórios organizados. Controle total dos seus dados.
           </p>
         </div>
 
@@ -76,6 +76,79 @@ export default function FeaturesPage() {
           ))}
         </div>
 
+        {/* Seção de transparência */}
+        <div className="bg-muted/50 rounded-lg p-8 mb-8">
+          <h2 className="text-2xl font-semibold mb-4 text-center">
+            ℹ️ Como funciona atualmente
+          </h2>
+          <div className="max-w-3xl mx-auto space-y-4 text-muted-foreground">
+            <p>
+              <strong>Entrada manual:</strong> Você precisa registrar manualmente seus investimentos, 
+              valores e atualizações. Não há conexão automática com bancos ou corretoras.
+            </p>
+            <p>
+              <strong>Dados próprios:</strong> Todas as informações são inseridas por você. 
+              A plataforma organiza e visualiza os dados que você fornece.
+            </p>
+            <p>
+              <strong>Gráficos e análises:</strong> Com base nos dados que você registra, 
+              geramos gráficos de evolução e métricas básicas de performance.
+            </p>
+            <p>
+              <strong>Plano gratuito:</strong> Funcionalidades básicas disponíveis sem custo. 
+              Premium oferece histórico diário e funcionalidades extras.
+            </p>
+          </div>
+        </div>
+
+        {/* Seção sobre evolução */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-8 mb-8 border border-blue-200/50 dark:border-blue-800/50">
+          <h2 className="text-2xl font-semibold mb-4 text-center flex items-center justify-center gap-2">
+            🚀 Em Constante Evolução
+          </h2>
+          <div className="max-w-3xl mx-auto space-y-4 text-muted-foreground">
+            <p>
+              <strong>Desenvolvimento contínuo:</strong> Estamos constantemente trabalhando em novos recursos, 
+              automações e simulações para melhorar sua experiência de gestão financeira.
+            </p>
+            <p>
+              <strong>Roadmap transparente:</strong> Novas funcionalidades são desenvolvidas com base no 
+              feedback dos usuários e necessidades identificadas pela comunidade.
+            </p>
+            <p>
+              <strong>Atualizações regulares:</strong> A plataforma recebe melhorias frequentes, 
+              tanto em funcionalidades quanto em interface e performance.
+            </p>
+            <p>
+              <strong>Visão de longo prazo:</strong> Nossa missão é evoluir para ser a ferramenta 
+              mais completa e intuitiva para gestão patrimonial pessoal.
+            </p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">
+            Pronto para organizar seus investimentos?
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Comece gratuitamente e veja se a ferramenta atende suas necessidades
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Começar Grátis
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              Ver Demonstração
+            </Link>
+          </div>
+        </div>
 
       </main>
     </div>
