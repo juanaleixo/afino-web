@@ -47,7 +47,7 @@ export default function DemoPage() {
     sixMonthsAgo.setMonth(today.getMonth() - 6)
     
     let currentValue = 95000 // Valor inicial 6 meses atrás
-    let currentDate = new Date(sixMonthsAgo)
+    const currentDate = new Date(sixMonthsAgo)
     
     while (currentDate <= today) {
       // Simular variação realista (-3% a +5% por dia)
