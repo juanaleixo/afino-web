@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { cache } from '@/lib/cache'
 import { subscriptionService, type Subscription } from '@/lib/services/subscription-service'
 import { getStripe, SUBSCRIPTION_PLANS } from '@/lib/stripe'
+import { PremiumGuard } from '@/lib/premium-guard'
 import { toast } from 'sonner'
 
 export type UserPlan = 'free' | 'premium'
@@ -127,21 +128,20 @@ export function UserPlanProvider({ children }: UserPlanProviderProps) {
         cache.delete(`user_plan_data:${user.id}`)
       }
 
-      const { plan, subscription } = await fetchUserPlanData(user.id)
-      const isPremium = plan === 'premium'
+      // Use PremiumGuard for consistent premium checking
+      const [isPremium, subscription, features] = await Promise.all([
+        PremiumGuard.isPremium(user.id),
+        subscriptionService.getUserSubscription(user.id),
+        PremiumGuard.getFeatures(user.id)
+      ])
+      
+      const plan = isPremium ? 'premium' : 'free'
       
       setUserPlanData({
         plan,
         isPremium,
         subscription,
-        features: {
-          dailyData: isPremium,
-          customPeriods: isPremium,
-          advancedFilters: isPremium,
-          projections: isPremium,
-          multipleAccounts: isPremium,
-          apiAccess: isPremium
-        },
+        features,
         isLoading: false,
         error: null
       })
@@ -156,6 +156,10 @@ export function UserPlanProvider({ children }: UserPlanProviderProps) {
   }
 
   const refreshPlan = async () => {
+    if (user?.id) {
+      // Clear PremiumGuard cache for consistency
+      PremiumGuard.clearCache(user.id)
+    }
     await loadUserPlan(true)
   }
 

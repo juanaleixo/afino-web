@@ -1,52 +1,21 @@
 import { supabase, PortfolioDaily, PortfolioMonthly, HoldingAt, HoldingAccount } from './supabase'
 import { withCache } from './cache'
+import { PremiumGuard } from './premium-guard'
 
 // Serviço para as funções RPC do portfólio
 export class PortfolioService {
   private userId: string
-  private userPlan: 'free' | 'premium' = 'free'
 
   constructor(userId: string, options?: { assumedPlan?: 'free' | 'premium' }) {
     this.userId = userId
-    if (options?.assumedPlan) this.userPlan = options.assumedPlan
+    // Note: assumedPlan is kept for backward compatibility but ignored
+    // All premium checks now go through PremiumGuard
   }
 
-  // Cached function to get user plan
-  private getUserPlan = withCache(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('is_premium, premium_expires_at')
-        .eq('user_id', userId)
-        .single()
-
-      if (error) {
-        console.warn('Erro ao carregar plano do usuário, mantendo plano atual:', error)
-        return 'free'
-      }
-      
-      // Check if user is premium and subscription hasn't expired
-      const isPremium = data?.is_premium && 
-        (data.premium_expires_at === null || new Date(data.premium_expires_at) > new Date())
-      
-      return isPremium ? 'premium' : 'free'
-    },
-    (userId: string) => `user_plan:${userId}`,
-    { ttl: 10 * 60 * 1000 } // 10 minutes
-  )
-
-  // Inicializar o plano do usuário
+  // Initialize method kept for backward compatibility
   async initialize() {
-    try {
-      const plan = await this.getUserPlan(this.userId)
-      if (plan === 'premium') {
-        this.userPlan = 'premium'
-      } else if (!this.userPlan || this.userPlan === 'free') {
-        this.userPlan = plan
-      }
-    } catch (error) {
-      console.warn('Erro ao verificar plano do usuário, mantendo plano atual:', error)
-    }
+    // No-op: Premium checking is now handled by PremiumGuard
+    console.log('PortfolioService initialized (premium checking delegated to PremiumGuard)')
   }
 
   // Cached function for asset batch lookup (por symbol)
@@ -70,16 +39,19 @@ export class PortfolioService {
     { ttl: 15 * 60 * 1000 }
   )
 
-  // Verificar se o usuário tem acesso premium
-  private checkPremiumAccess(feature: string) {
-    if (this.userPlan !== 'premium') {
-      throw new Error(`Funcionalidade ${feature} requer plano premium`)
-    }
-  }
+  // Premium access methods now delegate to PremiumGuard
 
   // Série diária do patrimônio (premium)
   async getDailySeries(from: string, to: string): Promise<PortfolioDaily[]> {
-    this.checkPremiumAccess('série diária')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getDailySeriesInternal(from, to),
+      [], // Empty array as fallback
+      'série diária'
+    )
+  }
+
+  private async _getDailySeriesInternal(from: string, to: string): Promise<PortfolioDaily[]> {
     // Tenta RPC
     try {
       const { data, error } = await supabase.rpc('api_portfolio_daily', { p_from: from, p_to: to })
@@ -273,7 +245,15 @@ export class PortfolioService {
 
   // Snapshot por conta+ativo (premium)
   async getHoldingsAccounts(date: string): Promise<HoldingAccount[]> {
-    this.checkPremiumAccess('detalhamento por conta')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getHoldingsAccountsInternal(date),
+      [], // Empty array as fallback
+      'detalhamento por conta'
+    )
+  }
+
+  private async _getHoldingsAccountsInternal(date: string): Promise<HoldingAccount[]> {
     
     const { data, error } = await supabase.rpc('api_holdings_accounts', {
       p_date: date
@@ -291,34 +271,24 @@ export class PortfolioService {
   async getPortfolioData(dateRange: { from: string; to: string }, date: string) {
     await this.initialize()
 
+    // Always get basic data
     const [monthlySeries, holdingsAt] = await Promise.all([
       this.getMonthlySeries(dateRange.from, dateRange.to),
       this.getHoldingsAt(date)
     ])
 
-    const result = {
+    // Try to get premium data (will return empty arrays if not premium)
+    const [dailySeries, holdingsAccounts] = await Promise.all([
+      this.getDailySeries(dateRange.from, dateRange.to),
+      this.getHoldingsAccounts(date)
+    ])
+
+    return {
       monthlySeries,
       holdingsAt,
-      dailySeries: null as PortfolioDaily[] | null,
-      holdingsAccounts: null as HoldingAccount[] | null
+      dailySeries: dailySeries.length > 0 ? dailySeries : null,
+      holdingsAccounts: holdingsAccounts.length > 0 ? holdingsAccounts : null
     }
-
-    // Adicionar dados premium se disponível
-    if (this.userPlan === 'premium') {
-      try {
-        const [dailySeries, holdingsAccounts] = await Promise.all([
-          this.getDailySeries(dateRange.from, dateRange.to),
-          this.getHoldingsAccounts(date)
-        ])
-        
-        result.dailySeries = dailySeries
-        result.holdingsAccounts = holdingsAccounts
-      } catch (error) {
-        console.warn('Erro ao carregar dados premium:', error)
-      }
-    }
-
-    return result
   }
 
   // Carregar contas do usuário (real)
@@ -409,7 +379,15 @@ export class PortfolioService {
 
   // Obter breakdown por ativo (Premium) - dados reais
   async getAssetBreakdown(from: string, to: string) {
-    this.checkPremiumAccess('breakdown por ativo')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getAssetBreakdownInternal(from, to),
+      [], // Empty array as fallback
+      'breakdown por ativo'
+    )
+  }
+
+  private async _getAssetBreakdownInternal(from: string, to: string) {
 
     // Tentar primeiro a função RPC se disponível
     let raw: any[] = []
@@ -521,7 +499,15 @@ export class PortfolioService {
 
   // Obter dados por conta (Premium) - dados reais  
   async getPortfolioByAccounts(from: string, to: string) {
-    this.checkPremiumAccess('dados por conta')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getPortfolioByAccountsInternal(from, to),
+      [], // Empty array as fallback
+      'dados por conta'
+    )
+  }
+
+  private async _getPortfolioByAccountsInternal(from: string, to: string) {
     
     const { data, error } = await supabase.rpc('api_portfolio_daily_accounts', {
       p_from: from,
@@ -538,7 +524,15 @@ export class PortfolioService {
 
   // Obter posições diárias por ativo específico (Premium) - NOVO
   async getDailyPositionsByAsset(assetId: string, from: string, to: string) {
-    this.checkPremiumAccess('posições diárias por ativo')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getDailyPositionsByAssetInternal(assetId, from, to),
+      [], // Empty array as fallback
+      'posições diárias por ativo'
+    )
+  }
+
+  private async _getDailyPositionsByAssetInternal(assetId: string, from: string, to: string) {
     // Tenta RPC
     try {
       const { data, error } = await supabase.rpc('api_positions_daily_by_asset', {
@@ -583,7 +577,15 @@ export class PortfolioService {
 
   // Obter posições diárias por conta e ativo específico (Premium) - NOVO
   async getDailyPositionsByAccountAsset(accountId: string, assetId: string, from: string, to: string) {
-    this.checkPremiumAccess('posições detalhadas por conta/ativo')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getDailyPositionsByAccountAssetInternal(accountId, assetId, from, to),
+      [], // Empty array as fallback
+      'posições detalhadas por conta/ativo'
+    )
+  }
+
+  private async _getDailyPositionsByAccountAssetInternal(accountId: string, assetId: string, from: string, to: string) {
     // Tenta RPC
     try {
       const { data, error } = await supabase.rpc('api_positions_daily_by_account', {
@@ -626,7 +628,15 @@ export class PortfolioService {
 
   // Obter análise avançada de performance por ativo (Premium) - NOVO
   async getAssetPerformanceAnalysis(from: string, to: string) {
-    this.checkPremiumAccess('análise de performance')
+    return PremiumGuard.withPremiumOrDefault(
+      this.userId,
+      async () => this._getAssetPerformanceAnalysisInternal(from, to),
+      [], // Empty array as fallback
+      'análise de performance'
+    )
+  }
+
+  private async _getAssetPerformanceAnalysisInternal(from: string, to: string) {
     console.log(`getAssetPerformanceAnalysis: buscando dados de ${from} a ${to}`)
     const breakdown = await this.getAssetBreakdown(from, to)
     if (!breakdown || breakdown.length === 0) {

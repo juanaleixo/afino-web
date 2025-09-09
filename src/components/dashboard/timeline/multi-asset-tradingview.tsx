@@ -270,23 +270,25 @@ export default function MultiAssetTradingView({
       }
     })
 
-    chart.timeScale().fitContent()
-    
-    // Set visible range to prevent excessive zoom out
-    if (assetsData.length > 0 && assetsData[0]?.daily_values?.length) {
-      const firstAsset = assetsData[0]
-      const firstDate = firstAsset.daily_values?.[0]?.date
-      const lastDate = firstAsset.daily_values?.[firstAsset.daily_values.length - 1]?.date
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent()
       
-      if (firstDate && lastDate) {
-        // Add 5% margin on each side to prevent blank spaces
-        const totalTime = new Date(lastDate).getTime() - new Date(firstDate).getTime()
-        const margin = totalTime * 0.05
+      // Set visible range to prevent excessive zoom out
+      if (assetsData.length > 0 && assetsData[0]?.daily_values?.length) {
+        const firstAsset = assetsData[0]
+        const firstDate = firstAsset.daily_values?.[0]?.date
+        const lastDate = firstAsset.daily_values?.[firstAsset.daily_values.length - 1]?.date
         
-        chart.timeScale().setVisibleRange({
-          from: (new Date(firstDate).getTime() - margin) / 1000 as any,
-          to: (new Date(lastDate).getTime() + margin) / 1000 as any
-        })
+        if (firstDate && lastDate && chartRef.current) {
+          // Add 5% margin on each side to prevent blank spaces
+          const totalTime = new Date(lastDate).getTime() - new Date(firstDate).getTime()
+          const margin = totalTime * 0.05
+          
+          chartRef.current.timeScale().setVisibleRange({
+            from: (new Date(firstDate).getTime() - margin) / 1000 as any,
+            to: (new Date(lastDate).getTime() + margin) / 1000 as any
+          })
+        }
       }
     }
 

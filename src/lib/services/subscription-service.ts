@@ -223,18 +223,30 @@ class SubscriptionService {
       const isPremium = ['active', 'trialing'].includes(status)
       const premiumExpiresAt = isPremium ? null : new Date().toISOString()
 
-      await supabaseAdmin
-        .from('user_profiles')
-        .upsert({
-          user_id: userId,
-          is_premium: isPremium,
-          premium_expires_at: premiumExpiresAt,
-          plan: isPremium ? 'premium' : 'free',
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id',
-          ignoreDuplicates: false
-        })
+      if (isPremium) {
+        // Create profile for premium users (existence = premium status)
+        await supabaseAdmin
+          .from('user_profiles')
+          .upsert({
+            user_id: userId,
+            premium_expires_at: premiumExpiresAt,
+            subscription_status: status,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id',
+            ignoreDuplicates: false
+          })
+      } else {
+        // For non-premium users, either delete profile or update status
+        await supabaseAdmin
+          .from('user_profiles')
+          .update({
+            subscription_status: status,
+            premium_expires_at: premiumExpiresAt,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+      }
     } catch (error) {
       console.error('Error updating user premium status:', error)
       // Don't throw error here to avoid breaking webhook processing

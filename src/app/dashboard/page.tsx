@@ -199,31 +199,35 @@ export default function DashboardPage() {
           return
         }
 
-        // Get data based on plan type
+        // Get data based on plan type - always use monthly data for mini timeline
+        // This avoids premium access issues and provides consistent experience
         const today = new Date()
+        const twelveMonthsAgo = new Date(today)
+        twelveMonthsAgo.setMonth(today.getMonth() - 12)
+        
+        const from = twelveMonthsAgo.toISOString().split('T')[0]!
+        const to = today.toISOString().split('T')[0]!
+        
         let chartData: any[] = []
         
-        if (isPremium) {
-          // Premium: last 6 months daily data
-          const sixMonthsAgo = new Date(today)
-          sixMonthsAgo.setMonth(today.getMonth() - 6)
-          
-          const from = sixMonthsAgo.toISOString().split('T')[0]!
-          const to = today.toISOString().split('T')[0]!
-          
-          const dailyData = await portfolioService.getDailySeries(from, to)
-          chartData = dailyData.map(item => ({
-            date: item.date,
-            value: item.total_value
-          }))
-        } else {
-          // Free: last 12 months monthly data
-          const twelveMonthsAgo = new Date(today)
-          twelveMonthsAgo.setMonth(today.getMonth() - 12)
-          
-          const from = twelveMonthsAgo.toISOString().split('T')[0]!
-          const to = today.toISOString().split('T')[0]!
-          
+        try {
+          // Try daily data for premium users first
+          if (isPremium) {
+            const sixMonthsAgo = new Date(today)
+            sixMonthsAgo.setMonth(today.getMonth() - 6)
+            const premiumFrom = sixMonthsAgo.toISOString().split('T')[0]!
+            
+            const dailyData = await portfolioService.getDailySeries(premiumFrom, to)
+            chartData = dailyData.map(item => ({
+              date: item.date,
+              value: item.total_value
+            }))
+          } else {
+            throw new Error('User is not premium, using monthly data')
+          }
+        } catch (error) {
+          // Fallback to monthly data for both premium and free users
+          console.log('Using monthly data for mini timeline:', error)
           const monthlyData = await portfolioService.getMonthlySeries(from, to)
           chartData = monthlyData.map(item => ({
             date: item.month_eom,
