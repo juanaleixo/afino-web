@@ -166,7 +166,7 @@ export function TimelineFilters({
           </CardHeader>
           <CardContent>
             <Select 
-              value={filters.benchmark || 'none'} 
+              value={filters.benchmark && filters.benchmark !== '' ? filters.benchmark : 'none'} 
               onValueChange={(value) => handleFiltersChange({ benchmark: value === 'none' ? undefined : value })}
               disabled={loading}
             >

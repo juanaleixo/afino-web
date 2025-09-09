@@ -1,14 +1,10 @@
 /**
  * Background Price Filler Utility
  * Executes price population in controlled batches to avoid blocking the UI
+ * Note: This utility should only be used in server-side contexts (API routes)
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export interface PriceFillerResult {
   processed: number
@@ -70,7 +66,7 @@ async function runPriceFillingBatches() {
       currentStatus.currentBatch = batchCount
 
       // Chama função do banco em lotes pequenos
-      const { data, error } = await supabase.rpc('fn_populate_missing_prices_batch', {
+      const { data, error } = await supabaseAdmin.rpc('fn_populate_missing_prices_batch', {
         p_batch_size: 3, // Poucos assets por vez
         p_max_runtime_seconds: 30 // Timeout curto
       })

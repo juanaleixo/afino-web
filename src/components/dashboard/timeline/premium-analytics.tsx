@@ -408,11 +408,14 @@ export default function PremiumAnalytics({
                 <SelectValue placeholder="Selecione um ativo para análise" />
               </SelectTrigger>
               <SelectContent>
-                {performanceData.map(asset => (
-                  <SelectItem key={asset.asset_id} value={asset.asset_id}>
-                    {asset.asset_symbol || asset.asset_id} - {asset.asset_class}
-                  </SelectItem>
-                ))}
+                {performanceData
+                  .filter(asset => asset.asset_id && asset.asset_id.trim() !== '')
+                  .map(asset => (
+                    <SelectItem key={asset.asset_id} value={asset.asset_id}>
+                      {asset.asset_symbol || asset.asset_id} - {asset.asset_class}
+                    </SelectItem>
+                  ))
+                }
               </SelectContent>
             </Select>
           </div>

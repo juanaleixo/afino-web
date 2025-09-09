@@ -27,14 +27,14 @@ import {
   Clock,
   Users,
   Edit3,
-  RefreshCw
+  RefreshCw,
+  Crown
 } from "lucide-react"
 import MiniChart from "@/components/ui/mini-chart"
 import PortfolioChart from "@/components/PortfolioChart"
 import Link from "next/link"
 import Image from "next/image"
 import { toast } from "sonner"
-import PlanStatus from "@/components/PlanStatus"
 import ThemeSwitch from "@/components/ThemeSwitch"
 import { getAssetDisplayLabel } from "@/lib/utils/assets"
 import { PatrimonyFAB } from "@/components/ui/patrimony-fab"
@@ -564,6 +564,13 @@ export default function DashboardPage() {
       href: "/dashboard/transactions",
       badge: "info",
     },
+    {
+      title: "Configurações",
+      description: "Gerenciar assinatura, perfil e configurações",
+      icon: Settings,
+      href: "/dashboard/settings",
+      badge: "neutral",
+    },
   ]
 
   return (
@@ -588,11 +595,23 @@ export default function DashboardPage() {
               </div>
               
               <div className="flex items-center space-x-4">
-                <PlanStatus showUpgradeButton={false} />
+                <Badge variant={isPremium ? "default" : "secondary"} className={isPremium ? "bg-yellow-100 text-yellow-800" : ""}>
+                  {isPremium && <Crown className="h-3 w-3 mr-1" />}
+                  {isPremium ? 'Premium' : 'Free'}
+                </Badge>
                 <Badge variant="secondary">
                   {user?.email}
                 </Badge>
                 <ThemeSwitch />
+                <Link href="/dashboard/settings">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Gerenciar
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   size="sm"

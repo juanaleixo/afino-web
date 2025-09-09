@@ -16,7 +16,7 @@ export class PortfolioService {
     async (userId: string) => {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('plan')
+        .select('is_premium, premium_expires_at')
         .eq('user_id', userId)
         .single()
 
@@ -25,7 +25,11 @@ export class PortfolioService {
         return 'free'
       }
       
-      return data?.plan || 'free'
+      // Check if user is premium and subscription hasn't expired
+      const isPremium = data?.is_premium && 
+        (data.premium_expires_at === null || new Date(data.premium_expires_at) > new Date())
+      
+      return isPremium ? 'premium' : 'free'
     },
     (userId: string) => `user_plan:${userId}`,
     { ttl: 10 * 60 * 1000 } // 10 minutes
