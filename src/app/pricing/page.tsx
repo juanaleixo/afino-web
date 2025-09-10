@@ -1,50 +1,8 @@
 import Header from "@/components/Header"
 import Link from "next/link"
+import { StripePricingTable } from "@/components/stripe/StripePricingTable"
 
 export default function PricingPage() {
-  const plans = [
-    {
-      name: "Free",
-      price: "R$ 0",
-      period: "/mês",
-      description: "Ideal para começar a organizar seus investimentos",
-      features: [
-        "Registro manual ilimitado de ativos",
-        "Dashboard consolidado básico",
-        "Timeline mensal (últimos 12 meses)",
-        "Relatórios simples de evolução",
-        "Suporte por email",
-        "Modo escuro/claro"
-      ],
-      limitations: [
-        "Histórico limitado a visão mensal",
-        "Funcionalidades básicas de análise"
-      ],
-      popular: false,
-      cta: "Começar Grátis",
-      href: "/signup"
-    },
-    {
-      name: "Premium",
-      price: "R$ 19,90",
-      period: "/mês",
-      description: "Para quem quer acompanhamento completo e detalhado",
-      features: [
-        "Tudo do plano Free",
-        "Timeline diária (histórico completo)",
-        "Análises avançadas de performance",
-        "Métricas de diversificação",
-        "Relatórios detalhados de evolução",
-        "Suporte prioritário",
-        "Exportação de dados (em desenvolvimento)",
-        "Acesso antecipado a novas funcionalidades"
-      ],
-      limitations: [],
-      popular: true,
-      cta: "Assinar Premium",
-      href: "/signup?plan=premium"
-    }
-  ]
 
   return (
     <div className="min-h-screen bg-background">
@@ -67,85 +25,9 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid gap-8 md:grid-cols-2 max-w-5xl mx-auto mb-16">
-          {plans.map((plan, index) => (
-            <div
-              key={index}
-              className={`relative rounded-xl border bg-card p-8 ${
-                plan.popular 
-                  ? 'border-primary shadow-xl scale-105 bg-gradient-to-b from-card to-primary/5' 
-                  : 'hover:shadow-lg transition-shadow'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-primary to-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg">
-                    ⭐ Recomendado
-                  </span>
-                </div>
-              )}
-              
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                <div className="mb-4">
-                  <span className="text-5xl font-bold">{plan.price}</span>
-                  <span className="text-muted-foreground text-lg">{plan.period}</span>
-                </div>
-                <p className="text-muted-foreground text-lg">{plan.description}</p>
-              </div>
-
-              {/* Features */}
-              <div className="mb-6">
-                <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">
-                  O que está incluído:
-                </h4>
-                <ul className="space-y-3">
-                  {plan.features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-start">
-                      <span className="text-green-500 mr-3 mt-0.5 flex-shrink-0">✓</span>
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Limitations for Free plan */}
-              {plan.limitations && plan.limitations.length > 0 && (
-                <div className="mb-6 p-3 bg-muted/50 rounded-lg">
-                  <h4 className="font-semibold mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-                    Limitações:
-                  </h4>
-                  <ul className="space-y-2">
-                    {plan.limitations.map((limitation, limitIndex) => (
-                      <li key={limitIndex} className="flex items-start text-xs text-muted-foreground">
-                        <span className="mr-2 mt-0.5 flex-shrink-0">•</span>
-                        <span>{limitation}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <Link
-                href={plan.href}
-                className={`w-full inline-flex items-center justify-center rounded-lg px-6 py-4 text-base font-semibold transition-all duration-200 ${
-                  plan.popular
-                    ? 'bg-gradient-to-r from-primary to-blue-600 text-white hover:from-primary/90 hover:to-blue-600/90 shadow-lg hover:shadow-xl'
-                    : 'border-2 border-primary text-primary hover:bg-primary hover:text-white'
-                }`}
-              >
-                {plan.cta}
-                {plan.popular && <span className="ml-2">→</span>}
-              </Link>
-
-              {plan.popular && (
-                <p className="text-center mt-3 text-xs text-muted-foreground">
-                  Cancele quando quiser • Sem compromisso
-                </p>
-              )}
-            </div>
-          ))}
+        {/* Stripe Pricing Table */}
+        <div className="max-w-5xl mx-auto mb-16">
+          <StripePricingTable className="w-full" />
         </div>
 
         {/* Comparison Table */}

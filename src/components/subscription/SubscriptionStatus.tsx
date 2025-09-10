@@ -12,7 +12,7 @@ import { Loader2, Crown, Settings, CreditCard, Calendar, AlertTriangle } from 'l
 import { useRouter } from 'next/navigation'
 
 export function SubscriptionStatus() {
-  const { subscription, isPremium, isLoading, createPortalSession } = useUserPlan()
+  const { subscription, isPremium, isLoading } = useUserPlan()
   const { user } = useAuth()
   const router = useRouter()
 
@@ -162,7 +162,7 @@ export function SubscriptionStatus() {
           {subscription && (
             <Button 
               variant="outline" 
-              onClick={createPortalSession}
+              onClick={() => window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')}
               className="w-full"
             >
               <Settings className="h-4 w-4 mr-2" />

@@ -19,9 +19,10 @@ const nextConfig: NextConfig = {
     // Lint already runs in the CI quality job; skip during build to avoid ESLint CLI option mismatches
     ignoreDuringBuilds: true,
   },
-  output: 'export',
-  trailingSlash: true,
-  skipTrailingSlashRedirect: true,
+  // Temporarily commented out to allow API routes to work in development
+  // output: 'export',
+  // trailingSlash: true,
+  // skipTrailingSlashRedirect: true,
 }
 
 export default nextConfig

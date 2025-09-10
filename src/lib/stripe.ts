@@ -1,17 +1,3 @@
-import { loadStripe, Stripe } from '@stripe/stripe-js'
-
-// Singleton pattern for Stripe instance
-let stripePromise: Promise<Stripe | null>
-
-export const getStripe = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-    )
-  }
-  return stripePromise
-}
-
 // Subscription plan configuration
 export const SUBSCRIPTION_PLANS = {
   FREE: {
@@ -40,7 +26,7 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Premium',
     priceId: process.env.NODE_ENV === 'production' 
       ? 'price_premium_prod' // Replace with actual Stripe price ID
-      : 'price_premium_test', // Test mode price ID
+      : process.env.STRIPE_PREMIUM_PRICE_ID || 'price_1S3lmuRrF8MozMWzgDDcB06C', // Use env var or fallback
     price: 19.90,
     currency: 'BRL',
     interval: 'month' as const,
@@ -73,14 +59,3 @@ export const formatPrice = (price: number, currency: string = 'BRL') => {
 export const getPlanByPriceId = (priceId: string) => {
   return Object.values(SUBSCRIPTION_PLANS).find(plan => plan.priceId === priceId)
 }
-
-// Stripe webhook event types we handle
-export const STRIPE_WEBHOOK_EVENTS = {
-  CUSTOMER_SUBSCRIPTION_CREATED: 'customer.subscription.created',
-  CUSTOMER_SUBSCRIPTION_UPDATED: 'customer.subscription.updated',
-  CUSTOMER_SUBSCRIPTION_DELETED: 'customer.subscription.deleted',
-  INVOICE_PAYMENT_SUCCEEDED: 'invoice.payment_succeeded',
-  INVOICE_PAYMENT_FAILED: 'invoice.payment_failed',
-  CUSTOMER_CREATED: 'customer.created',
-  CUSTOMER_UPDATED: 'customer.updated',
-} as const

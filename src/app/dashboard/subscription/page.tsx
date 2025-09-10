@@ -24,30 +24,19 @@ export default function SubscriptionPage() {
     subscription, 
     isPremium, 
     isLoading, 
-    error,
-    createCheckoutSession,
-    createPortalSession 
+    error
   } = useUserPlan()
-
-  const [upgrading, setUpgrading] = useState(false)
   
   const currentPlan = isPremium ? SUBSCRIPTION_PLANS.PREMIUM : SUBSCRIPTION_PLANS.FREE
   const isTrialing = subscription?.status === 'trialing'
   const willCancel = subscription?.cancel_at_period_end
 
-  const handleUpgrade = async () => {
-    setUpgrading(true)
-    try {
-      await createCheckoutSession(SUBSCRIPTION_PLANS.PREMIUM.priceId)
-    } catch (err) {
-      console.error('Upgrade error')
-    } finally {
-      setUpgrading(false)
-    }
+  const handleUpgrade = () => {
+    window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')
   }
 
-  const handleManageSubscription = async () => {
-    await createPortalSession()
+  const handleManageSubscription = () => {
+    window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')
   }
 
   if (isLoading) {
@@ -238,10 +227,8 @@ export default function SubscriptionPage() {
                 </div>
                 <Button 
                   onClick={handleUpgrade}
-                  disabled={upgrading}
                   className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
                 >
-                  {upgrading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <Crown className="h-4 w-4 mr-2" />
                   Upgrade Agora
                 </Button>

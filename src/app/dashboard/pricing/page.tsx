@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PricingCard } from '@/components/subscription/PricingCard'
+import { StripePricingTable } from '@/components/stripe/StripePricingTable'
 import { useUserPlan } from '@/contexts/UserPlanContext'
 import { SUBSCRIPTION_PLANS } from '@/lib/stripe'
 import { 
@@ -83,18 +83,37 @@ export default function DashboardPricingPage() {
         </Card>
       )}
 
-      {/* Pricing Cards */}
-      <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
-        <PricingCard 
-          planType="FREE" 
-          className={!isPremium ? "ring-2 ring-primary" : ""}
-        />
-        <PricingCard 
-          planType="PREMIUM" 
-          popular={!isPremium}
-          className={isPremium ? "ring-2 ring-yellow-500" : ""}
-        />
-      </div>
+      {/* Stripe Pricing Table */}
+      {!isPremium && (
+        <div className="max-w-4xl mx-auto">
+          <StripePricingTable className="w-full" />
+        </div>
+      )}
+
+      {/* Current Plan Display for Premium Users */}
+      {isPremium && (
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Crown className="h-6 w-6 text-yellow-500" />
+              <CardTitle className="text-2xl">Plano Premium Ativo</CardTitle>
+            </div>
+            <CardDescription>
+              Você tem acesso a todas as funcionalidades premium
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {SUBSCRIPTION_PLANS.PREMIUM.features.map((feature, index) => (
+                <div key={index} className="flex items-start gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>{feature}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Why Upgrade Section (only for free users) */}
       {!isPremium && (

@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { cache } from '@/lib/cache'
 import { subscriptionService, type Subscription } from '@/lib/services/subscription-service'
-import { getStripe, SUBSCRIPTION_PLANS } from '@/lib/stripe'
+import { SUBSCRIPTION_PLANS } from '@/lib/stripe'
 import { PremiumGuard } from '@/lib/premium-guard'
 import { toast } from 'sonner'
 
@@ -45,10 +45,6 @@ const DEFAULT_USER_PLAN: UserPlanData = {
 
 interface UserPlanContextType extends UserPlanData {
   refreshPlan: () => Promise<void>
-  // Stripe actions
-  createCheckoutSession: (priceId: string) => Promise<void>
-  createPortalSession: () => Promise<void>
-  cancelSubscription: () => Promise<void>
 }
 
 const UserPlanContext = createContext<UserPlanContextType | undefined>(undefined)
@@ -163,119 +159,6 @@ export function UserPlanProvider({ children }: UserPlanProviderProps) {
     await loadUserPlan(true)
   }
 
-  // Stripe actions
-  const createCheckoutSession = async (priceId: string) => {
-    if (!user?.id) {
-      toast.error('Você precisa estar logado para fazer isso')
-      return
-    }
-
-    try {
-      setUserPlanData(prev => ({ ...prev, isLoading: true }))
-      
-      const response = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          priceId,
-          userId: user.id,
-          successUrl: `${window.location.origin}/dashboard/subscription?success=true`,
-          cancelUrl: `${window.location.origin}/dashboard/pricing?canceled=true`,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout session')
-      }
-
-      // Redirect to Stripe Checkout
-      const stripe = await getStripe()
-      if (!stripe) {
-        throw new Error('Stripe not loaded')
-      }
-
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId,
-      })
-
-      if (stripeError) {
-        throw new Error(stripeError.message)
-      }
-
-    } catch (err) {
-      console.error('Error creating checkout session:', err)
-      toast.error('Erro ao criar sessão de pagamento')
-    } finally {
-      setUserPlanData(prev => ({ ...prev, isLoading: false }))
-    }
-  }
-
-  const createPortalSession = async () => {
-    if (!user?.id) {
-      toast.error('Você precisa estar logado para fazer isso')
-      return
-    }
-
-    try {
-      setUserPlanData(prev => ({ ...prev, isLoading: true }))
-
-      const response = await fetch('/api/stripe/create-portal-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          returnUrl: `${window.location.origin}/dashboard/subscription`,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create portal session')
-      }
-
-      // Redirect to Stripe Customer Portal
-      window.location.href = data.url
-
-    } catch (err) {
-      console.error('Error creating portal session:', err)
-      toast.error('Erro ao abrir portal de gerenciamento')
-    } finally {
-      setUserPlanData(prev => ({ ...prev, isLoading: false }))
-    }
-  }
-
-  const cancelSubscription = async () => {
-    if (!user?.id) {
-      toast.error('Você precisa estar logado para fazer isso')
-      return
-    }
-
-    try {
-      setUserPlanData(prev => ({ ...prev, isLoading: true }))
-      
-      const success = await subscriptionService.cancelSubscription(user.id)
-      
-      if (success) {
-        toast.success('Assinatura cancelada com sucesso')
-        await refreshPlan() // Refresh data
-      } else {
-        throw new Error('Failed to cancel subscription')
-      }
-
-    } catch (err) {
-      console.error('Error canceling subscription:', err)
-      toast.error('Erro ao cancelar assinatura')
-    } finally {
-      setUserPlanData(prev => ({ ...prev, isLoading: false }))
-    }
-  }
 
   useEffect(() => {
     loadUserPlan()
@@ -283,10 +166,7 @@ export function UserPlanProvider({ children }: UserPlanProviderProps) {
 
   const contextValue: UserPlanContextType = {
     ...userPlanData,
-    refreshPlan,
-    createCheckoutSession,
-    createPortalSession,
-    cancelSubscription
+    refreshPlan
   }
 
   return (

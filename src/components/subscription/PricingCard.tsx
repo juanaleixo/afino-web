@@ -16,24 +16,17 @@ interface PricingCardProps {
 }
 
 export function PricingCard({ planType, popular = false, className }: PricingCardProps) {
-  const { isPremium, createCheckoutSession, isLoading: contextLoading } = useUserPlan()
-  const [isLoading, setIsLoading] = useState(false)
+  const { isPremium, isLoading: contextLoading } = useUserPlan()
   
   const plan = SUBSCRIPTION_PLANS[planType]
   const isCurrent = (planType === 'PREMIUM' && isPremium) || (planType === 'FREE' && !isPremium)
   const isPremiumPlan = planType === 'PREMIUM'
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = () => {
     if (planType === 'FREE' || isCurrent) return
     
-    setIsLoading(true)
-    try {
-      await createCheckoutSession(plan.priceId)
-    } catch (error) {
-      console.error('Error upgrading:', error)
-    } finally {
-      setIsLoading(false)
-    }
+    // Redirect to pricing page with Stripe Pricing Table
+    window.location.href = '/dashboard/pricing'
   }
 
   return (
@@ -103,7 +96,7 @@ export function PricingCard({ planType, popular = false, className }: PricingCar
         {/* CTA Button */}
         <Button
           onClick={handleUpgrade}
-          disabled={isCurrent || isLoading || contextLoading}
+          disabled={isCurrent || contextLoading}
           className={cn(
             "w-full",
             isPremiumPlan && "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600",
@@ -111,7 +104,7 @@ export function PricingCard({ planType, popular = false, className }: PricingCar
           )}
           variant={isPremiumPlan ? "default" : "outline"}
         >
-          {(isLoading || contextLoading) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {contextLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {isCurrent 
             ? 'Plano Atual'
             : planType === 'FREE' 

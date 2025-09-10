@@ -34,6 +34,7 @@
   ],
   "exclude": [
     "node_modules",
-    "example_lightweight_chartds"
+    "example_lightweight_chartds",
+    "supabase/**/*"
   ]
 }
