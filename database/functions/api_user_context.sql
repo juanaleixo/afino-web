@@ -11,20 +11,58 @@ AS $$
 DECLARE
   result JSON;
   current_user_id UUID := app_current_user();
+  is_premium BOOLEAN := FALSE;
+  subscription_data JSON := NULL;
 BEGIN
   IF current_user_id IS NULL THEN
     RETURN json_build_object(
       'user_id', NULL,
       'plan', 'free',
+      'is_premium', false,
+      'subscription', NULL,
+      'features', json_build_object(
+        'dailyData', false,
+        'customPeriods', false,
+        'advancedFilters', false,
+        'projections', false,
+        'multipleAccounts', false,
+        'apiAccess', false
+      ),
       'last_event_timestamp', NULL,
       'total_events', 0,
       'accounts', '[]'::json
     );
   END IF;
 
+  -- Check if user is premium and get subscription data
+  SELECT 
+    (up.subscription_status = 'active' AND (up.premium_expires_at IS NULL OR up.premium_expires_at > now())),
+    CASE WHEN up.subscription_status = 'active' THEN
+      json_build_object(
+        'status', up.subscription_status,
+        'stripe_customer_id', up.stripe_customer_id,
+        'stripe_subscription_id', up.stripe_subscription_id,
+        'premium_expires_at', up.premium_expires_at
+      )
+    ELSE NULL END
+  INTO is_premium, subscription_data
+  FROM user_profiles up
+  WHERE up.user_id = current_user_id;
+
+  -- Build complete user context
   SELECT json_build_object(
     'user_id', current_user_id,
-    'plan', COALESCE(up.plan, 'free'),
+    'plan', CASE WHEN is_premium THEN 'premium' ELSE 'free' END,
+    'is_premium', COALESCE(is_premium, false),
+    'subscription', subscription_data,
+    'features', json_build_object(
+      'dailyData', COALESCE(is_premium, false),
+      'customPeriods', COALESCE(is_premium, false),
+      'advancedFilters', COALESCE(is_premium, false),
+      'projections', COALESCE(is_premium, false),
+      'multipleAccounts', COALESCE(is_premium, false),
+      'apiAccess', COALESCE(is_premium, false)
+    ),
     'last_event_timestamp', EXTRACT(EPOCH FROM MAX(e.created_at))::bigint,
     'total_events', COUNT(e.id),
     'accounts', COALESCE(
@@ -36,20 +74,39 @@ BEGIN
     )
   )
   INTO result
-  FROM user_profiles up
-  LEFT JOIN events e ON e.user_id = current_user_id
-  LEFT JOIN accounts a ON a.user_id = current_user_id
-  WHERE up.user_id = current_user_id
-  GROUP BY up.user_id, up.plan;
+  FROM events e
+  FULL OUTER JOIN accounts a ON a.user_id = current_user_id
+  WHERE e.user_id = current_user_id OR e.user_id IS NULL
+  GROUP BY current_user_id;
 
-  -- If no user profile exists, return default
+  -- Ensure we always return a result
   IF result IS NULL THEN
     SELECT json_build_object(
       'user_id', current_user_id,
-      'plan', 'free',
+      'plan', CASE WHEN is_premium THEN 'premium' ELSE 'free' END,
+      'is_premium', COALESCE(is_premium, false),
+      'subscription', subscription_data,
+      'features', json_build_object(
+        'dailyData', COALESCE(is_premium, false),
+        'customPeriods', COALESCE(is_premium, false),
+        'advancedFilters', COALESCE(is_premium, false),
+        'projections', COALESCE(is_premium, false),
+        'multipleAccounts', COALESCE(is_premium, false),
+        'apiAccess', COALESCE(is_premium, false)
+      ),
       'last_event_timestamp', NULL,
       'total_events', 0,
-      'accounts', '[]'::json
+      'accounts', (
+        SELECT COALESCE(
+          json_agg(jsonb_build_object(
+            'id', a.id,
+            'label', a.label
+          )),
+          '[]'::json
+        )
+        FROM accounts a
+        WHERE a.user_id = current_user_id
+      )
     ) INTO result;
   END IF;
 
