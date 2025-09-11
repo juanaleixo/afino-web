@@ -34,10 +34,20 @@ BEGIN
     );
   END IF;
 
-  -- Check if user is premium and get subscription data
+  -- SECURITY: Enhanced premium validation with multiple security checks
   SELECT 
-    (up.subscription_status = 'active' AND (up.premium_expires_at IS NULL OR up.premium_expires_at > now())),
-    CASE WHEN up.subscription_status = 'active' THEN
+    (up.subscription_status = 'active' OR up.subscription_status = 'trialing') 
+    AND (up.premium_expires_at IS NULL OR up.premium_expires_at > now())
+    AND up.stripe_customer_id IS NOT NULL 
+    AND up.stripe_subscription_id IS NOT NULL
+    AND up.stripe_customer_id ~ '^cus_[A-Za-z0-9]+$'  -- Valid Stripe customer ID format
+    AND up.stripe_subscription_id ~ '^sub_[A-Za-z0-9]+$', -- Valid Stripe subscription ID format
+    CASE WHEN (
+      (up.subscription_status = 'active' OR up.subscription_status = 'trialing')
+      AND (up.premium_expires_at IS NULL OR up.premium_expires_at > now())
+      AND up.stripe_customer_id IS NOT NULL
+      AND up.stripe_subscription_id IS NOT NULL
+    ) THEN
       json_build_object(
         'id', up.stripe_subscription_id,
         'user_id', current_user_id,
@@ -130,7 +140,12 @@ $$;
 
 ALTER FUNCTION public.api_user_context() OWNER TO postgres;
 
-GRANT ALL ON FUNCTION public.api_user_context() TO anon;
-GRANT ALL ON FUNCTION public.api_user_context() TO authenticated;
-GRANT ALL ON FUNCTION public.api_user_context() TO service_role;
-GRANT ALL ON FUNCTION public.api_user_context() TO supabase_admin;
+-- SECURITY: Restricted permissions - only authenticated users can execute this function
+-- Anonymous users should not have access to user context data
+REVOKE ALL ON FUNCTION public.api_user_context() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.api_user_context() FROM anon;
+
+-- Grant minimal required permissions
+GRANT EXECUTE ON FUNCTION public.api_user_context() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.api_user_context() TO service_role;
+GRANT EXECUTE ON FUNCTION public.api_user_context() TO supabase_admin;

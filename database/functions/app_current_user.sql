@@ -1,7 +1,7 @@
 -- Function: app_current_user()
 -- Description: Returns the current user's ID.
 
-CREATE FUNCTION public.app_current_user() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.app_current_user() RETURNS uuid
 LANGUAGE plpgsql STABLE
 AS $$
 DECLARE v uuid;
@@ -22,7 +22,12 @@ END$$;
 
 ALTER FUNCTION public.app_current_user() OWNER TO postgres;
 
-GRANT ALL ON FUNCTION public.app_current_user() TO anon;
-GRANT ALL ON FUNCTION public.app_current_user() TO authenticated;
-GRANT ALL ON FUNCTION public.app_current_user() TO service_role;
-GRANT ALL ON FUNCTION public.app_current_user() TO supabase_admin;
+-- SECURITY: Restricted permissions for user identification function
+-- Anonymous users should not access user identification functions
+REVOKE ALL ON FUNCTION public.app_current_user() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_current_user() FROM anon;
+
+-- Grant minimal required permissions
+GRANT EXECUTE ON FUNCTION public.app_current_user() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.app_current_user() TO service_role;
+GRANT EXECUTE ON FUNCTION public.app_current_user() TO supabase_admin;
