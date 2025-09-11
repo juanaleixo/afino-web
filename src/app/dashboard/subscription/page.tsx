@@ -1,40 +1,54 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
-import { SUBSCRIPTION_PLANS, formatPrice } from '@/lib/stripe'
-import { formatDate } from '@/lib/utils/formatters'
-import { 
-  Crown, 
-  Calendar, 
-  CreditCard, 
-  Settings, 
-  CheckCircle, 
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useUserContextFromProvider } from "@/contexts/UserContextProvider";
+import { SUBSCRIPTION_PLANS, formatPrice } from "@/lib/stripe";
+import { formatDate } from "@/lib/utils/formatters";
+import {
+  Crown,
+  Calendar,
+  CreditCard,
+  Settings,
+  CheckCircle,
   XCircle,
   AlertTriangle,
-  Loader2
-} from 'lucide-react'
+  Loader2,
+} from "lucide-react";
 
 export default function SubscriptionPage() {
-  const { userContext, isLoading, error } = useUserContextFromProvider()
-  const isPremium = userContext.is_premium
-  const subscription = userContext.subscription
-  
-  const currentPlan = isPremium ? SUBSCRIPTION_PLANS.PREMIUM : SUBSCRIPTION_PLANS.FREE
-  const isTrialing = subscription?.status === 'trialing'
-  const willCancel = subscription?.cancel_at_period_end
+  const { userContext, isLoading, error } = useUserContextFromProvider();
+  const isPremium = userContext.is_premium;
+  const subscription = userContext.subscription;
+
+  const currentPlan = isPremium
+    ? SUBSCRIPTION_PLANS.PREMIUM
+    : SUBSCRIPTION_PLANS.FREE;
+  const isTrialing = subscription?.status === "trialing";
+  const willCancel = subscription?.cancel_at_period_end;
 
   const handleUpgrade = () => {
-    window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')
-  }
+    window.open(
+      "https://billing.stripe.com/p/login/test_6oU9AV2R17DJ1vzbiN48000",
+      "_blank"
+    );
+  };
 
   const handleManageSubscription = () => {
-    window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')
-  }
+    window.open(
+      "https://billing.stripe.com/p/login/test_6oU9AV2R17DJ1vzbiN48000",
+      "_blank"
+    );
+  };
 
   if (isLoading) {
     return (
@@ -43,7 +57,7 @@ export default function SubscriptionPage() {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -81,8 +95,8 @@ export default function SubscriptionPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   Plano {currentPlan.name}
-                  <Badge variant={isPremium ? 'default' : 'secondary'}>
-                    {isPremium ? 'Premium' : 'Free'}
+                  <Badge variant={isPremium ? "default" : "secondary"}>
+                    {isPremium ? "Premium" : "Free"}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
@@ -90,21 +104,26 @@ export default function SubscriptionPage() {
                 </CardDescription>
               </div>
             </div>
-            
+
             {subscription?.status && (
-              <Badge 
-                variant={subscription.status === 'active' ? 'default' : 'secondary'}
+              <Badge
+                variant={
+                  subscription.status === "active" ? "default" : "secondary"
+                }
                 className={
-                  subscription.status === 'active' ? 'bg-green-100 text-green-800' :
-                  subscription.status === 'trialing' ? 'bg-blue-100 text-blue-800' :
-                  subscription.status === 'past_due' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
+                  subscription.status === "active"
+                    ? "bg-green-100 text-green-800"
+                    : subscription.status === "trialing"
+                    ? "bg-blue-100 text-blue-800"
+                    : subscription.status === "past_due"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-gray-100 text-gray-800"
                 }
               >
-                {subscription.status === 'active' && 'Ativo'}
-                {subscription.status === 'trialing' && 'Em teste'}
-                {subscription.status === 'past_due' && 'Pendente'}
-                {subscription.status === 'canceled' && 'Cancelado'}
+                {subscription.status === "active" && "Ativo"}
+                {subscription.status === "trialing" && "Em teste"}
+                {subscription.status === "past_due" && "Pendente"}
+                {subscription.status === "canceled" && "Cancelado"}
               </Badge>
             )}
           </div>
@@ -135,7 +154,8 @@ export default function SubscriptionPage() {
                   Assinatura será cancelada
                 </p>
                 <p className="text-sm text-orange-700">
-                  O acesso premium será mantido até {formatDate(subscription.current_period_end)}
+                  O acesso premium será mantido até{" "}
+                  {formatDate(subscription.current_period_end)}
                 </p>
               </div>
             </div>
@@ -146,15 +166,19 @@ export default function SubscriptionPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-gray-500" />
-                <span>Status: <strong>{subscription.status}</strong></span>
+                <span>
+                  Status: <strong>{subscription.status}</strong>
+                </span>
               </div>
-              
+
               {subscription.current_period_end && (
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <span>
-                    {willCancel ? 'Expira em: ' : 'Próxima cobrança: '}
-                    <strong>{formatDate(subscription.current_period_end)}</strong>
+                    {willCancel ? "Expira em: " : "Próxima cobrança: "}
+                    <strong>
+                      {formatDate(subscription.current_period_end)}
+                    </strong>
                   </span>
                 </div>
               )}
@@ -184,32 +208,39 @@ export default function SubscriptionPage() {
           <CardHeader>
             <CardTitle>Upgrade para Premium</CardTitle>
             <CardDescription>
-              Desbloqueie recursos avançados e tenha acesso completo à plataforma
+              Desbloqueie recursos avançados e tenha acesso completo à
+              plataforma
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-medium mb-2 text-gray-600">Plano Free (atual)</h4>
+                <h4 className="font-medium mb-2 text-gray-600">
+                  Plano Free (atual)
+                </h4>
                 <ul className="space-y-1 text-sm">
-                  {SUBSCRIPTION_PLANS.FREE.features.slice(0, 3).map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
+                  {SUBSCRIPTION_PLANS.FREE.features
+                    .slice(0, 3)
+                    .map((feature, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        {feature}
+                      </li>
+                    ))}
                 </ul>
               </div>
-              
+
               <div>
                 <h4 className="font-medium mb-2 text-primary">Plano Premium</h4>
                 <ul className="space-y-1 text-sm">
-                  {SUBSCRIPTION_PLANS.PREMIUM.features.slice(1, 4).map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <Crown className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
+                  {SUBSCRIPTION_PLANS.PREMIUM.features
+                    .slice(1, 4)
+                    .map((feature, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <Crown className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                        {feature}
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>
@@ -219,10 +250,11 @@ export default function SubscriptionPage() {
                 <div>
                   <p className="font-medium">Upgrade para Premium</p>
                   <p className="text-sm text-muted-foreground">
-                    {formatPrice(SUBSCRIPTION_PLANS.PREMIUM.price)}/mês • 14 dias grátis
+                    {formatPrice(SUBSCRIPTION_PLANS.PREMIUM.price)}/mês • 14
+                    dias grátis
                   </p>
                 </div>
-                <Button 
+                <Button
                   onClick={handleUpgrade}
                   className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90"
                 >
@@ -241,11 +273,12 @@ export default function SubscriptionPage() {
           <CardHeader>
             <CardTitle>Gerenciar Assinatura</CardTitle>
             <CardDescription>
-              Acesse o portal do cliente para gerenciar seu plano e forma de pagamento
+              Acesse o portal do cliente para gerenciar seu plano e forma de
+              pagamento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
+            <Button
               onClick={handleManageSubscription}
               variant="outline"
               className="w-full md:w-auto"
@@ -254,11 +287,12 @@ export default function SubscriptionPage() {
               Abrir Portal do Cliente
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              No portal você pode atualizar sua forma de pagamento, baixar faturas e cancelar sua assinatura.
+              No portal você pode atualizar sua forma de pagamento, baixar
+              faturas e cancelar sua assinatura.
             </p>
           </CardContent>
         </Card>
       )}
     </div>
-  )
+  );
 }

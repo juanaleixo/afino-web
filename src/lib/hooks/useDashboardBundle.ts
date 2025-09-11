@@ -91,12 +91,119 @@ const defaultData: DashboardData = {
   timestamp: 0
 }
 
+// Cache persistente com sessionStorage e TTL
+interface CacheEntry {
+  data: DashboardData
+  essentialTimestamp: number
+  timelineTimestamp: number
+}
+
+const ESSENTIAL_TTL = 2 * 60 * 1000 // 2 minutos
+const TIMELINE_TTL = 5 * 60 * 1000   // 5 minutos
+const CACHE_KEY_PREFIX = 'dashboard_cache_'
+
+function getCacheKey(userId: string, date?: string): string {
+  return `${CACHE_KEY_PREFIX}${userId}:${date || 'current'}`
+}
+
+function getCachedData(userId: string, date?: string): { 
+  data: DashboardData | null
+  essentialValid: boolean
+  timelineValid: boolean
+} {
+  try {
+    const key = getCacheKey(userId, date)
+    const cached = sessionStorage.getItem(key)
+    
+    if (!cached) {
+      return { data: null, essentialValid: false, timelineValid: false }
+    }
+    
+    const entry: CacheEntry = JSON.parse(cached)
+    const now = Date.now()
+    const essentialValid = (now - entry.essentialTimestamp) < ESSENTIAL_TTL
+    const timelineValid = (now - entry.timelineTimestamp) < TIMELINE_TTL
+    
+    if (!essentialValid && !timelineValid) {
+      sessionStorage.removeItem(key)
+      return { data: null, essentialValid: false, timelineValid: false }
+    }
+    
+    return { data: entry.data, essentialValid, timelineValid }
+  } catch (error) {
+    console.warn('Error reading from cache:', error)
+    return { data: null, essentialValid: false, timelineValid: false }
+  }
+}
+
+function setCachedData(
+  userId: string, 
+  data: DashboardData, 
+  date?: string, 
+  type: 'essential' | 'timeline' | 'both' = 'both'
+) {
+  try {
+    const key = getCacheKey(userId, date)
+    const now = Date.now()
+    
+    let entry: CacheEntry
+    let existing: CacheEntry | null = null
+    
+    // Tentar ler dados existentes
+    try {
+      const cachedData = sessionStorage.getItem(key)
+      if (cachedData) {
+        existing = JSON.parse(cachedData)
+      }
+    } catch (e) {
+      console.warn('Error reading existing cache:', e)
+    }
+    
+    if (existing && type === 'timeline') {
+      // Apenas timeline
+      entry = {
+        ...existing,
+        data: {
+          ...existing.data,
+          monthly_series: data.monthly_series,
+          daily_series: data.daily_series,
+          timestamp: data.timestamp
+        },
+        timelineTimestamp: now
+      }
+    } else if (existing && type === 'essential') {
+      // Apenas essential, mantém timeline
+      entry = {
+        ...existing,
+        data: {
+          ...data,
+          monthly_series: existing.data.monthly_series,
+          daily_series: existing.data.daily_series
+        },
+        essentialTimestamp: now
+      }
+    } else {
+      // Nova entrada ou ambos
+      entry = {
+        data,
+        essentialTimestamp: now,
+        timelineTimestamp: type === 'essential' ? (existing?.timelineTimestamp || 0) : now
+      }
+    }
+    
+    sessionStorage.setItem(key, JSON.stringify(entry))
+  } catch (error) {
+    console.warn('Error saving to cache:', error)
+  }
+}
+
 export function useDashboardBundle(date?: string) {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardData>(defaultData)
   const [isLoading, setIsLoading] = useState(true)
   const [timelineLoading, setTimelineLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   const loadEssentialData = useCallback(async () => {
     if (!user?.id) {
@@ -107,12 +214,21 @@ export function useDashboardBundle(date?: string) {
     }
 
     try {
-      setIsLoading(true)
       setError(null)
-
-      console.log('Loading essential dashboard data for user:', user.id)
-
       const targetDate = date || new Date().toISOString().split('T')[0]!
+
+      // Verificar cache primeiro
+      const cached = getCachedData(user.id, date)
+      
+      if (cached.essentialValid) {
+        console.log('📦 Using cached essential data for user:', user.id)
+        setData(cached.data!)
+        setIsLoading(false)
+        return cached.data!.user_context?.is_premium || false
+      }
+
+      setIsLoading(true)
+      console.log('🔄 Loading essential dashboard data for user:', user.id)
 
       // Fast essential data call
       const { data: essentialData, error: essentialError } = await supabase.rpc('api_dashboard_essential', { 
@@ -125,21 +241,32 @@ export function useDashboardBundle(date?: string) {
       }
 
       if (essentialData) {
-        console.log('Essential dashboard data loaded successfully:', {
+        console.log('✅ Essential dashboard data loaded successfully:', {
           user: essentialData.user_context?.user_id,
           holdings_count: essentialData.holdings?.length || 0,
           portfolio_value: essentialData.portfolio_stats?.total_value || 0
         })
         
-        // Set essential data with empty timeline initially
-        const initialData: DashboardData = {
-          ...essentialData,
+        // Set essential data with existing timeline if available
+        const existingTimeline = cached.timelineValid ? {
+          monthly_series: cached.data!.monthly_series,
+          daily_series: cached.data!.daily_series
+        } : {
           monthly_series: [],
           daily_series: []
         }
         
+        const initialData: DashboardData = {
+          ...essentialData,
+          ...existingTimeline
+        }
+        
         setData(initialData)
-        setIsLoading(false) // Essential data loaded
+        setIsLoading(false)
+        
+        // Cache essential data
+        setCachedData(user.id, initialData, date, 'essential')
+        
         return essentialData.user_context?.is_premium || false
       } else {
         console.log('No essential dashboard data returned, using default')
@@ -159,12 +286,30 @@ export function useDashboardBundle(date?: string) {
   }, [user?.id, date])
 
   const loadTimelineData = useCallback(async (isPremium: boolean) => {
+    if (!user?.id) {
+      setTimelineLoading(false)
+      return
+    }
+
     try {
-      setTimelineLoading(true)
-
-      console.log('Loading timeline data for premium user:', isPremium)
-
       const targetDate = date || new Date().toISOString().split('T')[0]!
+      
+      // Verificar cache de timeline primeiro
+      const cached = getCachedData(user.id, date)
+      
+      if (cached.timelineValid) {
+        console.log('📦 Using cached timeline data for user:', user.id)
+        setData(prevData => ({
+          ...prevData,
+          monthly_series: cached.data!.monthly_series,
+          daily_series: cached.data!.daily_series
+        }))
+        setTimelineLoading(false)
+        return
+      }
+
+      setTimelineLoading(true)
+      console.log('🔄 Loading timeline data for premium user:', isPremium)
 
       // Separate timeline data call
       const { data: timelineData, error: timelineError } = await supabase.rpc('api_dashboard_timeline', { 
@@ -179,17 +324,27 @@ export function useDashboardBundle(date?: string) {
       }
 
       if (timelineData) {
-        console.log('Timeline data loaded successfully:', {
+        console.log('✅ Timeline data loaded successfully:', {
           monthly_points: timelineData.monthly_series?.length || 0,
           daily_points: timelineData.daily_series?.length || 0
         })
         
         // Merge timeline data with existing data
-        setData(prevData => ({
-          ...prevData,
+        const updatedData = {
           monthly_series: timelineData.monthly_series || [],
-          daily_series: timelineData.daily_series || []
-        }))
+          daily_series: timelineData.daily_series || [],
+          timestamp: timelineData.timestamp || Date.now()
+        }
+        
+        // Update state and cache in one operation
+        setData(prevData => {
+          const newData = {
+            ...prevData,
+            ...updatedData
+          }
+          setCachedData(user.id, newData, date, 'timeline')
+          return newData
+        })
       }
     } catch (err) {
       console.error('Error loading timeline data:', err)
@@ -197,7 +352,7 @@ export function useDashboardBundle(date?: string) {
     } finally {
       setTimelineLoading(false)
     }
-  }, [date])
+  }, [user?.id, date])
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -212,19 +367,94 @@ export function useDashboardBundle(date?: string) {
     }
   }, [loadEssentialData, loadTimelineData])
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((forceRefresh = false) => {
+    if (forceRefresh && user?.id) {
+      // Limpar cache antes de recarregar
+      const key = getCacheKey(user.id, date)
+      try {
+        sessionStorage.removeItem(key)
+        console.log('🗑️ Cache cleared for forced refresh')
+      } catch (error) {
+        console.warn('Error clearing cache:', error)
+      }
+    }
+    setHasLoadedOnce(false) // Reset flag para permitir reload
     loadDashboardData()
-  }, [loadDashboardData])
+  }, [loadDashboardData, user?.id, date])
+
+  const clearCache = useCallback(() => {
+    if (user?.id) {
+      const key = getCacheKey(user.id, date)
+      try {
+        sessionStorage.removeItem(key)
+        console.log('🗑️ Cache cleared manually')
+      } catch (error) {
+        console.warn('Error clearing cache:', error)
+      }
+    }
+  }, [user?.id, date])
+
+  const cleanupExpiredCache = useCallback(() => {
+    try {
+      const keysToRemove: string[] = []
+      
+      // Iterar sobre todas as chaves do sessionStorage
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key?.startsWith(CACHE_KEY_PREFIX)) {
+          try {
+            const cached = sessionStorage.getItem(key)
+            if (cached) {
+              const entry: CacheEntry = JSON.parse(cached)
+              const now = Date.now()
+              const essentialExpired = (now - entry.essentialTimestamp) >= ESSENTIAL_TTL
+              const timelineExpired = (now - entry.timelineTimestamp) >= TIMELINE_TTL
+              
+              // Remove se ambos expiraram
+              if (essentialExpired && timelineExpired) {
+                keysToRemove.push(key)
+              }
+            }
+          } catch (e) {
+            // Se não conseguir parsear, remover entrada corrompida
+            keysToRemove.push(key)
+          }
+        }
+      }
+      
+      // Remover entradas expiradas
+      keysToRemove.forEach(key => {
+        sessionStorage.removeItem(key)
+      })
+      
+      if (keysToRemove.length > 0) {
+        console.log(`🧹 Cleaned up ${keysToRemove.length} expired cache entries`)
+      }
+    } catch (error) {
+      console.warn('Error cleaning up cache:', error)
+    }
+  }, [])
 
   useEffect(() => {
-    loadDashboardData()
-  }, [loadDashboardData])
+    if (!hasLoadedOnce && user?.id) {
+      // Limpeza automática de cache expirado apenas na primeira vez
+      cleanupExpiredCache()
+      loadDashboardData()
+      setHasLoadedOnce(true)
+    }
+  }, [user?.id, date, hasLoadedOnce, cleanupExpiredCache, loadDashboardData])
+
+  // Reset hasLoadedOnce quando user ou date mudar
+  useEffect(() => {
+    setHasLoadedOnce(false)
+  }, [user?.id, date])
 
   return {
     data,
     isLoading, // Essential data loading
     timelineLoading, // Timeline data loading (separate)
     error,
-    refresh
+    refresh,
+    clearCache
   }
 }

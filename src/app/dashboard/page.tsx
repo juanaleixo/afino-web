@@ -269,7 +269,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <div className="text-2xl font-bold text-foreground">
-                      {portfolioStats ? formatBRL(portfolioStats.total_value || portfolioStats.totalValue || 0) : 'R$ 0,00'}
+                      {portfolioStats ? formatBRL(portfolioStats.total_value || 0) : 'R$ 0,00'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {(isPremium ? dailyData : monthlyData).length > 0 && calculate6MonthPerformance().percentage !== 0 ? (

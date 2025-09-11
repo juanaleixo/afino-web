@@ -1,30 +1,47 @@
-'use client'
+"use client";
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
-import { getPlanName, isTrialActive, getTrialDaysRemaining } from '@/lib/utils/subscription-helpers'
-import { useAuth } from '@/lib/auth'
-import { formatPrice, SUBSCRIPTION_PLANS } from '@/lib/stripe'
-import { formatDate } from '@/lib/utils/formatters'
-import { Loader2, Crown, Settings, CreditCard, Calendar, AlertTriangle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useUserContextFromProvider } from "@/contexts/UserContextProvider";
+import {
+  getPlanName,
+  isTrialActive,
+  getTrialDaysRemaining,
+} from "@/lib/utils/subscription-helpers";
+import { useAuth } from "@/lib/auth";
+import { formatPrice, SUBSCRIPTION_PLANS } from "@/lib/stripe";
+import { formatDate } from "@/lib/utils/formatters";
+import {
+  Loader2,
+  Crown,
+  Settings,
+  CreditCard,
+  Calendar,
+  AlertTriangle,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function SubscriptionStatus() {
-  const { userContext, isLoading } = useUserContextFromProvider()
-  const subscription = userContext.subscription
-  const isPremium = userContext.is_premium
-  const { user } = useAuth()
-  const router = useRouter()
+  const { userContext, isLoading } = useUserContextFromProvider();
+  const subscription = userContext.subscription;
+  const isPremium = userContext.is_premium;
+  const { user } = useAuth();
+  const router = useRouter();
 
   const handleUpgradeClick = () => {
     if (user) {
-      router.push('/dashboard/pricing')
+      router.push("/dashboard/pricing");
     } else {
-      window.location.href = '/pricing'
+      window.location.href = "/pricing";
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -33,13 +50,13 @@ export function SubscriptionStatus() {
           <Loader2 className="h-6 w-6 animate-spin" />
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  const planName = getPlanName(subscription)
-  const isOnTrial = isTrialActive(subscription)
-  const trialDays = getTrialDaysRemaining(subscription)
-  
+  const planName = getPlanName(subscription);
+  const isOnTrial = isTrialActive(subscription);
+  const trialDays = getTrialDaysRemaining(subscription);
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -59,17 +76,16 @@ export function SubscriptionStatus() {
               )}
             </CardTitle>
             <CardDescription>
-              {isPremium 
-                ? 'Você tem acesso a todas as funcionalidades premium'
-                : 'Faça upgrade para acessar funcionalidades avançadas'
-              }
+              {isPremium
+                ? "Você tem acesso a todas as funcionalidades premium"
+                : "Faça upgrade para acessar funcionalidades avançadas"}
             </CardDescription>
           </div>
-          <Badge 
-            variant={isPremium ? 'default' : 'secondary'}
-            className={isPremium ? 'bg-yellow-100 text-yellow-800' : ''}
+          <Badge
+            variant={isPremium ? "default" : "secondary"}
+            className={isPremium ? "bg-yellow-100 text-yellow-800" : ""}
           >
-            {isPremium ? 'Premium' : 'Free'}
+            {isPremium ? "Premium" : "Free"}
           </Badge>
         </div>
       </CardHeader>
@@ -84,10 +100,11 @@ export function SubscriptionStatus() {
                 Período de Teste Ativo
               </p>
               <p className="text-sm text-blue-700">
-                {trialDays > 0 
-                  ? `${trialDays} dia${trialDays !== 1 ? 's' : ''} restante${trialDays !== 1 ? 's' : ''}`
-                  : 'Último dia de teste'
-                }
+                {trialDays > 0
+                  ? `${trialDays} dia${trialDays !== 1 ? "s" : ""} restante${
+                      trialDays !== 1 ? "s" : ""
+                    }`
+                  : "Último dia de teste"}
               </p>
             </div>
           </div>
@@ -99,7 +116,8 @@ export function SubscriptionStatus() {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Calendar className="h-4 w-4" />
               <span>
-                Status: <strong className="text-gray-900">{subscription.status}</strong>
+                Status:{" "}
+                <strong className="text-gray-900">{subscription.status}</strong>
               </span>
             </div>
 
@@ -107,10 +125,9 @@ export function SubscriptionStatus() {
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {subscription.cancel_at_period_end 
-                    ? 'Expira em: '
-                    : 'Próxima cobrança: '
-                  }
+                  {subscription.cancel_at_period_end
+                    ? "Expira em: "
+                    : "Próxima cobrança: "}
                   <strong className="text-gray-900">
                     {formatDate(subscription.current_period_end)}
                   </strong>
@@ -140,7 +157,10 @@ export function SubscriptionStatus() {
             Recursos do seu plano:
           </h4>
           <ul className="text-sm text-gray-600 space-y-1">
-            {(isPremium ? SUBSCRIPTION_PLANS.PREMIUM : SUBSCRIPTION_PLANS.FREE).features.map((feature, index) => (
+            {(isPremium
+              ? SUBSCRIPTION_PLANS.PREMIUM
+              : SUBSCRIPTION_PLANS.FREE
+            ).features.map((feature, index) => (
               <li key={index} className="flex items-start gap-2">
                 <span className="text-green-500 mt-0.5">✓</span>
                 {feature}
@@ -152,19 +172,21 @@ export function SubscriptionStatus() {
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-2">
           {!isPremium && (
-            <Button 
-              onClick={handleUpgradeClick}
-              className="w-full"
-            >
+            <Button onClick={handleUpgradeClick} className="w-full">
               <Crown className="h-4 w-4 mr-2" />
               Fazer Upgrade para Premium
             </Button>
           )}
-          
+
           {subscription && (
-            <Button 
-              variant="outline" 
-              onClick={() => window.open('https://billing.stripe.com/p/login/test_6oE9CSaO17Zb9SU144', '_blank')}
+            <Button
+              variant="outline"
+              onClick={() =>
+                window.open(
+                  "https://billing.stripe.com/p/login/test_6oU9AV2R17DJ1vzbiN48000",
+                  "_blank"
+                )
+              }
               className="w-full"
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -174,5 +196,5 @@ export function SubscriptionStatus() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
