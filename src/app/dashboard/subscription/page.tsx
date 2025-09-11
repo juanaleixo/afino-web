@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { SUBSCRIPTION_PLANS, formatPrice } from '@/lib/stripe'
 import { formatDate } from '@/lib/utils/formatters'
 import { 
@@ -20,12 +20,9 @@ import {
 } from 'lucide-react'
 
 export default function SubscriptionPage() {
-  const { 
-    subscription, 
-    isPremium, 
-    isLoading, 
-    error
-  } = useUserPlan()
+  const { userContext, isLoading, error } = useUserContextFromProvider()
+  const isPremium = userContext.is_premium
+  const subscription = userContext.subscription
   
   const currentPlan = isPremium ? SUBSCRIPTION_PLANS.PREMIUM : SUBSCRIPTION_PLANS.FREE
   const isTrialing = subscription?.status === 'trialing'
@@ -115,7 +112,7 @@ export default function SubscriptionPage() {
 
         <CardContent className="space-y-4">
           {/* Trial Information */}
-          {isTrialing && subscription?.trial_end && (
+          {isTrialing && subscription?.current_period_end && (
             <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
@@ -123,7 +120,7 @@ export default function SubscriptionPage() {
                   Período de Teste Ativo
                 </p>
                 <p className="text-sm text-blue-700">
-                  Termina em {formatDate(subscription.trial_end)}
+                  Termina em {formatDate(subscription.current_period_end)}
                 </p>
               </div>
             </div>

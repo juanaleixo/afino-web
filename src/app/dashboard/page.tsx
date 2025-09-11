@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
-import { useUserContext } from "@/lib/hooks/useUserContext"
-import { getPortfolioService } from "@/lib/portfolio"
-import { supabase } from "@/lib/supabase"
+import { useDashboardBundle } from "@/lib/hooks/useDashboardBundle"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -42,404 +40,31 @@ import { formatBRL } from "@/lib/utils/formatters"
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
-  const { userContext } = useUserContext()
-  const isPremium = userContext.is_premium
-  const [isLoading, setIsLoading] = useState(false)
-  const [portfolioStats, setPortfolioStats] = useState<any>(null)
-  const [loadingStats, setLoadingStats] = useState(true)
-  const [miniTimelineData, setMiniTimelineData] = useState<any[]>([])
-  const [loadingMiniTimeline, setLoadingMiniTimeline] = useState(true)
-  const [timelinePreviewData, setTimelinePreviewData] = useState<any>(null)
-  const [loadingTimelinePreview, setLoadingTimelinePreview] = useState(true)
-  const [assetSymbols, setAssetSymbols] = useState<Map<string, string>>(new Map())
-  const [loadingSymbols, setLoadingSymbols] = useState(false)
+  const { data: dashboardData, isLoading, timelineLoading, error, refresh } = useDashboardBundle()
   const [refreshing, setRefreshing] = useState(false)
 
-  // Cached version of last event timestamp (for cache invalidation)
-  const getLastEventTimestamp = async (userId: string): Promise<string> => {
-    const cacheKey = `last_event:${userId}`
-    
-    // Check cache first
-    let cached = null
-    try {
-      cached = window.sessionStorage?.getItem(cacheKey)
-    } catch {}
-    
-    if (cached) {
-      const { timestamp, expires } = JSON.parse(cached)
-      if (Date.now() < expires) {
-        return timestamp
-      }
-    }
+  // Extract data from consolidated bundle (with fallbacks for loading state)
+  const userContext = dashboardData?.user_context || { is_premium: false, last_event_timestamp: null }
+  const isPremium = userContext.is_premium
+  const portfolioStats = dashboardData?.portfolio_stats || { totalValue: 0, total_value: 0, total_assets: 0 }
+  const holdingsData = dashboardData?.holdings || []
+  const monthlyData = dashboardData?.monthly_series || []
+  const dailyData = dashboardData?.daily_series || []
 
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      
-      let timestamp = Date.now().toString()
-      if (!error && data?.length) {
-        const lastModified = new Date(data[0]!.created_at).getTime()
-        timestamp = Math.floor(lastModified / (5 * 60 * 1000)).toString()
-      }
-      
-      // Cache for 1 minute
-      try {
-        window.sessionStorage?.setItem(cacheKey, JSON.stringify({
-          timestamp,
-          expires: Date.now() + 60 * 1000
-        }))
-      } catch {}
-      
-      return timestamp
-    } catch (error) {
-      console.error('Error getting last event timestamp:', error)
-      return Date.now().toString()
-    }
-  }
-
-  // Load asset symbols asynchronously 
-  const loadAssetSymbols = async (assetIds: string[]) => {
-    try {
-      setLoadingSymbols(true)
-      
-      const symbolMap = new Map<string, string>()
-      const globalAssetIds: string[] = []
-      const customAssetIds: string[] = []
-      
-      // Separate global assets (symbols) from custom assets (UUIDs)
-      assetIds.forEach(id => {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-        if (isUUID) {
-          customAssetIds.push(id)
-        } else {
-          globalAssetIds.push(id)
-        }
-      })
-      
-      // Load global assets
-      if (globalAssetIds.length > 0) {
-        const { data: globalData, error: globalError } = await supabase
-          .from('global_assets')
-          .select('symbol')
-          .in('symbol', globalAssetIds)
-        
-        if (!globalError && globalData) {
-          globalData.forEach(asset => {
-            symbolMap.set(asset.symbol, asset.symbol)
-          })
-        }
-      }
-      
-      // Load custom assets
-      if (customAssetIds.length > 0) {
-        const { data: customData, error: customError } = await supabase
-          .from('custom_assets')
-          .select('id, label, symbol')
-          .in('id', customAssetIds)
-        
-        if (!customError && customData) {
-          customData.forEach(asset => {
-            // Use symbol if available, otherwise use label
-            const displayName = asset.symbol || asset.label
-            symbolMap.set(asset.id, displayName)
-          })
-        }
-      }
-      
-      setAssetSymbols(symbolMap)
-    } catch (error) {
-      console.error('Error loading asset symbols:', error)
-    } finally {
-      setLoadingSymbols(false)
-    }
-  }
-
-  // Load symbols when timeline data is available but symbols are not loaded
-  useEffect(() => {
-    if (timelinePreviewData?.holdings?.length > 0 && assetSymbols.size === 0) {
-      loadAssetSymbols(timelinePreviewData.holdings.map((h: any) => h.asset_id))
-    }
-  }, [timelinePreviewData, assetSymbols.size])
-
-  useEffect(() => {
-    if (!user?.id) return
-
-    const loadDashboardStats = async (userId: string) => {
-      try {
-        setLoadingStats(true)
-        const portfolioService = getPortfolioService(userId)
-        const today = new Date().toISOString().split('T')[0]!
-        const stats = await portfolioService.getPortfolioStats(today)
-        setPortfolioStats(stats)
-      } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error)
-        toast.error('Erro ao carregar dados do dashboard')
-      } finally {
-        setLoadingStats(false)
-      }
-    }
-
-    const loadMiniTimeline = async (userId: string) => {
-      try {
-        setLoadingMiniTimeline(true)
-        const portfolioService = getPortfolioService(userId)
-        
-        // Initialize service to ensure premium status is loaded
-        await portfolioService.initialize()
-        
-        // Cache key for 15 minutes
-        const cacheKey = `mini-timeline-${userId}-${Math.floor(Date.now() / (15 * 60 * 1000))}`
-        const cached = sessionStorage.getItem(cacheKey)
-        
-        if (cached) {
-          setMiniTimelineData(JSON.parse(cached))
-          setLoadingMiniTimeline(false)
-          return
-        }
-
-        // Get data based on plan type - always use monthly data for mini timeline
-        // This avoids premium access issues and provides consistent experience
-        const today = new Date()
-        const twelveMonthsAgo = new Date(today)
-        twelveMonthsAgo.setMonth(today.getMonth() - 12)
-        
-        const from = twelveMonthsAgo.toISOString().split('T')[0]!
-        const to = today.toISOString().split('T')[0]!
-        
-        let chartData: any[] = []
-        
-        try {
-          // Try daily data for premium users first
-          if (isPremium) {
-            const sixMonthsAgo = new Date(today)
-            sixMonthsAgo.setMonth(today.getMonth() - 6)
-            const premiumFrom = sixMonthsAgo.toISOString().split('T')[0]!
-            
-            const dailyData = await portfolioService.getDailySeries(premiumFrom, to)
-            chartData = dailyData.map(item => ({
-              date: item.date,
-              value: item.total_value
-            }))
-          } else {
-            throw new Error('User is not premium, using monthly data')
-          }
-        } catch (error) {
-          // Fallback to monthly data for both premium and free users
-          console.log('Using monthly data for mini timeline:', error)
-          const monthlyData = await portfolioService.getMonthlySeries(from, to)
-          chartData = monthlyData.map(item => ({
-            date: item.month_eom,
-            value: item.total_value
-          }))
-        }
-        
-        // Cache for 15 minutes
-        sessionStorage.setItem(cacheKey, JSON.stringify(chartData))
-        setMiniTimelineData(chartData)
-      } catch (error) {
-        console.error('Erro ao carregar mini timeline:', error)
-        // Silent fail - mini timeline is not critical
-      } finally {
-        setLoadingMiniTimeline(false)
-      }
-    }
-
-    loadDashboardStats(user.id as string)
-    
-    // Only load timeline data after premium status is determined
-    if (isPremium !== undefined) {
-      loadMiniTimeline(user.id as string)
-      loadTimelinePreview(user.id as string)
-    }
-  }, [user?.id, isPremium])
-
-  const loadTimelinePreview = async (userId: string) => {
-    try {
-      setLoadingTimelinePreview(true)
-      const portfolioService = getPortfolioService(userId)
-      await portfolioService.initialize()
-      
-      // Smart cache with data versioning - checks for updates
-      const dataVersion = await getLastEventTimestamp(userId)
-      const cacheKey = `timeline-preview-${userId}-v${dataVersion}`
-      const cached = sessionStorage.getItem(cacheKey)
-      
-      if (cached) {
-        setTimelinePreviewData(JSON.parse(cached))
-        setLoadingTimelinePreview(false)
-        return
-      }
-
-      const today = new Date()
-      let timelineData: any = {}
-      
-      if (isPremium) {
-        // Premium: Rich data with performance analysis
-        const sixMonthsAgo = new Date(today)
-        sixMonthsAgo.setMonth(today.getMonth() - 6)
-        const from = sixMonthsAgo.toISOString().split('T')[0]!
-        const to = today.toISOString().split('T')[0]!
-        
-        // Simplified data loading - just the essentials for preview
-        const [dailyData, holdingsData] = await Promise.all([
-          portfolioService.getDailySeries(from, to),
-          portfolioService.getHoldingsAt(to)
-        ])
-        
-        timelineData = {
-          series: dailyData,
-          holdings: holdingsData,
-          performance: [],
-          assets: [],
-          period: { from, to, label: '6 meses' },
-          isPremium: true
-        }
-      } else {
-        // Free: Monthly data with basic stats
-        const twelveMonthsAgo = new Date(today)
-        twelveMonthsAgo.setMonth(today.getMonth() - 12)
-        const from = twelveMonthsAgo.toISOString().split('T')[0]!
-        const to = today.toISOString().split('T')[0]!
-        
-        const [monthlyData, holdingsData] = await Promise.all([
-          portfolioService.getMonthlySeries(from, to),
-          portfolioService.getHoldingsAt(to)
-        ])
-        
-        timelineData = {
-          series: monthlyData,
-          holdings: holdingsData,
-          performance: [],
-          assets: [],
-          period: { from, to, label: '12 meses' },
-          isPremium: false
-        }
-      }
-      
-      // Cache for 60 minutes
-      sessionStorage.setItem(cacheKey, JSON.stringify(timelineData))
-      setTimelinePreviewData(timelineData)
-      
-      // Load asset symbols asynchronously for better UX
-      if (timelineData.holdings?.length > 0) {
-        loadAssetSymbols(timelineData.holdings.map((h: any) => h.asset_id))
-      }
-    } catch (error) {
-      console.error('Erro ao carregar preview da timeline:', error)
-      // Set empty data to avoid loading state forever
-      setTimelinePreviewData({ series: [], holdings: [], performance: [] })
-    } finally {
-      setLoadingTimelinePreview(false)
-    }
-  }
+  // All data loading is now handled by useDashboardBundle hook
 
   const handleSignOut = async () => {
-    setIsLoading(true)
     await signOut()
-    setIsLoading(false)
   }
 
   const handleRefresh = async () => {
-    if (!user?.id || refreshing) return
+    if (refreshing) return
     
     setRefreshing(true)
     
     try {
-      // Clear all sessionStorage cache
-      if (typeof window !== 'undefined') {
-        const keysToDelete = []
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i)
-          if (key && (
-            key.includes(`mini-timeline-${user.id}`) ||
-            key.includes(`timeline-preview-${user.id}`) ||
-            key.includes(`last_event:${user.id}`)
-          )) {
-            keysToDelete.push(key)
-          }
-        }
-        keysToDelete.forEach(key => sessionStorage.removeItem(key))
-        
-        toast.success('Cache limpo com sucesso!')
-      }
-      
-      // Reset all state
-      setPortfolioStats(null)
-      setMiniTimelineData([])
-      setTimelinePreviewData(null)
-      setAssetSymbols(new Map())
-      setLoadingStats(true)
-      setLoadingMiniTimeline(true)
-      setLoadingTimelinePreview(true)
-      
-      // Reload data using existing functions
-      const loadDashboardStats = async (userId: string) => {
-        try {
-          setLoadingStats(true)
-          const portfolioService = getPortfolioService(userId)
-          const today = new Date().toISOString().split('T')[0]!
-          const stats = await portfolioService.getPortfolioStats(today)
-          setPortfolioStats(stats)
-        } catch (error) {
-          console.error('Erro ao carregar estatísticas:', error)
-          toast.error('Erro ao carregar dados do dashboard')
-        } finally {
-          setLoadingStats(false)
-        }
-      }
-      
-      const loadMiniTimelineData = async (userId: string) => {
-        try {
-          setLoadingMiniTimeline(true)
-          const portfolioService = getPortfolioService(userId)
-          await portfolioService.initialize()
-          
-          const today = new Date()
-          let chartData: any[] = []
-          
-          if (isPremium) {
-            const sixMonthsAgo = new Date(today)
-            sixMonthsAgo.setMonth(today.getMonth() - 6)
-            const from = sixMonthsAgo.toISOString().split('T')[0]!
-            const to = today.toISOString().split('T')[0]!
-            const dailyData = await portfolioService.getDailySeries(from, to)
-            chartData = dailyData.map(item => ({
-              date: item.date,
-              value: item.total_value
-            }))
-          } else {
-            const twelveMonthsAgo = new Date(today)
-            twelveMonthsAgo.setMonth(today.getMonth() - 12)
-            const from = twelveMonthsAgo.toISOString().split('T')[0]!
-            const to = today.toISOString().split('T')[0]!
-            const monthlyData = await portfolioService.getMonthlySeries(from, to)
-            chartData = monthlyData.map(item => ({
-              date: item.month_eom,
-              value: item.total_value
-            }))
-          }
-          
-          setMiniTimelineData(chartData)
-        } catch (error) {
-          console.error('Erro ao carregar mini timeline:', error)
-        } finally {
-          setLoadingMiniTimeline(false)
-        }
-      }
-      
-      await loadDashboardStats(user.id)
-      
-      if (isPremium !== undefined) {
-        await Promise.all([
-          loadMiniTimelineData(user.id),
-          loadTimelinePreview(user.id)
-        ])
-      }
-      
+      await refresh()
+      toast.success('Dados atualizados com sucesso!')
     } catch (error) {
       console.error('Erro ao recarregar:', error)
       toast.error('Erro ao recarregar dados')
@@ -449,10 +74,12 @@ export default function DashboardPage() {
   }
 
   const calculate6MonthPerformance = () => {
-    if (miniTimelineData.length < 2) return { percentage: 0, isPositive: true }
+    // Use consolidated data from bundle
+    const timelineData = isPremium ? dailyData : monthlyData
+    if (timelineData.length < 2) return { percentage: 0, isPositive: true }
     
-    const firstValue = miniTimelineData[0]?.value || 0
-    const lastValue = miniTimelineData[miniTimelineData.length - 1]?.value || 0
+    const firstValue = timelineData[0]?.total_value || 0
+    const lastValue = timelineData[timelineData.length - 1]?.total_value || 0
     
     if (firstValue === 0) return { percentage: 0, isPositive: true }
     
@@ -461,27 +88,20 @@ export default function DashboardPage() {
   }
 
   const getLargestHolding = () => {
-    if (!timelinePreviewData?.holdings?.length) return { symbol: 'N/A', percentage: 0, loading: false }
+    if (!holdingsData?.length) return { symbol: 'N/A', percentage: 0, loading: false }
     
-    const holdings = timelinePreviewData.holdings
-    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
+    const totalValue = holdingsData.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
     
     if (totalValue === 0) return { symbol: 'N/A', percentage: 0, loading: false }
     
-    const largest = holdings.reduce((max: any, current: any) => 
+    const largest = holdingsData.reduce((max: any, current: any) => 
       (current.value || 0) > (max.value || 0) ? current : max
     )
     
     const percentage = ((largest.value || 0) / totalValue) * 100
-    const assetId = largest.asset_id || 'N/A'
     
-    // If symbols are loading, show loading state
-    if (loadingSymbols) {
-      return { symbol: '...', percentage: isNaN(percentage) ? 0 : percentage, loading: true }
-    }
-    
-    // Get symbol from loaded symbols, fallback to asset ID
-    const symbol = assetSymbols.get(assetId) || assetId
+    // Use symbol directly from api_holdings_with_assets data
+    const symbol = largest.symbol || largest.asset_id || 'N/A'
     
     return { 
       symbol, 
@@ -491,15 +111,14 @@ export default function DashboardPage() {
   }
 
   const getDiversificationScore = () => {
-    if (!timelinePreviewData?.holdings?.length) return { score: 0, label: 'Sem dados' }
+    if (!holdingsData?.length) return { score: 0, label: 'Sem dados' }
     
-    const holdings = timelinePreviewData.holdings
-    const totalValue = holdings.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
+    const totalValue = holdingsData.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
 
-    if (totalValue === 0 || holdings.length === 0) return { score: 0, label: 'Sem dados' }
+    if (totalValue === 0 || holdingsData.length === 0) return { score: 0, label: 'Sem dados' }
 
     // Calculate Herfindahl-Hirschman Index (HHI) for diversification
-    const hhi = holdings.reduce((sum: number, holding: any) => {
+    const hhi = holdingsData.reduce((sum: number, holding: any) => {
       const weight = (holding.value || 0) / totalValue
       if (isNaN(weight)) return sum
       return sum + (weight * weight)
@@ -518,12 +137,11 @@ export default function DashboardPage() {
   }
 
   const getAssetClassDistribution = () => {
-    if (!timelinePreviewData?.holdings?.length) {
+    if (!holdingsData?.length) {
       return { diversityLabel: 'Sem dados' }
     }
     
-    const holdings = timelinePreviewData.holdings
-    const numAssets = holdings.length
+    const numAssets = holdingsData.length
     
     // Simple diversity calculation based on number of assets
     let diversityLabel = 'Concentrado'
@@ -624,7 +242,6 @@ export default function DashboardPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleSignOut}
-                  disabled={isLoading}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sair
@@ -647,15 +264,15 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loadingStats ? (
+                {isLoading ? (
                   <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
                     <div className="text-2xl font-bold text-foreground">
-                      {portfolioStats ? formatBRL(portfolioStats.totalValue) : 'R$ 0,00'}
+                      {portfolioStats ? formatBRL(portfolioStats.total_value || portfolioStats.totalValue || 0) : 'R$ 0,00'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      {timelinePreviewData?.series && calculate6MonthPerformance().percentage !== 0 ? (
+                      {(isPremium ? dailyData : monthlyData).length > 0 && calculate6MonthPerformance().percentage !== 0 ? (
                         <StatusBadge variant={calculate6MonthPerformance().isPositive ? "success" : "error"} size="sm">
                           {calculate6MonthPerformance().isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                           {calculate6MonthPerformance().isPositive ? '+' : ''}{calculate6MonthPerformance().percentage.toFixed(1)}%
@@ -666,7 +283,7 @@ export default function DashboardPage() {
                         </StatusBadge>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        {timelinePreviewData?.holdings?.length ? `${timelinePreviewData.holdings.length} posições` : 'Sem dados'}
+                        {holdingsData?.length ? `${holdingsData.length} posições` : 'Sem dados'}
                       </span>
                     </div>
                   </>
@@ -682,12 +299,12 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loadingStats ? (
+                {isLoading ? (
                   <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {timelinePreviewData?.holdings?.length || 0}
+                      {holdingsData?.length || 0}
                     </div>
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
                       <AssetBadge assetClass="stock" size="sm" showLabel={false} />
@@ -710,16 +327,12 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loadingTimelinePreview ? (
+                {isLoading ? (
                   <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {getLargestHolding().loading ? (
-                        <span className="animate-pulse text-muted-foreground">...</span>
-                      ) : (
-                        getLargestHolding().symbol
-                      )}
+                      {getLargestHolding().symbol}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <StatusBadge variant="info" size="sm">
@@ -742,7 +355,7 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loadingTimelinePreview ? (
+                {isLoading ? (
                   <LoadingState variant="inline" size="sm" message="Carregando..." />
                 ) : (
                   <>
@@ -773,8 +386,8 @@ export default function DashboardPage() {
               <div>
                 <h2 className="text-2xl font-bold">Evolução Temporal</h2>
                 <p className="text-muted-foreground">
-                  {timelinePreviewData?.period?.label || (isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses')} • 
-                  Visualização {timelinePreviewData?.isPremium ? 'diária' : 'mensal'}
+                  {isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses'} • 
+                  Visualização {isPremium ? 'diária' : 'mensal'}
                 </p>
               </div>
               <Link href="/dashboard/timeline">
@@ -788,14 +401,14 @@ export default function DashboardPage() {
             {/* Main Timeline Chart */}
             <Card className="card-hover animate-fade-in-up delay-300">
               <CardContent className="pt-6">
-                {loadingTimelinePreview ? (
+                {timelineLoading ? (
                   <div className="h-64 flex items-center justify-center">
-                    <LoadingState message="Carregando timeline..." />
+                    <LoadingState message="Carregando gráficos..." />
                   </div>
-                ) : timelinePreviewData?.series?.length > 0 ? (
+                ) : (isPremium ? dailyData : monthlyData).length > 0 ? (
                   <PortfolioChart
-                    monthlyData={timelinePreviewData.isPremium ? [] : timelinePreviewData.series}
-                    dailyData={timelinePreviewData.isPremium ? timelinePreviewData.series : []}
+                    monthlyData={isPremium ? [] : monthlyData}
+                    dailyData={isPremium ? dailyData : []}
                     isLoading={false}
                   />
                 ) : (
@@ -814,49 +427,16 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Quick Analytics */}
-            {timelinePreviewData?.performance?.length > 0 && (
+            {/* Quick Analytics - Hidden for now since performance data is not in bundle yet */}
+            {false && (
               <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Melhor Ativo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <div className="text-lg font-bold text-green-600">
-                        {timelinePreviewData.performance
-                          .sort((a: any, b: any) => b.totalReturnPercent - a.totalReturnPercent)[0]
-                          ?.asset_symbol || 'N/A'}
-                      </div>
-                      <StatusBadge variant="success" size="sm">
-                        +{timelinePreviewData.performance
-                          .sort((a: any, b: any) => b.totalReturnPercent - a.totalReturnPercent)[0]
-                          ?.totalReturnPercent?.toFixed(1) || '0'}%
-                      </StatusBadge>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Total de Ativos</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-lg font-bold">
-                      {timelinePreviewData.performance?.length || timelinePreviewData.holdings?.length || 0}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Volatilidade Média</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-lg font-bold">
-                      {timelinePreviewData.performance?.length > 0
-                        ? (timelinePreviewData.performance.reduce((sum: number, p: any) => sum + p.volatility, 0) / timelinePreviewData.performance.length).toFixed(1)
-                        : '0.0'}%
+                      {holdingsData?.length || 0}
                     </div>
                   </CardContent>
                 </Card>

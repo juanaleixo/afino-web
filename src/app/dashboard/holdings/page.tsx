@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { LoadingState } from "@/components/ui/loading-state"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import { ArrowLeft, Layers, Plus, Minus, TrendingUp, Calendar } from "lucide-react"
-import { useDashboardData } from "@/lib/hooks/useDashboardData"
+import { useDashboardBundle } from "@/lib/hooks/useDashboardBundle"
 import { formatBRL } from "@/lib/utils/formatters"
 import { getAssetClassLabel, getAssetClassColor } from "@/lib/utils/assets"
 
@@ -17,7 +17,7 @@ export default function HoldingsPage() {
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0,10))
   const [filter, setFilter] = useState<'all'|'cash'|'assets'>('all')
   
-  const { data: dashboardData, isLoading, error } = useDashboardData(date)
+  const { data: dashboardData, isLoading, error } = useDashboardBundle()
   const holdings = dashboardData?.holdings || []
 
   const filtered = useMemo(() => {

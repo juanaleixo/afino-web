@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { useAuth } from '@/lib/auth'
 import { Crown, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -14,7 +14,8 @@ interface UpgradePromptProps {
 }
 
 export function UpgradePrompt({ feature, compact = false, className }: UpgradePromptProps) {
-  const { isPremium } = useUserPlan()
+  const { userContext } = useUserContextFromProvider()
+  const isPremium = userContext.is_premium
   const { user } = useAuth()
   const router = useRouter()
 

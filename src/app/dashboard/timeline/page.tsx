@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Crown, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
-import { useUserContext } from "@/lib/hooks/useUserContext"
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { benchmarkService } from "@/lib/benchmarks"
 import { FadeIn } from "@/components/ui/fade-in"
 import { CardSkeleton } from "@/components/ui/skeleton-loader"
@@ -24,7 +24,7 @@ import {
 
 export default function TimelinePage() {
   const { user } = useAuth()
-  const { userContext } = useUserContext()
+  const { userContext } = useUserContextFromProvider()
   const isPremium = userContext.is_premium
   const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
   const [benchmarkData, setBenchmarkData] = useState<any>(null)

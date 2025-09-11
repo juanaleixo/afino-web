@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/auth'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { supabase } from '@/lib/supabase'
 
 export function UserDebugInfo() {
   const { user } = useAuth()
-  const { isPremium, plan } = useUserPlan()
+  const { userContext } = useUserContextFromProvider()
+  const isPremium = userContext.is_premium
+  const plan = userContext.plan
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 

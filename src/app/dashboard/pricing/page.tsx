@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StripePricingTable } from '@/components/stripe/StripePricingTable'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { SUBSCRIPTION_PLANS } from '@/lib/stripe'
 import { 
   Crown, 
@@ -19,7 +19,9 @@ import {
 import Link from 'next/link'
 
 export default function DashboardPricingPage() {
-  const { subscription, isPremium, isLoading } = useUserPlan()
+  const { userContext, isLoading } = useUserContextFromProvider()
+  const isPremium = userContext.is_premium
+  const subscription = userContext.subscription
 
   if (isLoading) {
     return (

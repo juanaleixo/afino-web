@@ -3,10 +3,10 @@
  * Em vez de fazer queries separadas para accounts, usa os dados já disponíveis
  */
 
-import { useUserContext } from './useUserContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 
 export function useAccounts() {
-  const { userContext, isLoading, error } = useUserContext()
+  const { userContext, isLoading, error } = useUserContextFromProvider()
   
   return {
     accounts: userContext.accounts || [],
@@ -15,14 +15,3 @@ export function useAccounts() {
   }
 }
 
-// Hook para compatibilidade com componentes que esperam o formato antigo
-export function useAccountsLegacy() {
-  const { accounts, isLoading, error } = useAccounts()
-  
-  return {
-    data: accounts,
-    isLoading,
-    error,
-    refetch: () => {} // No-op pois dados vêm do contexto
-  }
-}

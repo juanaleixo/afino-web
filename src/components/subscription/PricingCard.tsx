@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { formatPrice, SUBSCRIPTION_PLANS, type PlanType } from '@/lib/stripe'
 import { Crown, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,7 +15,8 @@ interface PricingCardProps {
 }
 
 export function PricingCard({ planType, popular = false, className }: PricingCardProps) {
-  const { isPremium, isLoading: contextLoading } = useUserPlan()
+  const { userContext, isLoading: contextLoading } = useUserContextFromProvider()
+  const isPremium = userContext.is_premium
   
   const plan = SUBSCRIPTION_PLANS[planType]
   const isCurrent = (planType === 'PREMIUM' && isPremium) || (planType === 'FREE' && !isPremium)

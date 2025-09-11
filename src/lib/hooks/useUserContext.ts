@@ -88,7 +88,12 @@ export function useUserContext() {
         setUserContext(defaultContext)
       }
     } catch (err) {
-      console.error('Error loading user context:', err)
+      console.error('Error loading user context:', {
+        error: err,
+        message: err instanceof Error ? err.message : 'Unknown error',
+        userId: user?.id,
+        stack: err instanceof Error ? err.stack : undefined
+      })
       setError(err instanceof Error ? err.message : 'Failed to load user context')
       setUserContext(defaultContext)
     } finally {
@@ -110,19 +115,3 @@ export function useUserContext() {
   }
 }
 
-// Helper functions para compatibilidade
-export function useIsPremium() {
-  const { userContext, isLoading } = useUserContext()
-  return {
-    isPremium: userContext.is_premium,
-    isLoading
-  }
-}
-
-export function useUserFeatures() {
-  const { userContext, isLoading } = useUserContext()
-  return {
-    features: userContext.features,
-    isLoading
-  }
-}

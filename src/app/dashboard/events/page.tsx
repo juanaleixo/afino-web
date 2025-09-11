@@ -11,7 +11,7 @@ import { EventTableRow } from "@/components/dashboard/event-table-row"
 import { useDebounce } from "@/hooks/useDebounce"
 import { EventsTimeline } from "@/components/dashboard/events-timeline"
 import { AdvancedFilters } from "@/components/dashboard/advanced-filters"
-import { useUserContext } from "@/lib/hooks/useUserContext"
+import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
 import { formatBRL } from "@/lib/utils/formatters"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,7 +41,7 @@ export default function EventsPage() {
   const [portfolioToday, setPortfolioToday] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
   const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
-  const { userContext } = useUserContext()
+  const { userContext } = useUserContextFromProvider()
   const isPremium = userContext.is_premium
   
   // Advanced filters state

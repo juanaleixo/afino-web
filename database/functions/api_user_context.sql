@@ -55,7 +55,7 @@ BEGIN
   FROM user_profiles up
   WHERE up.user_id = current_user_id;
 
-  -- Build complete user context
+  -- Build complete user context (separating events and accounts queries)
   SELECT json_build_object(
     'user_id', current_user_id,
     'plan', CASE WHEN is_premium THEN 'premium' ELSE 'free' END,
@@ -69,21 +69,29 @@ BEGIN
       'multipleAccounts', COALESCE(is_premium, false),
       'apiAccess', COALESCE(is_premium, false)
     ),
-    'last_event_timestamp', EXTRACT(EPOCH FROM MAX(e.created_at))::bigint,
-    'total_events', COUNT(e.id),
-    'accounts', COALESCE(
-      json_agg(DISTINCT jsonb_build_object(
-        'id', a.id,
-        'label', a.label
-      )) FILTER (WHERE a.id IS NOT NULL),
-      '[]'::json
+    'last_event_timestamp', (
+      SELECT EXTRACT(EPOCH FROM MAX(created_at))::bigint
+      FROM events 
+      WHERE user_id = current_user_id
+    ),
+    'total_events', (
+      SELECT COUNT(*)
+      FROM events 
+      WHERE user_id = current_user_id
+    ),
+    'accounts', (
+      SELECT COALESCE(
+        json_agg(jsonb_build_object(
+          'id', id,
+          'label', label
+        )),
+        '[]'::json
+      )
+      FROM accounts
+      WHERE user_id = current_user_id
     )
   )
-  INTO result
-  FROM events e
-  FULL OUTER JOIN accounts a ON a.user_id = current_user_id
-  WHERE e.user_id = current_user_id OR e.user_id IS NULL
-  GROUP BY current_user_id;
+  INTO result;
 
   -- Ensure we always return a result
   IF result IS NULL THEN
