@@ -362,7 +362,10 @@ async function upsertSubscription(subscriptionData: {
   await updateUserSubscription(subscriptionData.user_id, {
     stripe_subscription_id: subscriptionData.stripe_subscription_id,
     stripe_customer_id: subscriptionData.stripe_customer_id,
-    status: subscriptionData.status
+    status: subscriptionData.status,
+    cancel_at_period_end: subscriptionData.cancel_at_period_end,
+    canceled_at: subscriptionData.canceled_at,
+    current_period_end: subscriptionData.current_period_end
   })
 
   console.log(`✅ Subscription processed: ${subscriptionData.stripe_subscription_id}`)
