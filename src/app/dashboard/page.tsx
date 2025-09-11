@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
-import { useUserPlan } from "@/contexts/UserPlanContext"
+import { useUserContext } from "@/lib/hooks/useUserContext"
 import { getPortfolioService } from "@/lib/portfolio"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -38,10 +38,12 @@ import { toast } from "sonner"
 import ThemeSwitch from "@/components/ThemeSwitch"
 import { getAssetDisplayLabel } from "@/lib/utils/assets"
 import { PatrimonyFAB } from "@/components/ui/patrimony-fab"
+import { formatBRL } from "@/lib/utils/formatters"
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
-  const { isPremium } = useUserPlan()
+  const { userContext } = useUserContext()
+  const isPremium = userContext.is_premium
   const [isLoading, setIsLoading] = useState(false)
   const [portfolioStats, setPortfolioStats] = useState<any>(null)
   const [loadingStats, setLoadingStats] = useState(true)
@@ -446,13 +448,6 @@ export default function DashboardPage() {
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value)
-  }
-
   const calculate6MonthPerformance = () => {
     if (miniTimelineData.length < 2) return { percentage: 0, isPositive: true }
     
@@ -657,7 +652,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     <div className="text-2xl font-bold text-foreground">
-                      {portfolioStats ? formatCurrency(portfolioStats.totalValue) : 'R$ 0,00'}
+                      {portfolioStats ? formatBRL(portfolioStats.totalValue) : 'R$ 0,00'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {timelinePreviewData?.series && calculate6MonthPerformance().percentage !== 0 ? (
@@ -867,31 +862,6 @@ export default function DashboardPage() {
                 </Card>
               </div>
             )}
-
-            {/* Ações Rápidas */}
-            {/* <div className="animate-fade-in-up delay-450">
-              <h3 className="text-lg font-semibold mb-4">Ações Rápidas</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Link href="/dashboard/patrimony/new?operation=add_existing">
-                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors duration-200 group">
-                    <Plus className="h-6 w-6" />
-                    <span className="font-medium text-center leading-tight">Adicionar Patrimônio Existente</span>
-                  </Button>
-                </Link>
-                <Link href="/dashboard/patrimony/new?operation=money_in">
-                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-green-600 text-green-600 hover:bg-green-600 hover:text-white transition-colors duration-200 group">
-                    <ArrowDown className="h-6 w-6" />
-                    <span className="font-medium text-center leading-tight">Registrar Entrada</span>
-                  </Button>
-                </Link>
-                <Link href="/dashboard/patrimony/new?operation=update_value">
-                  <Button variant="outline" className="w-full h-auto p-4 flex-col gap-3 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors duration-200 group">
-                    <Edit3 className="h-6 w-6" />
-                    <span className="font-medium text-center leading-tight">Atualizar Valores</span>
-                  </Button>
-                </Link>
-              </div>
-            </div> */}
           </div>
 
         </main>
@@ -901,4 +871,4 @@ export default function DashboardPage() {
       </div>
     </ProtectedRoute>
   )
-} 
+}

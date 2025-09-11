@@ -1,4 +1,4 @@
-import { subscriptionService } from './services/subscription-service'
+import { supabase } from './supabase'
 
 /**
  * Centralized Premium Access Control
@@ -13,7 +13,7 @@ export class PremiumGuard {
   private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   /**
-   * Check if user has premium access (cached for performance)
+   * Check if user has premium access using api_user_context (cached for performance)
    */
   static async isPremium(userId: string): Promise<boolean> {
     const now = Date.now()
@@ -26,8 +26,14 @@ export class PremiumGuard {
     }
 
     try {
-      // Use subscription service as single source of truth
-      const isPremium = await subscriptionService.isPremiumUser(userId)
+      // Use api_user_context as single source of truth
+      const { data, error } = await supabase.rpc('api_user_context')
+      
+      if (error) {
+        throw error
+      }
+
+      const isPremium = data?.is_premium || false
       
       // Update cache
       this.userPremiumStatus.set(userId, isPremium)
@@ -113,7 +119,7 @@ export class PremiumGuard {
   }
 
   /**
-   * Get premium features list for user
+   * Get premium features list for user using api_user_context
    */
   static async getFeatures(userId: string): Promise<{
     dailyData: boolean
@@ -123,15 +129,32 @@ export class PremiumGuard {
     multipleAccounts: boolean
     apiAccess: boolean
   }> {
-    const isPremium = await this.isPremium(userId)
-    
-    return {
-      dailyData: isPremium,
-      customPeriods: isPremium,
-      advancedFilters: isPremium,
-      projections: isPremium,
-      multipleAccounts: isPremium,
-      apiAccess: isPremium
+    try {
+      // Use api_user_context as single source of truth
+      const { data, error } = await supabase.rpc('api_user_context')
+      
+      if (error) {
+        throw error
+      }
+
+      return data?.features || {
+        dailyData: false,
+        customPeriods: false,
+        advancedFilters: false,
+        projections: false,
+        multipleAccounts: false,
+        apiAccess: false
+      }
+    } catch (error) {
+      console.warn('Error getting features, defaulting to free features:', error)
+      return {
+        dailyData: false,
+        customPeriods: false,
+        advancedFilters: false,
+        projections: false,
+        multipleAccounts: false,
+        apiAccess: false
+      }
     }
   }
 }

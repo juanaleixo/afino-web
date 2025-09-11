@@ -131,3 +131,30 @@ SELECT create_daily_positions_partition(CURRENT_DATE);
 - Faça backup antes de aplicar mudanças em produção
 - Scripts são idempotentes (seguros para re-execução)
 - Siga a ordem recomendada para evitar dependências
+
+## 🔗 Funções de API (estado atual)
+
+- Ativas: conjunto enxuto e padronizado
+  - `public.api_user_context()`
+  - `public.api_holdings_with_assets(p_date date DEFAULT CURRENT_DATE)`
+  - `public.api_holdings_accounts(p_date date)` — usa a última data disponível ≤ `p_date`
+  - `public.api_assets_batch(p_asset_symbols text[])`
+  - `public.api_portfolio_daily(p_from date, p_to date)`
+  - `public.api_portfolio_daily_accounts(p_from date, p_to date)`
+  - `public.api_portfolio_monthly(p_from date, p_to date)`
+  - `public.api_portfolio_summary(p_date date DEFAULT CURRENT_DATE)`
+
+- Seguras (baixo nível para usos específicos)
+  - `public.get_holdings_secure()`
+  - `public.get_portfolio_value_daily_secure()`
+
+- Removidas/obsoletas (substituídas)
+  - `public.api_holdings_at(p_date date)` → use `api_holdings_with_assets()`
+  - `public.api_holdings_detailed_at(p_date date)` → use `api_holdings_with_assets()`
+  - `public.api_positions_daily_by_asset(p_asset uuid, p_from date, p_to date)` → consolidado nos endpoints de portfolio e holdings
+  - `public.api_positions_daily_by_account(p_account uuid, p_asset uuid, p_from date, p_to date)` → consolidado nos endpoints de portfolio e holdings
+
+Racional:
+- Evitar duplicidade e inconsistências (p.ex. data exata vs. última data disponível)
+- Centralizar enriquecimento de ativos em `api_holdings_with_assets`
+- Manter endpoints por faixa de datas para gráficos (`portfolio_*`)

@@ -11,7 +11,8 @@ import { EventTableRow } from "@/components/dashboard/event-table-row"
 import { useDebounce } from "@/hooks/useDebounce"
 import { EventsTimeline } from "@/components/dashboard/events-timeline"
 import { AdvancedFilters } from "@/components/dashboard/advanced-filters"
-import { useUserPlan } from "@/contexts/UserPlanContext"
+import { useUserContext } from "@/lib/hooks/useUserContext"
+import { formatBRL } from "@/lib/utils/formatters"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -40,7 +41,8 @@ export default function EventsPage() {
   const [portfolioToday, setPortfolioToday] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
   const [accounts, setAccounts] = useState<Array<{ id: string; label: string }>>([])
-  const { isPremium } = useUserPlan()
+  const { userContext } = useUserContext()
+  const isPremium = userContext.is_premium
   
   // Advanced filters state
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -325,7 +327,6 @@ export default function EventsPage() {
     },
   ]
 
-  const formatBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
 
   const isCashAsset = (ev: EventWithRelations) => {
     const sym = ev.global_assets?.symbol?.toUpperCase?.()

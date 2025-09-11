@@ -124,20 +124,23 @@ export function UserPlanProvider({ children }: UserPlanProviderProps) {
         cache.delete(`user_plan_data:${user.id}`)
       }
 
-      // Use PremiumGuard for consistent premium checking
-      const [isPremium, subscription, features] = await Promise.all([
-        PremiumGuard.isPremium(user.id),
-        subscriptionService.getUserSubscription(user.id),
-        PremiumGuard.getFeatures(user.id)
-      ])
+      // Use api_user_context as single source of truth
+      const { data: userContextData, error: contextError } = await supabase.rpc('api_user_context')
       
-      const plan = isPremium ? 'premium' : 'free'
-      
+      if (contextError) {
+        throw contextError
+      }
+
+      if (!userContextData) {
+        throw new Error('No user context data returned')
+      }
+
+      // Map api_user_context format to UserPlanData format
       setUserPlanData({
-        plan,
-        isPremium,
-        subscription,
-        features,
+        plan: userContextData.plan,
+        isPremium: userContextData.is_premium,
+        subscription: userContextData.subscription,
+        features: userContextData.features,
         isLoading: false,
         error: null
       })

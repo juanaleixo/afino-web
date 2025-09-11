@@ -41,7 +41,7 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { getAssetDisplayLabel } from "@/lib/utils/assets"
-import { formatCurrency, formatDate } from "@/lib/utils/format"
+import { formatCurrency, formatDate } from "@/lib/utils/formatters"
 
 interface TransactionEvent {
   id: string

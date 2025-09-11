@@ -46,6 +46,7 @@ export function StripePricingTable({
 
 // TypeScript declaration for the custom element
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
       'stripe-pricing-table': {

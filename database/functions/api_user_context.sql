@@ -39,10 +39,16 @@ BEGIN
     (up.subscription_status = 'active' AND (up.premium_expires_at IS NULL OR up.premium_expires_at > now())),
     CASE WHEN up.subscription_status = 'active' THEN
       json_build_object(
+        'id', up.stripe_subscription_id,
+        'user_id', current_user_id,
         'status', up.subscription_status,
         'stripe_customer_id', up.stripe_customer_id,
         'stripe_subscription_id', up.stripe_subscription_id,
-        'premium_expires_at', up.premium_expires_at
+        'premium_expires_at', up.premium_expires_at,
+        'current_period_end', up.premium_expires_at,
+        'cancel_at_period_end', false,
+        'created_at', COALESCE(up.created_at, now())::text,
+        'updated_at', COALESCE(up.updated_at, now())::text
       )
     ELSE NULL END
   INTO is_premium, subscription_data

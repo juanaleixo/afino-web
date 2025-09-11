@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import { Asset } from "@/lib/supabase"
-import { formatCurrency, parseDecimalInput, formatNumber } from "@/lib/utils/currency"
+import { formatCurrency, parseDecimalInput, formatNumber } from "@/lib/utils/formatters"
 import { Calendar, DollarSign, Hash } from "lucide-react"
 import { OperationType } from "./index"
 

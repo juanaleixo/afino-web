@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useUserPlan } from '@/contexts/UserPlanContext'
+import { useUserContext } from '@/lib/hooks/useUserContext'
 import { getPlanName, isTrialActive, getTrialDaysRemaining } from '@/lib/utils/subscription-helpers'
 import { useAuth } from '@/lib/auth'
 import { formatPrice, SUBSCRIPTION_PLANS } from '@/lib/stripe'
@@ -12,7 +12,9 @@ import { Loader2, Crown, Settings, CreditCard, Calendar, AlertTriangle } from 'l
 import { useRouter } from 'next/navigation'
 
 export function SubscriptionStatus() {
-  const { subscription, isPremium, isLoading } = useUserPlan()
+  const { userContext, isLoading } = useUserContext()
+  const subscription = userContext.subscription
+  const isPremium = userContext.is_premium
   const { user } = useAuth()
   const router = useRouter()
 

@@ -10,6 +10,9 @@ export const formatCurrency = (value: number, currency: string = 'BRL'): string 
   }).format(value)
 }
 
+// Alias for backward compatibility
+export const formatBRL = (value: number): string => formatCurrency(value, 'BRL')
+
 export const formatPercentage = (value: number, precision: number = 2): string => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(precision)}%`
 }
@@ -63,4 +66,28 @@ export const formatDateTimeWithTz = (date: string | Date, options?: Intl.DateTim
 export const formatDateUTC = (date: string | Date): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date
   return dateObj.toISOString().split('T')[0]!
+}
+
+export const parseDecimalInput = (value: string | number | null | undefined): number => {
+  if (value === null || value === undefined || value === '') {
+    return 0
+  }
+
+  if (typeof value === 'number') {
+    return value
+  }
+
+  const cleaned = value.trim()
+  
+  const hasDotBeforeComma = cleaned.lastIndexOf('.') < cleaned.lastIndexOf(',')
+  
+  let normalized: string
+  if (hasDotBeforeComma) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.')
+  } else {
+    normalized = cleaned.replace(/,/g, '')
+  }
+
+  const parsed = parseFloat(normalized)
+  return isNaN(parsed) ? 0 : parsed
 }

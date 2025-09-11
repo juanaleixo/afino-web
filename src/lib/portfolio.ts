@@ -152,13 +152,8 @@ export class PortfolioService {
         // Function doesn't exist yet, ignore and fallback
       }
       
-      // Fallback to original RPC
-      const { data: fallbackData, error: fallbackError } = await supabase.rpc('api_holdings_at', { 
-        p_date: date
-      })
-      if (!fallbackError && Array.isArray(fallbackData)) return fallbackData
-      
-      throw new Error(`RPC failed: ${fallbackError?.message || 'Unknown error'}`)
+      // No fallback needed - api_holdings_with_assets is the primary API
+      throw new Error('Failed to load holdings data: API call failed')
     },
     (userId: string, date: string) => `holdings_with_assets:${userId}:${date}`,
     { ttl: 2 * 60 * 1000 } // 2 minutes
@@ -173,26 +168,7 @@ export class PortfolioService {
     } catch (e) {
       console.warn('Falha RPC otimizada, tentando RPC original:', e)
       
-      // Fallback to original RPC
-      try {
-        const { data: fallbackData, error } = await supabase.rpc('api_holdings_at', { 
-          p_date: date
-        })
-        if (!error && Array.isArray(fallbackData)) {
-          // Enrich with asset metadata
-          const assetSymbols = fallbackData.map(h => h.asset_id)
-          const assetsData = await this.getAssetsBatch(assetSymbols)
-          const assetMap = new Map(assetsData.map(a => [a.symbol, a]))
-          
-          return fallbackData.map(holding => ({
-            ...holding,
-            symbol: assetMap.get(holding.asset_id)?.symbol,
-            class: assetMap.get(holding.asset_id)?.class
-          }))
-        }
-      } catch (fallbackError) {
-        console.warn('Falha RPC api_holdings_at, tentando tabela:', fallbackError)
-      }
+      // API otimizada falhou - usar implementação de fallback direto
     }
     // Fallback: agregando daily_positions_acct por asset_id nesse dia
     // Primeiro, tente achar a última data disponível (<= date) para o usuário
@@ -311,7 +287,8 @@ export class PortfolioService {
   async getUniqueAssets(date: string) {
     // Tentar primeiro a função detalhada
     try {
-      const { data, error } = await supabase.rpc('api_holdings_detailed_at', {
+      // Use api_holdings_with_assets como primary API
+      const { data, error } = await supabase.rpc('api_holdings_with_assets', {
         p_date: date
       })
 
@@ -324,7 +301,7 @@ export class PortfolioService {
         }))
       }
     } catch {
-      console.warn('RPC api_holdings_detailed_at não disponível, usando fallback')
+      console.warn('RPC api_holdings_with_assets falhou, usando fallback')
     }
 
     // Fallback 1: daily_positions_acct do dia
@@ -533,23 +510,10 @@ export class PortfolioService {
   }
 
   private async _getDailyPositionsByAssetInternal(assetId: string, from: string, to: string) {
-    // Tenta RPC
-    try {
-      const { data, error } = await supabase.rpc('api_positions_daily_by_asset', {
-        p_asset: assetId,
-        p_from: from,
-        p_to: to
-      })
-      if (!error && Array.isArray(data)) {
-        return data.map((r: any) => ({
-          date: r.date || r.d || r.day || r.month_eom || r.tstamp?.slice?.(0, 10) || '',
-          units: Number(r.units ?? r.qty ?? r.quantity ?? 0),
-          value: Number(r.value ?? r.total_value ?? r.market_value ?? r.asset_value ?? 0)
-        }))
-      }
-    } catch (e) {
-      console.warn('Falha RPC positions_by_asset, fallback via tabela:', e)
-    }
+    // Use direct table query as api_positions_daily_by_asset doesn't exist
+    console.warn('Using direct table query for positions by asset')
+    
+    // Skip RPC attempt and go directly to fallback
     // Fallback: tabela daily_positions_acct agregada por data
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')
@@ -587,23 +551,10 @@ export class PortfolioService {
 
   private async _getDailyPositionsByAccountAssetInternal(accountId: string, assetId: string, from: string, to: string) {
     // Tenta RPC
-    try {
-      const { data, error } = await supabase.rpc('api_positions_daily_by_account', {
-        p_account: accountId,
-        p_asset: assetId,
-        p_from: from,
-        p_to: to
-      })
-      if (!error && Array.isArray(data)) {
-        return data.map((r: any) => ({
-          date: r.date || r.d || r.day || r.month_eom || r.tstamp?.slice?.(0, 10) || '',
-          units: Number(r.units ?? r.qty ?? r.quantity ?? 0),
-          value: Number(r.value ?? r.total_value ?? r.market_value ?? r.asset_value ?? 0)
-        }))
-      }
-    } catch (e) {
-      console.warn('Falha RPC positions_by_account, fallback via tabela:', e)
-    }
+    // Use direct table query as api_positions_daily_by_account doesn't exist
+    console.warn('Using direct table query for positions by account')
+    
+    // Skip RPC attempt and go directly to fallback
     // Fallback: tabela daily_positions_acct
     const { data: rows, error } = await supabase
       .from('daily_positions_acct')

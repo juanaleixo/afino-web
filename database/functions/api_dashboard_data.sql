@@ -70,31 +70,28 @@ BEGIN
     target_date := p_date;
   END IF;
 
-  -- Build consolidated result with all dashboard data
-  WITH portfolio_summary AS (
+  -- Simplified consolidated query
+  WITH summary_data AS (
     SELECT
+      -- Portfolio stats
       COALESCE(SUM(dp.value), 0) as total_value,
       COUNT(DISTINCT dp.asset_id) as total_assets,
       target_date as date,
-      CASE WHEN COUNT(*) > 0 THEN true ELSE false END as has_data
-    FROM public.daily_positions_acct dp
-    WHERE dp.user_id = current_user_id
-      AND dp.date = target_date
-      AND COALESCE(dp.is_final, true) = true
-      AND dp.value > 0.01
-  ),
-  holdings_data AS (
-    SELECT json_agg(
-      json_build_object(
-        'asset_id', dp.asset_id::text,
-        'symbol', COALESCE(ga.symbol, ca.symbol, dp.asset_id::text),
-        'class', COALESCE(ga.class, ca.class, 'unknown'),
-        'label_ptbr', COALESCE(ga.label_ptbr, ca.label),
-        'units', SUM(dp.units),
-        'value', SUM(dp.value)
-      )
-      ORDER BY SUM(dp.value) DESC
-    ) as holdings
+      COUNT(*) > 0 as has_data,
+      
+      -- Holdings data
+      json_agg(
+        json_build_object(
+          'asset_id', dp.asset_id::text,
+          'symbol', COALESCE(ga.symbol, ca.symbol, dp.asset_id::text),
+          'class', COALESCE(ga.class, ca.class, 'unknown'),
+          'label_ptbr', COALESCE(ga.label_ptbr, ca.label),
+          'units', SUM(dp.units),
+          'value', SUM(dp.value)
+        )
+        ORDER BY SUM(dp.value) DESC
+      ) FILTER (WHERE SUM(dp.value) > 0.01) as holdings
+      
     FROM public.daily_positions_acct dp
     LEFT JOIN public.global_assets ga ON ga.symbol = dp.asset_id::text
     LEFT JOIN public.custom_assets ca ON ca.id::text = dp.asset_id::text AND ca.user_id = current_user_id
@@ -102,38 +99,6 @@ BEGIN
       AND dp.date = target_date
       AND COALESCE(dp.is_final, true) = true
     GROUP BY dp.asset_id, ga.symbol, ga.class, ga.label_ptbr, ca.symbol, ca.class, ca.label
-    HAVING SUM(dp.value) > 0.01
-  ),
-  accounts_data AS (
-    SELECT json_agg(
-      json_build_object(
-        'id', a.id,
-        'label', a.label
-      )
-      ORDER BY a.created_at
-    ) as accounts
-    FROM accounts a
-    WHERE a.user_id = current_user_id
-  ),
-  events_data AS (
-    SELECT 
-      COUNT(*) as total_events,
-      EXTRACT(EPOCH FROM MAX(created_at))::bigint as last_event_timestamp
-    FROM events e
-    WHERE e.user_id = current_user_id
-  ),
-  timeline_preview AS (
-    SELECT json_agg(
-      json_build_object(
-        'date', pvd.date,
-        'total_value', pvd.total_value
-      )
-      ORDER BY pvd.date DESC
-    ) as timeline_data
-    FROM public.portfolio_value_daily pvd
-    WHERE pvd.user_id = current_user_id
-      AND pvd.date >= (CURRENT_DATE - INTERVAL '30 days')
-    LIMIT 7
   )
   SELECT json_build_object(
     'user_context', json_build_object(
@@ -149,26 +114,30 @@ BEGIN
         'multipleAccounts', COALESCE(is_premium, false),
         'apiAccess', COALESCE(is_premium, false)
       ),
-      'last_event_timestamp', ed.last_event_timestamp,
-      'total_events', ed.total_events,
-      'accounts', COALESCE(ad.accounts, '[]'::json)
+      'last_event_timestamp', (SELECT EXTRACT(EPOCH FROM MAX(created_at))::bigint FROM events WHERE user_id = current_user_id),
+      'total_events', (SELECT COUNT(*) FROM events WHERE user_id = current_user_id),
+      'accounts', (SELECT COALESCE(json_agg(json_build_object('id', id, 'label', label)), '[]'::json) FROM accounts WHERE user_id = current_user_id)
     ),
     'portfolio_stats', json_build_object(
-      'total_value', ps.total_value,
-      'total_assets', ps.total_assets,
-      'date', ps.date,
-      'has_data', ps.has_data
+      'total_value', sd.total_value,
+      'total_assets', sd.total_assets,
+      'date', sd.date,
+      'has_data', sd.has_data
     ),
-    'holdings', COALESCE(hd.holdings, '[]'::json),
-    'accounts', COALESCE(ad.accounts, '[]'::json),
-    'timeline_preview', COALESCE(tp.timeline_data, '[]'::json)
+    'holdings', COALESCE(sd.holdings, '[]'::json),
+    'timeline_preview', (
+      SELECT COALESCE(
+        json_agg(json_build_object('date', date, 'total_value', total_value) ORDER BY date DESC), 
+        '[]'::json
+      )
+      FROM public.portfolio_value_daily 
+      WHERE user_id = current_user_id 
+        AND date >= (CURRENT_DATE - INTERVAL '30 days')
+      LIMIT 7
+    )
   )
   INTO result
-  FROM portfolio_summary ps
-  CROSS JOIN holdings_data hd
-  CROSS JOIN accounts_data ad
-  CROSS JOIN events_data ed
-  CROSS JOIN timeline_preview tp;
+  FROM summary_data sd;
 
   RETURN result;
 END;
