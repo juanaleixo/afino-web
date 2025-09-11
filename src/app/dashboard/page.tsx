@@ -57,20 +57,17 @@ export default function DashboardPage() {
     await signOut()
   }
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     if (refreshing) return
     
     setRefreshing(true)
+    refresh(true) // Force refresh to clear cache
+    toast.success('Recarregando dados...')
     
-    try {
-      await refresh()
-      toast.success('Dados atualizados com sucesso!')
-    } catch (error) {
-      console.error('Erro ao recarregar:', error)
-      toast.error('Erro ao recarregar dados')
-    } finally {
+    // Reset refreshing state after a short delay to allow UI updates
+    setTimeout(() => {
       setRefreshing(false)
-    }
+    }, 1000)
   }
 
   const calculate6MonthPerformance = () => {

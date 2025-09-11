@@ -52,8 +52,12 @@ Deno.serve(async (req) => {
     const event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
     console.log(`🎣 Webhook received: ${event.type}`)
 
-    // Store webhook event for idempotency and debugging
-    await storeWebhookEvent(event)
+    // Store webhook event for idempotency and debugging (if table exists)
+    try {
+      await storeWebhookEvent(event)
+    } catch (error) {
+      console.log('ℹ️ Webhook events table not available, continuing without storage')
+    }
 
     // Process the event
     switch (event.type) {
@@ -73,8 +77,12 @@ Deno.serve(async (req) => {
         console.log(`🤷 Unhandled event type: ${event.type}`)
     }
 
-    // Mark webhook as processed
-    await markWebhookAsProcessed(event.id)
+    // Mark webhook as processed (if table exists)
+    try {
+      await markWebhookAsProcessed(event.id)
+    } catch (error) {
+      console.log('ℹ️ Webhook events table not available for marking as processed')
+    }
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { 'Content-Type': 'application/json' },
@@ -90,7 +98,7 @@ Deno.serve(async (req) => {
 async function storeWebhookEvent(event: Stripe.Event) {
   try {
     await supabase
-      .from('pay.webhook_events')
+      .from('webhook_events')
       .insert({
         stripe_event_id: event.id,
         event_type: event.type,
@@ -107,7 +115,7 @@ async function storeWebhookEvent(event: Stripe.Event) {
 
 async function markWebhookAsProcessed(eventId: string) {
   await supabase
-    .from('pay.webhook_events')
+    .from('webhook_events')
     .update({ 
       processed: true,
       processed_at: new Date().toISOString()
@@ -164,11 +172,18 @@ async function findOrCreateUserByEmail(email: string, customerId: string): Promi
       // Use upsert to handle both create and update cases atomically
       console.log(`🔄 Upserting user profile for: ${authUser.id}`)
       
-      // Prepare user data from auth user
+      // Prepare user data from auth user with better fallbacks
       const userData = {
         email: authUser.email || null,
-        full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || null,
-        avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null
+        full_name: authUser.user_metadata?.full_name || 
+                  authUser.user_metadata?.name || 
+                  authUser.user_metadata?.display_name ||
+                  authUser.email?.split('@')[0] || // Use email prefix as fallback
+                  null,
+        avatar_url: authUser.user_metadata?.avatar_url || 
+                    authUser.user_metadata?.picture || 
+                    authUser.user_metadata?.profile_picture ||
+                    null
       }
       
       console.log(`👤 Auth user data:`, userData)
@@ -246,11 +261,39 @@ async function updateUserSubscription(userId: string, subscriptionData: {
   stripe_subscription_id: string
   stripe_customer_id: string
   status: SubscriptionStatus
+  cancel_at_period_end?: boolean
+  canceled_at?: string | number | null
+  current_period_end?: string | number
 }) {
   console.log(`💾 Updating user subscription: ${userId}`)
   
-  const isPremium = ['active', 'trialing'].includes(subscriptionData.status)
-  const premiumExpiresAt = isPremium ? null : new Date().toISOString()
+  // Check if subscription is canceled or will be canceled
+  const isCanceled = subscriptionData.cancel_at_period_end || 
+                    (subscriptionData.canceled_at && subscriptionData.canceled_at !== null)
+  
+  // Premium is active if status is active/trialing AND not canceled
+  const isPremium = ['active', 'trialing'].includes(subscriptionData.status) && !isCanceled
+  
+  // If canceled but still active, set expiry to period end, otherwise immediate
+  let premiumExpiresAt: string | null = null
+  if (isCanceled) {
+    if (subscriptionData.current_period_end) {
+      const periodEnd = typeof subscriptionData.current_period_end === 'number' 
+        ? subscriptionData.current_period_end * 1000 
+        : new Date(subscriptionData.current_period_end).getTime()
+      premiumExpiresAt = new Date(periodEnd).toISOString()
+    } else {
+      premiumExpiresAt = new Date().toISOString()
+    }
+  }
+  
+  console.log(`🔄 Subscription analysis:`)
+  console.log(`   Status: ${subscriptionData.status}`)
+  console.log(`   Cancel at period end: ${subscriptionData.cancel_at_period_end}`)
+  console.log(`   Canceled at: ${subscriptionData.canceled_at}`)
+  console.log(`   Is canceled: ${isCanceled}`)
+  console.log(`   Is premium: ${isPremium}`)
+  console.log(`   Expires at: ${premiumExpiresAt}`)
   
   // Get user data from auth.users to populate profile
   console.log(`📋 Fetching user data for: ${userId}`)
@@ -260,13 +303,22 @@ async function updateUserSubscription(userId: string, subscriptionData: {
     console.error('❌ Error fetching auth user data:', authError)
   }
   
+  // Extract user data with better fallbacks
   const userData = authUser?.user ? {
     email: authUser.user.email || null,
-    full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name || null,
-    avatar_url: authUser.user.user_metadata?.avatar_url || authUser.user.user_metadata?.picture || null
+    full_name: authUser.user.user_metadata?.full_name || 
+              authUser.user.user_metadata?.name || 
+              authUser.user.user_metadata?.display_name ||
+              authUser.user.email?.split('@')[0] || // Use email prefix as fallback
+              null,
+    avatar_url: authUser.user.user_metadata?.avatar_url || 
+                authUser.user.user_metadata?.picture || 
+                authUser.user.user_metadata?.profile_picture ||
+                null
   } : {}
   
-  console.log(`👤 User data found:`, userData)
+  console.log(`👤 User data extracted:`, userData)
+  console.log(`💳 Premium status: ${isPremium ? 'active' : 'expired'}, expires_at: ${premiumExpiresAt}`)
   
   const { error } = await supabase
     .from('user_profiles')
@@ -288,6 +340,32 @@ async function updateUserSubscription(userId: string, subscriptionData: {
   }
 
   console.log(`✅ User subscription updated: ${userId} - ${subscriptionData.status}`)
+}
+
+async function upsertSubscription(subscriptionData: {
+  user_id: string
+  stripe_subscription_id: string
+  stripe_customer_id: string
+  stripe_price_id: string
+  stripe_product_id: string
+  status: SubscriptionStatus
+  current_period_start: string
+  current_period_end: string
+  trial_start?: string
+  trial_end?: string
+  cancel_at_period_end: boolean
+  canceled_at?: string
+}) {
+  console.log(`💾 Processing subscription: ${subscriptionData.stripe_subscription_id}`)
+  
+  // Only update user profile since subscriptions table doesn't exist anymore
+  await updateUserSubscription(subscriptionData.user_id, {
+    stripe_subscription_id: subscriptionData.stripe_subscription_id,
+    stripe_customer_id: subscriptionData.stripe_customer_id,
+    status: subscriptionData.status
+  })
+
+  console.log(`✅ Subscription processed: ${subscriptionData.stripe_subscription_id}`)
 }
 
 
@@ -356,7 +434,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     
     try {
       // Cancel the subscription in Stripe
-      const canceledSubscription = await stripe.subscriptions.update(subscription.id, {
+      await stripe.subscriptions.update(subscription.id, {
         cancel_at_period_end: true,
         metadata: {
           canceled_reason: 'user_not_found_in_auth',
@@ -376,7 +454,6 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 
   const priceId = subscription.items.data[0]?.price.id
-  const productId = subscription.items.data[0]?.price.product as string
   if (!priceId) {
     console.error('❌ No price ID found in subscription')
     return
@@ -385,7 +462,10 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   await updateUserSubscription(userId, {
     stripe_subscription_id: subscription.id,
     stripe_customer_id: subscription.customer as string,
-    status: subscription.status as SubscriptionStatus
+    status: subscription.status as SubscriptionStatus,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+    canceled_at: subscription.canceled_at,
+    current_period_end: subscription.current_period_end
   })
 
   console.log(`✅ Subscription created for user ${userId}: ${subscription.id}`)
