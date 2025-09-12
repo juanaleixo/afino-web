@@ -10,6 +10,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -33,6 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         setUser(session?.user ?? null)
         setLoading(false)
+        
+        // Handle password recovery
+        if (event === 'PASSWORD_RECOVERY') {
+          // Redirect to reset password page
+          window.location.href = '/reset-password'
+        }
       }
     )
 
@@ -59,11 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Use local scope to avoid remote 403 from /auth/v1/logout?scope=global
     try {
       await supabase.auth.signOut({ scope: 'local' as any })
-    } catch (_) {
+    } catch {
       // Ignore; local storage cleanup can fail silently
     } finally {
       setUser(null)
     }
+  }
+
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+    return { error }
   }
 
   const value = {
@@ -72,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signOut,
+    resetPassword,
   }
 
   return (

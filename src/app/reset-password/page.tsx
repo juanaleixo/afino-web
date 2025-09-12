@@ -1,91 +1,81 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useAuth } from "@/lib/auth"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react"
 import Image from "next/image"
+import { supabase } from "@/lib/supabase"
+import { Suspense } from "react"
 
-const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+const resetPasswordSchema = z.object({
+  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Senhas não coincidem",
+  path: ["confirmPassword"],
 })
 
-type LoginForm = z.infer<typeof loginSchema>
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
-function LoginFormComponent() {
+function ResetPasswordComponent() {
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [resetEmailSent, setResetEmailSent] = useState(false)
-  const [isResetting, setIsResetting] = useState(false)
+  const [success, setSuccess] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { signIn, resetPassword } = useAuth()
-  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: "",
       password: "",
+      confirmPassword: "",
     },
   })
 
+  useEffect(() => {
+    // Check if we have the necessary tokens from the URL
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+    
+    if (error) {
+      setError(errorDescription || 'Link inválido ou expirado')
+    }
+  }, [searchParams])
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: ResetPasswordForm) => {
     setIsLoading(true)
     setError("")
 
     try {
-      const { error } = await signIn(data.email, data.password)
+      const { error } = await supabase.auth.updateUser({
+        password: data.password
+      })
       
       if (error) {
         setError(error.message)
       } else {
-        router.push(redirectTo)
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/login")
+        }, 3000)
       }
     } catch {
-      setError("Erro ao fazer login. Tente novamente.")
+      setError("Erro ao redefinir senha. Tente novamente.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleForgotPassword = async () => {
-    const email = form.getValues('email')
-    if (!email) {
-      setError('Por favor, digite seu email primeiro')
-      return
-    }
-
-    setIsResetting(true)
-    setError('')
-
-    try {
-      const { error } = await resetPassword(email)
-      if (error) {
-        setError(error.message)
-      } else {
-        setResetEmailSent(true)
-      }
-    } catch {
-      setError('Erro ao enviar email de recuperação. Tente novamente.')
-    } finally {
-      setIsResetting(false)
-    }
-  }
-
-  if (resetEmailSent) {
+  if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -100,13 +90,12 @@ function LoginFormComponent() {
                   className="h-12 w-12"
                 />
               </div>
-              <h2 className="text-2xl font-bold">Email enviado!</h2>
+              <h2 className="text-2xl font-bold">Senha redefinida!</h2>
               <p className="text-muted-foreground">
-                Enviamos um link para redefinir sua senha para o seu email.
-                Verifique sua caixa de entrada e spam.
+                Sua senha foi redefinida com sucesso. Redirecionando para o login...
               </p>
-              <Button onClick={() => setResetEmailSent(false)} variant="outline" className="w-full">
-                Voltar ao login
+              <Button onClick={() => router.push("/login")} className="w-full">
+                Ir para o login
               </Button>
             </div>
           </CardContent>
@@ -128,9 +117,9 @@ function LoginFormComponent() {
               className="h-16 w-16"
             />
           </div>
-          <CardTitle className="text-2xl text-center">Entrar</CardTitle>
+          <CardTitle className="text-2xl text-center">Redefinir senha</CardTitle>
           <CardDescription className="text-center">
-            Digite suas credenciais para acessar sua conta
+            Digite sua nova senha
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,29 +127,10 @@ function LoginFormComponent() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="seu@email.com"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha</FormLabel>
+                    <FormLabel>Nova Senha</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
@@ -190,8 +160,43 @@ function LoginFormComponent() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar Nova Senha</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          {...field}
+                          disabled={isLoading}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          disabled={isLoading}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {error && (
-                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/50 p-3 rounded-md">
                   {error}
                 </div>
               )}
@@ -200,48 +205,21 @@ function LoginFormComponent() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
+                    Redefinindo...
                   </>
                 ) : (
-                  "Entrar"
+                  "Redefinir senha"
                 )}
               </Button>
             </form>
           </Form>
-
-          <div className="mt-4 text-center">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleForgotPassword}
-              disabled={isResetting}
-              className="text-sm text-muted-foreground hover:text-primary"
-            >
-              {isResetting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                "Esqueci minha senha"
-              )}
-            </Button>
-          </div>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Não tem uma conta? </span>
-            <Link href="/signup" className="text-primary hover:underline">
-              Criar conta
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
   )
 }
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -263,7 +241,7 @@ export default function LoginPage() {
         </Card>
       </div>
     }>
-      <LoginFormComponent />
+      <ResetPasswordComponent />
     </Suspense>
   )
 }

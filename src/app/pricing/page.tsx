@@ -1,6 +1,5 @@
 import Header from "@/components/Header"
 import Link from "next/link"
-import { StripePricingTable } from "@/components/stripe/StripePricingTable"
 
 export default function PricingPage() {
   const plans = [
