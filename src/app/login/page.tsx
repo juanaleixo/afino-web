@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,12 +22,14 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
-export default function LoginPage() {
+function LoginFormComponent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { signIn } = useAuth()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -47,7 +49,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
-        router.push("/dashboard")
+        router.push(redirectTo)
       }
     } catch {
       setError("Erro ao fazer login. Tente novamente.")
@@ -160,4 +162,31 @@ export default function LoginPage() {
       </Card>
     </div>
   )
-} 
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <Image
+                  src="/icon.svg"
+                  alt="Afino Finance"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16"
+                />
+              </div>
+              <p>Carregando...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <LoginFormComponent />
+    </Suspense>
+  )
+}

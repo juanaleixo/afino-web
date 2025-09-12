@@ -76,11 +76,13 @@ export default function DashboardPricingPage() {
             <p className="text-sm text-muted-foreground mb-3">
               Aproveite todos os recursos avançados da plataforma.
             </p>
-            <Link href="/dashboard/subscription">
-              <Button variant="outline" size="sm">
-                Gerenciar Assinatura
-              </Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.open(process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL_URL, '_blank')}
+            >
+              Gerenciar Assinatura
+            </Button>
           </CardContent>
         </Card>
       )}

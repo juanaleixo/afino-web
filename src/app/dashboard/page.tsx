@@ -147,45 +147,7 @@ export default function DashboardPage() {
     
     return { diversityLabel }
   }
-
-  const menuItems = [
-    {
-      title: "Análise Temporal",
-      description: "Visualização completa da evolução dos seus ativos",
-      icon: BarChart3,
-      href: "/dashboard/timeline",
-      badge: "success",
-      isPrimary: true,
-    },
-    {
-      title: "Contas",
-      description: "Gerenciar contas e corretoras",
-      icon: Wallet,
-      href: "/dashboard/accounts",
-      badge: "primary",
-    },
-    {
-      title: "Meus Ativos",
-      description: "Ativos customizados do portfólio",
-      icon: TrendingUp,
-      href: "/dashboard/assets",
-      badge: "secondary",
-    },
-    {
-      title: "Transações",
-      description: "Eventos e movimentações",
-      icon: Activity,
-      href: "/dashboard/transactions",
-      badge: "info",
-    },
-    {
-      title: "Configurações",
-      description: "Gerenciar assinatura, perfil e configurações",
-      icon: Settings,
-      href: "/dashboard/settings",
-      badge: "neutral",
-    },
-  ]
+  
 
   return (
     <ProtectedRoute>

@@ -55,7 +55,7 @@ export default function SignupPage() {
       } else {
         setSuccess(true)
         setTimeout(() => {
-          router.push("/login")
+          router.push("/login?redirect=/dashboard/pricing")
         }, 3000)
       }
     } catch {
@@ -85,7 +85,7 @@ export default function SignupPage() {
               <p className="text-muted-foreground">
                 Verifique seu email para confirmar a conta e faça login.
               </p>
-              <Button onClick={() => router.push("/login")} className="w-full">
+              <Button onClick={() => router.push("/login?redirect=/dashboard/pricing")} className="w-full">
                 Ir para o login
               </Button>
             </div>

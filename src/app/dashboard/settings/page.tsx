@@ -68,14 +68,6 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <SubscriptionStatus />
-              <div className="mt-4">
-                <Link href="/dashboard/subscription">
-                  <Button variant="outline" className="w-full md:w-auto">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Ver Detalhes da Assinatura
-                  </Button>
-                </Link>
-              </div>
             </CardContent>
           </Card>
 
