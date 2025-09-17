@@ -11,7 +11,7 @@ LANGUAGE plpgsql
 STABLE 
 SECURITY DEFINER
 SET search_path TO 'public'
-SET statement_timeout TO '8s'
+SET statement_timeout TO '5s'
 AS $$
 DECLARE
   result JSON;

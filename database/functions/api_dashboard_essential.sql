@@ -10,7 +10,7 @@ LANGUAGE plpgsql
 STABLE 
 SECURITY DEFINER
 SET search_path TO 'public'
-SET statement_timeout TO '5s'
+SET statement_timeout TO '3s'
 AS $$
 DECLARE
   result JSON;
@@ -68,12 +68,45 @@ BEGIN
   FROM user_profiles up
   WHERE up.user_id = current_user_id;
 
-  -- Find the latest available date <= p_date for holdings
-  SELECT MAX(d.date) INTO target_date
+  -- Find the latest available date <= p_date for holdings (optimized with limit)
+  SELECT d.date INTO target_date
   FROM public.daily_positions_acct d
   WHERE d.user_id = current_user_id
     AND d.date <= p_date
-    AND COALESCE(d.is_final, true) = true;
+    AND COALESCE(d.is_final, true) = true
+  ORDER BY d.date DESC
+  LIMIT 1;
+
+  -- Return early if no target_date (no data available)
+  IF target_date IS NULL THEN
+    SELECT json_build_object(
+      'user_context', json_build_object(
+        'user_id', current_user_id,
+        'plan', CASE WHEN COALESCE(is_premium, false) THEN 'premium' ELSE 'free' END,
+        'is_premium', COALESCE(is_premium, false),
+        'subscription', subscription_data,
+        'features', json_build_object(
+          'dailyData', COALESCE(is_premium, false),
+          'customPeriods', COALESCE(is_premium, false),
+          'advancedFilters', COALESCE(is_premium, false),
+          'projections', COALESCE(is_premium, false),
+          'multipleAccounts', COALESCE(is_premium, false),
+          'apiAccess', COALESCE(is_premium, false)
+        ),
+        'last_event_timestamp', NULL,
+        'total_events', 0,
+        'accounts', '[]'::json
+      ),
+      'holdings', '[]'::json,
+      'portfolio_stats', json_build_object(
+        'total_value', 0,
+        'total_assets', 0
+      ),
+      'timestamp', EXTRACT(EPOCH FROM NOW())::bigint,
+      'target_date', NULL
+    ) INTO result;
+    RETURN result;
+  END IF;
 
   -- Build essential dashboard data with optimized holdings query
   WITH 
@@ -92,7 +125,6 @@ BEGIN
     WHERE dp.user_id = current_user_id
       AND dp.date = target_date
       AND COALESCE(dp.is_final, true) = true
-      AND target_date IS NOT NULL
     GROUP BY dp.asset_id, ga.symbol, ga.class, ga.label_ptbr, ca.symbol, ca.class, ca.label
     HAVING SUM(dp.value) > 0.01
     ORDER BY SUM(dp.value) DESC
@@ -116,11 +148,13 @@ BEGIN
         SELECT EXTRACT(EPOCH FROM MAX(created_at))::bigint
         FROM events 
         WHERE user_id = current_user_id
+        LIMIT 1
       ),
       'total_events', (
         SELECT COUNT(*)
         FROM events 
         WHERE user_id = current_user_id
+        LIMIT 10000  -- Reasonable limit to prevent timeouts
       ),
       'accounts', (
         SELECT COALESCE(

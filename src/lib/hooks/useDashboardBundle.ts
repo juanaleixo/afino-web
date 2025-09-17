@@ -98,8 +98,8 @@ interface CacheEntry {
   timelineTimestamp: number
 }
 
-const ESSENTIAL_TTL = 2 * 60 * 1000 // 2 minutos
-const TIMELINE_TTL = 5 * 60 * 1000   // 5 minutos
+const ESSENTIAL_TTL = 5 * 60 * 1000 // 5 minutos (aumentado para reduzir chamadas)
+const TIMELINE_TTL = 10 * 60 * 1000   // 10 minutos (aumentado para reduzir chamadas)
 const CACHE_KEY_PREFIX = 'dashboard_cache_'
 
 function getCacheKey(userId: string, date?: string): string {
@@ -230,10 +230,27 @@ export function useDashboardBundle(date?: string) {
       setIsLoading(true)
       console.log('🔄 Loading essential dashboard data for user:', user.id)
 
-      // Fast essential data call
-      const { data: essentialData, error: essentialError } = await supabase.rpc('api_dashboard_essential', { 
-        p_date: targetDate 
-      })
+      // Fast essential data call with retry on timeout
+      let essentialData, essentialError
+      let retryCount = 0
+      const maxRetries = 2
+
+      do {
+        const result = await supabase.rpc('api_dashboard_essential', { 
+          p_date: targetDate 
+        })
+        essentialData = result.data
+        essentialError = result.error
+        
+        // If timeout error, wait a bit and retry
+        if (essentialError?.code === '57014' && retryCount < maxRetries) {
+          console.warn(`Dashboard timeout (attempt ${retryCount + 1}/${maxRetries + 1}), retrying...`)
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))) // Progressive delay
+          retryCount++
+        } else {
+          break
+        }
+      } while (essentialError?.code === '57014' && retryCount <= maxRetries)
 
       if (essentialError) {
         console.error('Dashboard essential error:', essentialError)
@@ -311,11 +328,28 @@ export function useDashboardBundle(date?: string) {
       setTimelineLoading(true)
       console.log('🔄 Loading timeline data for premium user:', isPremium)
 
-      // Separate timeline data call
-      const { data: timelineData, error: timelineError } = await supabase.rpc('api_dashboard_timeline', { 
-        p_date: targetDate,
-        p_is_premium: isPremium
-      })
+      // Separate timeline data call with retry on timeout
+      let timelineData, timelineError
+      let retryCount = 0
+      const maxRetries = 1  // Fewer retries for timeline since it's optional
+
+      do {
+        const result = await supabase.rpc('api_dashboard_timeline', { 
+          p_date: targetDate,
+          p_is_premium: isPremium
+        })
+        timelineData = result.data
+        timelineError = result.error
+        
+        // If timeout error, wait a bit and retry
+        if (timelineError?.code === '57014' && retryCount < maxRetries) {
+          console.warn(`Timeline timeout (attempt ${retryCount + 1}/${maxRetries + 1}), retrying...`)
+          await new Promise(resolve => setTimeout(resolve, 1500)) // Wait before retry
+          retryCount++
+        } else {
+          break
+        }
+      } while (timelineError?.code === '57014' && retryCount <= maxRetries)
 
       if (timelineError) {
         console.error('Dashboard timeline error:', timelineError)
