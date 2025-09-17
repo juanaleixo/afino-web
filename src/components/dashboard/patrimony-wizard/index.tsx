@@ -14,6 +14,7 @@ import { supabase, Account, Asset } from "@/lib/supabase"
 import { toast } from "sonner"
 import { LoadingState } from "@/components/ui/loading-state"
 import { useBackgroundPriceFill } from "@/lib/hooks/use-background-price-fill"
+import { dateOnlyToUTCTimestamp, getCurrentDateOnly } from "@/lib/utils/formatters"
 
 // Tipos de operação mais intuitivos
 export type OperationType = 
@@ -38,7 +39,7 @@ const patrimonySchema = z.object({
   operation: z.enum(['add_existing', 'money_in', 'money_out', 'purchase', 'update_value']),
   amount: z.string().optional(),
   price: z.string().optional(),
-  date: z.string().min(1, "Data é obrigatória"),
+  date: z.string().min(1, "Data é obrigatória").regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de data inválido"),
   notes: z.string().optional(),
 })
 
@@ -74,7 +75,7 @@ export function PatrimonyWizard({
       operation: preselectedOperation || "add_existing",
       amount: "",
       price: "",
-      date: new Date().toISOString().slice(0, 16),
+      date: getCurrentDateOnly(),
       notes: "",
     },
   })
@@ -248,7 +249,7 @@ export function PatrimonyWizard({
         asset_symbol: isCustom ? selectedCustom.id : formData.asset_id,
         account_id: formData.account_id === "" ? null : formData.account_id,
         kind: eventKind,
-        tstamp: formData.date,
+        tstamp: dateOnlyToUTCTimestamp(formData.date),
         meta: formData.notes ? { note: formData.notes } : {}
       }
 

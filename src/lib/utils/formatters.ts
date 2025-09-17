@@ -68,6 +68,16 @@ export const formatDateUTC = (date: string | Date): string => {
   return dateObj.toISOString().split('T')[0]!
 }
 
+export const dateOnlyToUTCTimestamp = (dateString: string): string => {
+  // Converte data-only (YYYY-MM-DD) para timestamp UTC ao meio-dia para evitar problemas de fuso horário
+  const eventDate = new Date(dateString + 'T12:00:00.000Z')
+  return eventDate.toISOString()
+}
+
+export const getCurrentDateOnly = (): string => {
+  return new Date().toISOString().split('T')[0]!
+}
+
 export const parseDecimalInput = (value: string | number | null | undefined): number => {
   if (value === null || value === undefined || value === '') {
     return 0

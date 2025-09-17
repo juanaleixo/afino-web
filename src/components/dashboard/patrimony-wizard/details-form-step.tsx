@@ -191,7 +191,7 @@ export function DetailsFormStep({
                     <FormControl>
                       <Input
                         {...field}
-                        type="datetime-local"
+                        type="date"
                         className="text-base"
                       />
                     </FormControl>
