@@ -181,13 +181,29 @@ export function PatrimonyWizard({
   useEffect(() => {
     if (preselectedOperation && currentStep === 0 && !selectedOperation) {
       setSelectedOperation(preselectedOperation)
+      
+      // Auto-selecionar CASH para operações de entrada/saída de dinheiro pré-selecionadas
+      if (preselectedOperation === 'money_in' || preselectedOperation === 'money_out') {
+        // CASH é um global asset, então usar o símbolo diretamente
+        form.setValue('asset_id', 'CASH')
+        console.log('🪙 CASH auto-selecionado (pré-seleção): CASH')
+      }
+      
       setCurrentStep(1)
     }
-  }, [preselectedOperation]) // Removido currentStep das dependências
+  }, [preselectedOperation, user, form]) // Adicionado user e form nas dependências
 
-  const handleOperationSelect = (operation: OperationType) => {
+  const handleOperationSelect = async (operation: OperationType) => {
     setSelectedOperation(operation)
     form.setValue('operation', operation)
+    
+    // Auto-selecionar CASH para operações de entrada/saída de dinheiro
+    if (operation === 'money_in' || operation === 'money_out') {
+      // CASH é um global asset, então usar o símbolo diretamente
+      form.setValue('asset_id', 'CASH')
+      console.log('🪙 CASH auto-selecionado:', 'CASH')
+    }
+    
     setCurrentStep(1)
   }
 
