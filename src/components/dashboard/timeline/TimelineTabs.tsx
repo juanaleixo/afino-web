@@ -155,7 +155,6 @@ export function TimelineTabs({
                   <PremiumAnalytics
                     key={`premium-analytics-${filters.period}`}
                     performanceData={performanceAnalysis}
-                    benchmarkData={benchmarkData}
                     isLoading={loading}
                     period={getDateRange()}
                   />

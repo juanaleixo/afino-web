@@ -196,7 +196,7 @@ export default function MultiAssetTradingView({
     if (filteredAssets.length === 0 && chartType === 'percentage') {
       const emptySeries = chart.addSeries(LineSeries, {
         color: 'transparent',
-        lineWidth: 0,
+        lineWidth: 1,
         title: '',
         visible: false,
         priceFormat: {

@@ -6,10 +6,10 @@ import { useAuth } from "@/lib/auth"
 import { usePortfolioData } from "@/lib/hooks"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Crown, ArrowLeft } from "lucide-react"
+import { RefreshCw, Crown } from "lucide-react"
 import { toast } from "sonner"
 import { useUserContextFromProvider } from '@/contexts/UserContextProvider'
-import { benchmarkService } from "@/lib/benchmarks"
+// import { benchmarkService } from "@/lib/benchmarks" // DESABILITADO
 import { FadeIn } from "@/components/ui/fade-in"
 import { CardSkeleton } from "@/components/ui/skeleton-loader"
 import { getPortfolioService } from "@/lib/portfolio"
@@ -28,7 +28,7 @@ export default function TimelinePage() {
   const isPremium = userContext.is_premium
   const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
-  const [benchmarkCache, setBenchmarkCache] = useState<Map<string, any>>(new Map())
+  // const [benchmarkCache, setBenchmarkCache] = useState<Map<string, any>>(new Map()) // DESABILITADO
   const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
   const [normalizedPerformance, setNormalizedPerformance] = useState<any[]>([])
   const [refreshing, setRefreshing] = useState(false)
