@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -19,7 +19,6 @@ import { toast } from "sonner"
 
 const accountSchema = z.object({
   label: z.string().min(1, "Nome da conta é obrigatório"),
-  currency: z.string().min(1, "Moeda é obrigatória"),
 })
 
 type AccountForm = z.infer<typeof accountSchema>
@@ -33,7 +32,6 @@ export default function NewAccountPage() {
     resolver: zodResolver(accountSchema),
     defaultValues: {
       label: "",
-      currency: "BRL",
     },
   })
 
@@ -47,7 +45,7 @@ export default function NewAccountPage() {
         .insert({
           user_id: user.id,
           label: data.label,
-          currency: data.currency,
+          currency: "BRL",
         })
 
       if (error) throw error
@@ -107,34 +105,15 @@ export default function NewAccountPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="currency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Moeda</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a moeda" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="BRL">Real Brasileiro (BRL)</SelectItem>
-                            <SelectItem value="USD">Dólar Americano (USD)</SelectItem>
-                            <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                            <SelectItem value="GBP">Libra Esterlina (GBP)</SelectItem>
-                            <SelectItem value="JPY">Iene Japonês (JPY)</SelectItem>
-                            <SelectItem value="CHF">Franco Suíço (CHF)</SelectItem>
-                            <SelectItem value="CAD">Dólar Canadense (CAD)</SelectItem>
-                            <SelectItem value="AUD">Dólar Australiano (AUD)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">Moeda</h4>
+                        <p className="text-sm text-muted-foreground">Todas as contas operam em Real Brasileiro</p>
+                      </div>
+                      <StatusBadge variant="success" size="sm">BRL</StatusBadge>
+                    </div>
+                  </div>
 
                   <div className="flex space-x-4">
                     <Button type="submit" disabled={isSubmitting || !form.formState.isValid} className="flex-1">

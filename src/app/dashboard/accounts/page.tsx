@@ -21,7 +21,6 @@ import { toast } from "sonner"
 
 const accountSchema = z.object({
   label: z.string().min(1, "Nome da conta é obrigatório"),
-  currency: z.string().min(1, "Moeda é obrigatória"),
 })
 
 type AccountForm = z.infer<typeof accountSchema>
@@ -38,7 +37,6 @@ export default function AccountsPage() {
     resolver: zodResolver(accountSchema),
     defaultValues: {
       label: "",
-      currency: "BRL",
     },
   })
 
@@ -77,7 +75,7 @@ export default function AccountsPage() {
       id: editingAccount?.id || crypto.randomUUID(),
       user_id: user.id,
       label: data.label,
-      currency: data.currency,
+      currency: "BRL",
       created_at: editingAccount?.created_at || new Date().toISOString(),
     }
 
@@ -87,7 +85,7 @@ export default function AccountsPage() {
         setAccounts(prev => 
           prev.map(acc => 
             acc.id === editingAccount.id 
-              ? { ...acc, label: data.label, currency: data.currency }
+              ? { ...acc, label: data.label, currency: "BRL" }
               : acc
           )
         )
@@ -97,7 +95,7 @@ export default function AccountsPage() {
           .from('accounts')
           .update({
             label: data.label,
-            currency: data.currency,
+            currency: "BRL",
           })
           .eq('id', editingAccount.id)
           .eq('user_id', user.id)
@@ -124,7 +122,7 @@ export default function AccountsPage() {
           .insert({
             user_id: user.id,
             label: data.label,
-            currency: data.currency,
+            currency: "BRL",
           })
           .select()
           .single()
@@ -196,7 +194,6 @@ export default function AccountsPage() {
     setEditingAccount(account)
     form.reset({
       label: account.label,
-      currency: account.currency,
     })
     setIsDialogOpen(true)
   }
@@ -206,17 +203,10 @@ export default function AccountsPage() {
     setEditingAccount(null)
     form.reset({
       label: "",
-      currency: "BRL",
     })
     setIsDialogOpen(true)
   }
 
-  const currencies = [
-    { code: "BRL", name: "Real Brasileiro" },
-    { code: "USD", name: "Dólar Americano" },
-    { code: "EUR", name: "Euro" },
-    { code: "GBP", name: "Libra Esterlina" },
-  ]
 
   if (loading) {
     return (
@@ -283,31 +273,6 @@ export default function AccountsPage() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Moeda</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a moeda" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {currencies.map((currency) => (
-                            <SelectItem key={currency.code} value={currency.code}>
-                              {currency.code} - {currency.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                      <p className="text-xs text-muted-foreground">Moeda base para lançamentos nesta conta.</p>
-                    </FormItem>
-                  )}
-                />
 
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button
@@ -366,30 +331,26 @@ export default function AccountsPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Contas BRL</CardTitle>
+                  <CardTitle className="text-sm font-medium">Moeda</CardTitle>
                   <StatusBadge variant="success" size="sm">BRL</StatusBadge>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {accounts.filter(a => a.currency === 'BRL').length}
-                  </div>
+                  <div className="text-2xl font-bold">Real Brasileiro</div>
                   <p className="text-xs text-muted-foreground">
-                    Contas em reais
+                    Todas as contas em BRL
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Contas USD</CardTitle>
-                  <StatusBadge variant="info" size="sm">USD</StatusBadge>
+                  <CardTitle className="text-sm font-medium">Status</CardTitle>
+                  <StatusBadge variant="success" size="sm">Ativo</StatusBadge>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {accounts.filter(a => a.currency === 'USD').length}
-                  </div>
+                  <div className="text-2xl font-bold">Sistema Nacional</div>
                   <p className="text-xs text-muted-foreground">
-                    Contas em dólar
+                    Operações em real brasileiro
                   </p>
                 </CardContent>
               </Card>
@@ -408,7 +369,6 @@ export default function AccountsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>
-                        <TableHead>Moeda</TableHead>
                         <TableHead>Criada em</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
@@ -417,14 +377,6 @@ export default function AccountsPage() {
                       {accounts.map((account) => (
                         <TableRow key={account.id}>
                           <TableCell className="font-medium">{account.label}</TableCell>
-                          <TableCell>
-                            <StatusBadge 
-                              variant={account.currency === 'BRL' ? 'success' : 'info'} 
-                              size="sm"
-                            >
-                              {account.currency}
-                            </StatusBadge>
-                          </TableCell>
                           <TableCell>
                             {new Date(account.created_at).toLocaleDateString('pt-BR')}
                           </TableCell>
