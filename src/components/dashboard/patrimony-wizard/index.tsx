@@ -188,9 +188,11 @@ export function PatrimonyWizard({
         // CASH é um global asset, então usar o símbolo diretamente
         form.setValue('asset_id', 'CASH')
         console.log('🪙 CASH auto-selecionado (pré-seleção): CASH')
+        // Pular direto para step 2 (detalhes) quando CASH é auto-selecionado
+        setCurrentStep(2)
+      } else {
+        setCurrentStep(1)
       }
-      
-      setCurrentStep(1)
     }
   }, [preselectedOperation, user, form]) // Adicionado user e form nas dependências
 
@@ -203,9 +205,11 @@ export function PatrimonyWizard({
       // CASH é um global asset, então usar o símbolo diretamente
       form.setValue('asset_id', 'CASH')
       console.log('🪙 CASH auto-selecionado:', 'CASH')
+      // Pular direto para step 2 (detalhes) quando CASH é auto-selecionado
+      setCurrentStep(2)
+    } else {
+      setCurrentStep(1)
     }
-    
-    setCurrentStep(1)
   }
 
   const handleNext = () => {
@@ -216,7 +220,18 @@ export function PatrimonyWizard({
 
   const handleBack = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
+      // Se estamos no step 2 (detalhes) e CASH está selecionado para money_in/money_out,
+      // voltar direto para o step 0 (seleção de operação)
+      if (currentStep === 2 && 
+          form.getValues('asset_id') === 'CASH' && 
+          (selectedOperation === 'money_in' || selectedOperation === 'money_out')) {
+        // Limpar seleções ao voltar para permitir nova escolha
+        setSelectedOperation(null)
+        form.setValue('asset_id', '')
+        setCurrentStep(0) // Volta direto para seleção de operação
+      } else {
+        setCurrentStep(currentStep - 1)
+      }
     }
   }
 

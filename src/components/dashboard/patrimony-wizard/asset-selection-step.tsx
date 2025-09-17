@@ -251,7 +251,13 @@ export function AssetSelectionStep({
       
       if (error) throw error
       
-      setSearchResults(data || [])
+      // Filtrar CASH: só permitir em operações de entrada/saída de dinheiro
+      let filteredData = data || []
+      if (selectedOperation !== 'money_in' && selectedOperation !== 'money_out') {
+        filteredData = filteredData.filter(asset => asset.symbol !== 'CASH')
+      }
+      
+      setSearchResults(filteredData)
       setHasSearched(true)
       console.log(`🔍 Server search for "${query}" (type: ${assetType}):`, data?.length || 0, 'results')
     } catch (error) {
@@ -677,7 +683,14 @@ export function AssetSelectionStep({
         )}
 
       <div className="flex justify-between pt-4">
-        <Button variant="outline" onClick={onBack}>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // Limpar seleção de ativo ao voltar para permitir nova escolha
+            form.setValue('asset_id', '')
+            onBack()
+          }}
+        >
           Voltar
         </Button>
         <Button onClick={onNext} disabled={!canContinue}>
