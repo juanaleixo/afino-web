@@ -34,10 +34,7 @@ export interface UserContext {
   }
   last_event_timestamp: number | null
   total_events: number
-  accounts: Array<{
-    id: string
-    label: string
-  }>
+  accounts_count: number
 }
 
 const defaultContext: UserContext = {
@@ -55,7 +52,7 @@ const defaultContext: UserContext = {
   },
   last_event_timestamp: null,
   total_events: 0,
-  accounts: []
+  accounts_count: 0
 }
 
 export function useUserContext() {

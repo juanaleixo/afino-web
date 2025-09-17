@@ -34,23 +34,15 @@ BEGIN
   FROM user_profiles up
   WHERE up.user_id = current_user_id;
 
-  -- Consolidated query
-  WITH portfolio_data AS (
-    SELECT 
-      date,
-      total_value
-    FROM public.portfolio_value_daily
+  -- Lightweight consolidated query without heavy json_agg
+  WITH portfolio_stats AS (
+    SELECT
+      COUNT(*) as portfolio_count,
+      MIN(date) as earliest_date,
+      MAX(date) as latest_date
+    FROM portfolio_value_daily
     WHERE user_id = current_user_id
       AND date BETWEEN p_from AND p_to
-    ORDER BY date DESC
-  ),
-  cash_assets AS (
-    SELECT 
-      ga.symbol,
-      ga.class,
-      ga.label_ptbr
-    FROM global_assets ga
-    WHERE ga.class IN ('currency', 'cash')
   ),
   cash_today AS (
     SELECT COALESCE(SUM(dp.value), 0) as total_cash
@@ -68,27 +60,21 @@ BEGIN
       AND dp.date = p_to
       AND COALESCE(dp.is_final, true) = true
   ),
-  accounts_data AS (
-    SELECT 
-      json_agg(json_build_object('id', id, 'label', label)) as accounts
+  accounts_count AS (
+    SELECT COUNT(*) as total_accounts
     FROM accounts
     WHERE user_id = current_user_id
   )
   SELECT json_build_object(
-    'portfolio_data', COALESCE(
-      (SELECT json_agg(json_build_object('date', date, 'total_value', total_value) ORDER BY date DESC) FROM portfolio_data),
-      '[]'::json
-    ),
-    'cash_assets', COALESCE(
-      (SELECT json_agg(json_build_object('symbol', symbol, 'class', class, 'label_ptbr', label_ptbr)) FROM cash_assets),
-      '[]'::json
-    ),
+    'portfolio_count', COALESCE((SELECT portfolio_count FROM portfolio_stats), 0),
+    'has_portfolio_data', COALESCE((SELECT portfolio_count FROM portfolio_stats), 0) > 0,
     'cash_today', COALESCE((SELECT total_cash FROM cash_today), 0),
     'portfolio_today', COALESCE((SELECT total_portfolio FROM portfolio_today), 0),
-    'accounts', COALESCE((SELECT accounts FROM accounts_data), '[]'::json),
+    'accounts_count', COALESCE((SELECT total_accounts FROM accounts_count), 0),
     'user_context', json_build_object(
       'is_premium', COALESCE(is_premium, false)
-    )
+    ),
+    'timestamp', EXTRACT(EPOCH FROM NOW())::bigint
   )
   INTO result;
 

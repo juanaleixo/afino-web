@@ -46,7 +46,7 @@ export default function DashboardPage() {
   // Extract data from consolidated bundle (with fallbacks for loading state)
   const userContext = dashboardData?.user_context || { is_premium: false, last_event_timestamp: null }
   const isPremium = userContext.is_premium
-  const portfolioStats = dashboardData?.portfolio_stats || { totalValue: 0, total_value: 0, total_assets: 0 }
+  const portfolioStats = dashboardData?.portfolio_stats || { total_value: 0, total_assets: 0 }
   const holdingsData = dashboardData?.holdings || []
   const monthlyData = dashboardData?.monthly_series || []
   const dailyData = dashboardData?.daily_series || []
@@ -57,17 +57,19 @@ export default function DashboardPage() {
     await signOut()
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     if (refreshing) return
-    
+
     setRefreshing(true)
-    refresh(true) // Force refresh to clear cache
-    toast.success('Recarregando dados...')
-    
-    // Reset refreshing state after a short delay to allow UI updates
-    setTimeout(() => {
+    try {
+      await refresh(true) // Force refresh to clear cache
+      toast.success('Dados atualizados com sucesso')
+    } catch (error) {
+      toast.error('Erro ao atualizar dados')
+      console.error('Refresh error:', error)
+    } finally {
       setRefreshing(false)
-    }, 1000)
+    }
   }
 
   const calculate6MonthPerformance = () => {

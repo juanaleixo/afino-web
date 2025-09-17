@@ -1,12 +1,13 @@
 /**
  * Hook que carrega todos os dados do dashboard em uma única chamada
- * Substitui múltiplas calls: api_user_context + api_holdings_with_assets + api_portfolio_monthly + api_portfolio_daily
- * Elimina preflights duplicadas e melhora performance
+ * Carrega dados do dashboard de forma otimizada com APIs separadas e leves
+ * Elimina json_agg pesado e melhora performance
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { CacheService } from '@/lib/services/cacheService'
 
 export interface DashboardData {
   user_context: {
@@ -35,10 +36,7 @@ export interface DashboardData {
     }
     last_event_timestamp: number | null
     total_events: number
-    accounts: Array<{
-      id: string
-      label: string
-    }>
+    accounts_count: number
   }
   holdings: Array<{
     asset_id: string
@@ -61,6 +59,8 @@ export interface DashboardData {
     total_assets: number
   }
   timestamp: number
+  target_date?: string | null
+  has_holdings_data?: boolean
 }
 
 const defaultData: DashboardData = {
@@ -79,7 +79,7 @@ const defaultData: DashboardData = {
     },
     last_event_timestamp: null,
     total_events: 0,
-    accounts: []
+    accounts_count: 0
   },
   holdings: [],
   monthly_series: [],
@@ -88,113 +88,41 @@ const defaultData: DashboardData = {
     total_value: 0,
     total_assets: 0
   },
-  timestamp: 0
+  timestamp: 0,
+  target_date: null,
+  has_holdings_data: false
 }
 
-// Cache persistente com sessionStorage e TTL
-interface CacheEntry {
-  data: DashboardData
-  essentialTimestamp: number
-  timelineTimestamp: number
+// Cache simplificado usando CacheService
+const ESSENTIAL_TTL = 5 * 60 * 1000 // 5 minutos
+const TIMELINE_TTL = 10 * 60 * 1000   // 10 minutos
+
+function getEssentialCacheKey(userId: string, date?: string): string {
+  return CacheService.generateKey('dashboard-essential', userId, { date: date || 'current' })
 }
 
-const ESSENTIAL_TTL = 5 * 60 * 1000 // 5 minutos (aumentado para reduzir chamadas)
-const TIMELINE_TTL = 10 * 60 * 1000   // 10 minutos (aumentado para reduzir chamadas)
-const CACHE_KEY_PREFIX = 'dashboard_cache_'
-
-function getCacheKey(userId: string, date?: string): string {
-  return `${CACHE_KEY_PREFIX}${userId}:${date || 'current'}`
+function getTimelineCacheKey(userId: string, date?: string): string {
+  return CacheService.generateKey('dashboard-timeline', userId, { date: date || 'current' })
 }
 
-function getCachedData(userId: string, date?: string): { 
-  data: DashboardData | null
-  essentialValid: boolean
-  timelineValid: boolean
-} {
-  try {
-    const key = getCacheKey(userId, date)
-    const cached = sessionStorage.getItem(key)
-    
-    if (!cached) {
-      return { data: null, essentialValid: false, timelineValid: false }
-    }
-    
-    const entry: CacheEntry = JSON.parse(cached)
-    const now = Date.now()
-    const essentialValid = (now - entry.essentialTimestamp) < ESSENTIAL_TTL
-    const timelineValid = (now - entry.timelineTimestamp) < TIMELINE_TTL
-    
-    if (!essentialValid && !timelineValid) {
-      sessionStorage.removeItem(key)
-      return { data: null, essentialValid: false, timelineValid: false }
-    }
-    
-    return { data: entry.data, essentialValid, timelineValid }
-  } catch (error) {
-    console.warn('Error reading from cache:', error)
-    return { data: null, essentialValid: false, timelineValid: false }
-  }
+function cacheEssentialData(userId: string, data: DashboardData, date?: string) {
+  const key = getEssentialCacheKey(userId, date)
+  CacheService.set(key, data, { ttl: ESSENTIAL_TTL })
 }
 
-function setCachedData(
-  userId: string, 
-  data: DashboardData, 
-  date?: string, 
-  type: 'essential' | 'timeline' | 'both' = 'both'
-) {
-  try {
-    const key = getCacheKey(userId, date)
-    const now = Date.now()
-    
-    let entry: CacheEntry
-    let existing: CacheEntry | null = null
-    
-    // Tentar ler dados existentes
-    try {
-      const cachedData = sessionStorage.getItem(key)
-      if (cachedData) {
-        existing = JSON.parse(cachedData)
-      }
-    } catch (e) {
-      console.warn('Error reading existing cache:', e)
-    }
-    
-    if (existing && type === 'timeline') {
-      // Apenas timeline
-      entry = {
-        ...existing,
-        data: {
-          ...existing.data,
-          monthly_series: data.monthly_series,
-          daily_series: data.daily_series,
-          timestamp: data.timestamp
-        },
-        timelineTimestamp: now
-      }
-    } else if (existing && type === 'essential') {
-      // Apenas essential, mantém timeline
-      entry = {
-        ...existing,
-        data: {
-          ...data,
-          monthly_series: existing.data.monthly_series,
-          daily_series: existing.data.daily_series
-        },
-        essentialTimestamp: now
-      }
-    } else {
-      // Nova entrada ou ambos
-      entry = {
-        data,
-        essentialTimestamp: now,
-        timelineTimestamp: type === 'essential' ? (existing?.timelineTimestamp || 0) : now
-      }
-    }
-    
-    sessionStorage.setItem(key, JSON.stringify(entry))
-  } catch (error) {
-    console.warn('Error saving to cache:', error)
-  }
+function cacheTimelineData(userId: string, timelineData: { monthly_series: any[], daily_series: any[] }, date?: string) {
+  const key = getTimelineCacheKey(userId, date)
+  CacheService.set(key, timelineData, { ttl: TIMELINE_TTL })
+}
+
+function getCachedEssentialData(userId: string, date?: string): DashboardData | null {
+  const key = getEssentialCacheKey(userId, date)
+  return CacheService.get<DashboardData>(key)
+}
+
+function getCachedTimelineData(userId: string, date?: string): { monthly_series: any[], daily_series: any[] } | null {
+  const key = getTimelineCacheKey(userId, date)
+  return CacheService.get<{ monthly_series: any[], daily_series: any[] }>(key)
 }
 
 export function useDashboardBundle(date?: string) {
@@ -218,73 +146,76 @@ export function useDashboardBundle(date?: string) {
       const targetDate = date || new Date().toISOString().split('T')[0]!
 
       // Verificar cache primeiro
-      const cached = getCachedData(user.id, date)
-      
-      if (cached.essentialValid) {
+      const cachedEssential = getCachedEssentialData(user.id, date)
+      const cachedTimeline = getCachedTimelineData(user.id, date)
+
+      if (cachedEssential) {
         console.log('📦 Using cached essential data for user:', user.id)
-        setData(cached.data!)
+
+        // Merge com timeline cache se disponível
+        const initialData = cachedTimeline ? {
+          ...cachedEssential,
+          monthly_series: cachedTimeline.monthly_series,
+          daily_series: cachedTimeline.daily_series
+        } : cachedEssential
+
+        setData(initialData)
         setIsLoading(false)
-        return cached.data!.user_context?.is_premium || false
+        return cachedEssential.user_context?.is_premium || false
       }
 
       setIsLoading(true)
       console.log('🔄 Loading essential dashboard data for user:', user.id)
 
-      // Fast essential data call with retry on timeout
-      let essentialData, essentialError
-      let retryCount = 0
-      const maxRetries = 2
+      // Load essential data and holdings in parallel for better performance
+      console.log('🔄 Loading dashboard data in parallel...')
 
-      do {
-        const result = await supabase.rpc('api_dashboard_essential', { 
-          p_date: targetDate 
-        })
-        essentialData = result.data
-        essentialError = result.error
-        
-        // If timeout error, wait a bit and retry
-        if (essentialError?.code === '57014' && retryCount < maxRetries) {
-          console.warn(`Dashboard timeout (attempt ${retryCount + 1}/${maxRetries + 1}), retrying...`)
-          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))) // Progressive delay
-          retryCount++
-        } else {
-          break
-        }
-      } while (essentialError?.code === '57014' && retryCount <= maxRetries)
+      const [essentialResult, holdingsResult] = await Promise.all([
+        supabase.rpc('api_dashboard_essential', { p_date: targetDate }),
+        supabase.rpc('api_holdings_with_assets', { p_date: targetDate })
+      ])
 
-      if (essentialError) {
-        console.error('Dashboard essential error:', essentialError)
-        throw essentialError
+      if (essentialResult.error) {
+        console.error('Dashboard essential error:', essentialResult.error)
+        throw essentialResult.error
       }
 
-      if (essentialData) {
+      if (essentialResult.data) {
         console.log('✅ Essential dashboard data loaded successfully:', {
-          user: essentialData.user_context?.user_id,
-          holdings_count: essentialData.holdings?.length || 0,
-          portfolio_value: essentialData.portfolio_stats?.total_value || 0
+          user: essentialResult.data.user_context?.user_id,
+          portfolio_value: essentialResult.data.portfolio_stats?.total_value || 0,
+          has_holdings: essentialResult.data.has_holdings_data
         })
-        
+
+        // Process holdings data from parallel call
+        let holdingsData: any[] = []
+        if (essentialResult.data.has_holdings_data && holdingsResult.data && !holdingsResult.error) {
+          holdingsData = holdingsResult.data
+          console.log('✅ Holdings data loaded in parallel:', holdingsData.length, 'positions')
+        }
+
         // Set essential data with existing timeline if available
-        const existingTimeline = cached.timelineValid ? {
-          monthly_series: cached.data!.monthly_series,
-          daily_series: cached.data!.daily_series
-        } : {
+        const existingTimeline = cachedTimeline || {
           monthly_series: [],
           daily_series: []
         }
-        
+
         const initialData: DashboardData = {
-          ...essentialData,
+          ...essentialResult.data,
+          user_context: {
+            ...essentialResult.data.user_context
+          },
+          holdings: holdingsData,
           ...existingTimeline
         }
-        
+
         setData(initialData)
         setIsLoading(false)
-        
+
         // Cache essential data
-        setCachedData(user.id, initialData, date, 'essential')
-        
-        return essentialData.user_context?.is_premium || false
+        cacheEssentialData(user.id, initialData, date)
+
+        return essentialResult.data.user_context?.is_premium || false
       } else {
         console.log('No essential dashboard data returned, using default')
         setData(defaultData)
@@ -310,16 +241,16 @@ export function useDashboardBundle(date?: string) {
 
     try {
       const targetDate = date || new Date().toISOString().split('T')[0]!
-      
+
       // Verificar cache de timeline primeiro
-      const cached = getCachedData(user.id, date)
-      
-      if (cached.timelineValid) {
+      const cachedTimeline = getCachedTimelineData(user.id, date)
+
+      if (cachedTimeline) {
         console.log('📦 Using cached timeline data for user:', user.id)
         setData(prevData => ({
           ...prevData,
-          monthly_series: cached.data!.monthly_series,
-          daily_series: cached.data!.daily_series
+          monthly_series: cachedTimeline.monthly_series,
+          daily_series: cachedTimeline.daily_series
         }))
         setTimelineLoading(false)
         return
@@ -328,58 +259,87 @@ export function useDashboardBundle(date?: string) {
       setTimelineLoading(true)
       console.log('🔄 Loading timeline data for premium user:', isPremium)
 
-      // Separate timeline data call with retry on timeout
-      let timelineData, timelineError
-      let retryCount = 0
-      const maxRetries = 1  // Fewer retries for timeline since it's optional
+      // Use existing timeline API but check if it has data first
+      const timelineMetaResult = await supabase.rpc('api_dashboard_timeline', {
+        p_date: targetDate,
+        p_is_premium: isPremium
+      })
 
-      do {
-        const result = await supabase.rpc('api_dashboard_timeline', { 
-          p_date: targetDate,
-          p_is_premium: isPremium
-        })
-        timelineData = result.data
-        timelineError = result.error
-        
-        // If timeout error, wait a bit and retry
-        if (timelineError?.code === '57014' && retryCount < maxRetries) {
-          console.warn(`Timeline timeout (attempt ${retryCount + 1}/${maxRetries + 1}), retrying...`)
-          await new Promise(resolve => setTimeout(resolve, 1500)) // Wait before retry
-          retryCount++
-        } else {
-          break
-        }
-      } while (timelineError?.code === '57014' && retryCount <= maxRetries)
-
-      if (timelineError) {
-        console.error('Dashboard timeline error:', timelineError)
-        // Don't throw - timeline is optional
+      if (timelineMetaResult.error || !timelineMetaResult.data?.has_data) {
+        console.log('📊 No timeline data available')
+        setTimelineLoading(false)
         return
       }
 
-      if (timelineData) {
-        console.log('✅ Timeline data loaded successfully:', {
-          monthly_points: timelineData.monthly_series?.length || 0,
-          daily_points: timelineData.daily_series?.length || 0
+      // Load timeline data in parallel for better performance
+      const fromMonthly = new Date(targetDate)
+      fromMonthly.setMonth(fromMonthly.getMonth() - 12)
+
+      console.log('🔄 Loading timeline data in parallel...')
+
+      // Execute parallel calls
+      const promises = [
+        supabase.rpc('api_portfolio_monthly', {
+          p_from: fromMonthly.toISOString().split('T')[0],
+          p_to: targetDate
         })
-        
-        // Merge timeline data with existing data
-        const updatedData = {
-          monthly_series: timelineData.monthly_series || [],
-          daily_series: timelineData.daily_series || [],
-          timestamp: timelineData.timestamp || Date.now()
-        }
-        
-        // Update state and cache in one operation
-        setData(prevData => {
-          const newData = {
-            ...prevData,
-            ...updatedData
-          }
-          setCachedData(user.id, newData, date, 'timeline')
-          return newData
-        })
+      ]
+
+      // Add daily promise only if premium and has daily data
+      if (isPremium && timelineMetaResult.data.daily_count > 0) {
+        const fromDaily = new Date(targetDate)
+        fromDaily.setMonth(fromDaily.getMonth() - 6)
+
+        promises.push(
+          supabase.from('portfolio_value_daily')
+            .select('date, total_value')
+            .eq('user_id', user.id)
+            .gte('date', fromDaily.toISOString().split('T')[0])
+            .lte('date', targetDate)
+            .order('date', { ascending: false })
+            .limit(180)
+        )
       }
+
+      // Execute all promises in parallel
+      const results = await Promise.all(promises)
+
+      const monthlyData = results[0]?.data || []
+      let dailyData: any[] = []
+
+      if (isPremium && results.length > 1 && results[1]?.data && !results[1]?.error) {
+        dailyData = results[1].data
+      }
+
+      console.log('✅ Timeline data loaded successfully:', {
+        monthly_points: monthlyData.length,
+        daily_points: dailyData.length
+      })
+
+      // Merge timeline data with existing data
+      const updatedData = {
+        monthly_series: monthlyData.map((item: any) => ({
+          month_eom: item.month_eom,
+          total_value: item.total_value
+        })),
+        daily_series: dailyData.map((item: any) => ({
+          date: item.date,
+          total_value: item.total_value
+        })),
+        timestamp: Date.now()
+      }
+
+      // Update state and cache timeline data
+      setData(prevData => ({
+        ...prevData,
+        ...updatedData
+      }))
+
+      // Cache timeline data separately
+      cacheTimelineData(user.id, {
+        monthly_series: updatedData.monthly_series,
+        daily_series: updatedData.daily_series
+      }, date)
     } catch (err) {
       console.error('Error loading timeline data:', err)
       // Don't set error - timeline is optional
@@ -391,7 +351,7 @@ export function useDashboardBundle(date?: string) {
   const loadDashboardData = useCallback(async () => {
     try {
       const isPremium = await loadEssentialData()
-      
+
       // Load timeline data if essential data loaded successfully
       if (isPremium !== null) {
         await loadTimelineData(isPremium)
@@ -401,82 +361,46 @@ export function useDashboardBundle(date?: string) {
     }
   }, [loadEssentialData, loadTimelineData])
 
-  const refresh = useCallback((forceRefresh = false) => {
+  const refresh = useCallback(async (forceRefresh = false) => {
     if (forceRefresh && user?.id) {
       // Limpar cache antes de recarregar
-      const key = getCacheKey(user.id, date)
       try {
-        sessionStorage.removeItem(key)
+        CacheService.remove(getEssentialCacheKey(user.id, date))
+        CacheService.remove(getTimelineCacheKey(user.id, date))
         console.log('🗑️ Cache cleared for forced refresh')
       } catch (error) {
         console.warn('Error clearing cache:', error)
       }
     }
     setHasLoadedOnce(false) // Reset flag para permitir reload
-    loadDashboardData()
+    return await loadDashboardData()
   }, [loadDashboardData, user?.id, date])
 
   const clearCache = useCallback(() => {
     if (user?.id) {
-      const key = getCacheKey(user.id, date)
       try {
-        sessionStorage.removeItem(key)
-        console.log('🗑️ Cache cleared manually')
+        // Limpar caches específicos do dashboard
+        CacheService.remove(getEssentialCacheKey(user.id, date))
+        CacheService.remove(getTimelineCacheKey(user.id, date))
+
+        // Limpar todos os caches relacionados ao dashboard do usuário
+        CacheService.invalidateByPrefix(`dashboard-essential-${user.id}`)
+        CacheService.invalidateByPrefix(`dashboard-timeline-${user.id}`)
+
+        console.log('🗑️ Dashboard cache cleared manually')
       } catch (error) {
         console.warn('Error clearing cache:', error)
       }
     }
   }, [user?.id, date])
 
-  const cleanupExpiredCache = useCallback(() => {
-    try {
-      const keysToRemove: string[] = []
-      
-      // Iterar sobre todas as chaves do sessionStorage
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i)
-        if (key?.startsWith(CACHE_KEY_PREFIX)) {
-          try {
-            const cached = sessionStorage.getItem(key)
-            if (cached) {
-              const entry: CacheEntry = JSON.parse(cached)
-              const now = Date.now()
-              const essentialExpired = (now - entry.essentialTimestamp) >= ESSENTIAL_TTL
-              const timelineExpired = (now - entry.timelineTimestamp) >= TIMELINE_TTL
-              
-              // Remove se ambos expiraram
-              if (essentialExpired && timelineExpired) {
-                keysToRemove.push(key)
-              }
-            }
-          } catch (e) {
-            // Se não conseguir parsear, remover entrada corrompida
-            keysToRemove.push(key)
-          }
-        }
-      }
-      
-      // Remover entradas expiradas
-      keysToRemove.forEach(key => {
-        sessionStorage.removeItem(key)
-      })
-      
-      if (keysToRemove.length > 0) {
-        console.log(`🧹 Cleaned up ${keysToRemove.length} expired cache entries`)
-      }
-    } catch (error) {
-      console.warn('Error cleaning up cache:', error)
-    }
-  }, [])
 
   useEffect(() => {
     if (!hasLoadedOnce && user?.id) {
-      // Limpeza automática de cache expirado apenas na primeira vez
-      cleanupExpiredCache()
       loadDashboardData()
       setHasLoadedOnce(true)
     }
-  }, [user?.id, date, hasLoadedOnce, cleanupExpiredCache, loadDashboardData])
+  }, [user?.id, date, hasLoadedOnce, loadDashboardData])
 
   // Reset hasLoadedOnce quando user ou date mudar
   useEffect(() => {

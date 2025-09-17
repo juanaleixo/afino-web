@@ -30,7 +30,7 @@ BEGIN
       ),
       'last_event_timestamp', NULL,
       'total_events', 0,
-      'accounts', '[]'::json
+      'accounts_count', 0
     );
   END IF;
 
@@ -89,14 +89,8 @@ BEGIN
       FROM events 
       WHERE user_id = current_user_id
     ),
-    'accounts', (
-      SELECT COALESCE(
-        json_agg(jsonb_build_object(
-          'id', id,
-          'label', label
-        )),
-        '[]'::json
-      )
+    'accounts_count', (
+      SELECT COUNT(*)::integer
       FROM accounts
       WHERE user_id = current_user_id
     )
@@ -120,14 +114,8 @@ BEGIN
       ),
       'last_event_timestamp', NULL,
       'total_events', 0,
-      'accounts', (
-        SELECT COALESCE(
-          json_agg(jsonb_build_object(
-            'id', a.id,
-            'label', a.label
-          )),
-          '[]'::json
-        )
+      'accounts_count', (
+        SELECT COUNT(*)::integer
         FROM accounts a
         WHERE a.user_id = current_user_id
       )
