@@ -53,7 +53,7 @@ export function DetailsFormStep({
         </h3>
         {selectedAsset && (
           <div className="flex items-center justify-center gap-2">
-            <AssetBadge assetClass={selectedAsset.class as any} />
+            <AssetBadge assetClass={selectedAsset.class as any} showLabel={false} />
             <span className="font-medium">{selectedAsset.symbol}</span>
             {selectedAsset.label_ptbr && (
               <span className="text-muted-foreground">- {selectedAsset.label_ptbr}</span>

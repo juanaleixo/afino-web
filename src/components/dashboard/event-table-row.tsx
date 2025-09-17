@@ -50,6 +50,7 @@ const EventTableRow = React.memo<EventTableRowProps>(({
           <AssetBadge 
             assetClass={isCashAsset(event) ? 'currency' : (event.global_assets?.class as any || 'default')}
             size="sm"
+            showLabel={false}
           />
           <span>{getAssetDisplay(event)}</span>
         </div>

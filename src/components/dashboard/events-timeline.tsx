@@ -91,6 +91,7 @@ const TimelineEvent: React.FC<{
               <AssetBadge 
                 assetClass={isCashAsset(event) ? 'currency' : (event.global_assets?.class as any || 'default')}
                 size="sm"
+                showLabel={false}
               />
               <span className="font-medium">{getAssetDisplay(event)}</span>
             </div>

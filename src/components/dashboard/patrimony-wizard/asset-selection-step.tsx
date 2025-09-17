@@ -125,7 +125,49 @@ export function AssetSelectionStep({
   
   // Combinar assets globais e customizados filtrados
   const allAssets = [...assets, ...filteredCustomAssets]
-  const selectedAsset = findAssetByValue(allAssets, selectedAssetId)
+  
+  // Buscar asset selecionado (inclui busca dinâmica para assets globais se necessário)
+  const [selectedAsset, setSelectedAsset] = React.useState<Asset | undefined>(
+    findAssetByValue(allAssets, selectedAssetId)
+  )
+
+  // Buscar asset global se necessário quando selectedAssetId muda
+  React.useEffect(() => {
+    const findSelectedAsset = async () => {
+      if (!selectedAssetId) {
+        setSelectedAsset(undefined)
+        return
+      }
+
+      // Primeiro tentar encontrar nos assets já carregados (custom assets)
+      const localAsset = findAssetByValue(allAssets, selectedAssetId)
+      if (localAsset) {
+        setSelectedAsset(localAsset)
+        return
+      }
+
+      // Se não encontrou localmente e parece ser um asset global (não é UUID), buscar no servidor
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAssetId)
+      if (!isUUID) {
+        try {
+          const { data: globalAsset } = await supabase
+            .from('global_assets')
+            .select('*')
+            .eq('symbol', selectedAssetId)
+            .single()
+
+          if (globalAsset) {
+            setSelectedAsset(globalAsset)
+          }
+        } catch (error) {
+          console.error('Erro ao buscar asset global selecionado:', error)
+          setSelectedAsset(undefined)
+        }
+      }
+    }
+
+    findSelectedAsset()
+  }, [selectedAssetId, allAssets])
   
   // Buscar assets dinamicamente no servidor conforme o usuário digita
   const [searchResults, setSearchResults] = React.useState<Asset[]>([])
@@ -316,7 +358,7 @@ export function AssetSelectionStep({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                <AssetBadge assetClass={selectedAsset.class as any} size="sm" />
+                <AssetBadge assetClass={selectedAsset.class as any} size="sm" showLabel={false} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -405,7 +447,7 @@ export function AssetSelectionStep({
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 h-10 w-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
-                        <AssetBadge assetClass={asset.class as any} size="sm" />
+                        <AssetBadge assetClass={asset.class as any} size="sm" showLabel={false} />
                       </div>
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="font-medium text-gray-900 dark:text-gray-100 break-words">
@@ -485,7 +527,7 @@ export function AssetSelectionStep({
                     }}
                     className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 last:border-b-0 transition-colors"
                   >
-                    <AssetBadge assetClass={asset.class as any} size="sm" />
+                    <AssetBadge assetClass={asset.class as any} size="sm" showLabel={false} />
                     <div className="flex-1 text-left">
                       <div className="font-medium text-gray-900 dark:text-gray-100">{asset.symbol}</div>
                       {asset.label_ptbr && (
@@ -615,7 +657,7 @@ export function AssetSelectionStep({
                 <div>
                   <p className="text-sm text-muted-foreground">Ativo selecionado:</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <AssetBadge assetClass={selectedAsset.class as any} />
+                    <AssetBadge assetClass={selectedAsset.class as any} showLabel={false} />
                     <span className="font-semibold">{selectedAsset.symbol}</span>
                     {selectedAsset.label_ptbr && (
                       <span className="text-muted-foreground">- {selectedAsset.label_ptbr}</span>
