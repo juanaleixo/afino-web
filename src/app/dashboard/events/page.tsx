@@ -240,7 +240,7 @@ export default function EventsPage() {
       
       switch (sortBy) {
         case 'date':
-          comparison = new Date(a.tstamp).getTime() - new Date(b.tstamp).getTime()
+          comparison = new Date(b.tstamp).getTime() - new Date(a.tstamp).getTime()
           break
         case 'amount':
           const valueA = getEventValue(a) || 0
