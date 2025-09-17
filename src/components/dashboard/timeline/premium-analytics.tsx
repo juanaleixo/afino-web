@@ -497,7 +497,7 @@ export default function PremiumAnalytics({
                     <Tooltip 
                       formatter={(value: number, name: string) => [
                         `${value?.toFixed(2) ?? '0.00'}%`, 
-                        name === 'volatility' ? 'Risco (Volatilidade)' : 'Retorno'
+                        name === 'Risco' ? 'Risco (Volatilidade)' : 'Retorno'
                       ]}
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--popover))', 
@@ -508,6 +508,7 @@ export default function PremiumAnalytics({
                     />
                     <Bar dataKey="volatility" fill="#ff8042" name="Risco" />
                     <Bar dataKey="totalReturnPercent" fill="#8884d8" name="Retorno" />
+                    <Legend />
                   </RechartsBar>
                 </ResponsiveContainer>
               </CardContent>
