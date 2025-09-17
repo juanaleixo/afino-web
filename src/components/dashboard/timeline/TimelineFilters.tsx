@@ -11,7 +11,7 @@ export interface TimelineFilters {
   customFrom?: string
   customTo?: string
   granularity: 'daily' | 'monthly'
-  benchmark?: string | undefined
+  // benchmark?: string | undefined // DESABILITADO - estava causando problemas
 }
 
 interface TimelineFiltersProps {
@@ -152,7 +152,8 @@ export function TimelineFilters({
         </CardContent>
       </Card>
 
-      {/* Filtros de Benchmark (Premium) */}
+      {/* Filtros de Benchmark (Premium) - DESABILITADO */}
+      {/* 
       {isPremium && (
         <Card>
           <CardHeader>
@@ -184,6 +185,7 @@ export function TimelineFilters({
           </CardContent>
         </Card>
       )}
+      */}
     </div>
   )
 }

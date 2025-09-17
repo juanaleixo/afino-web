@@ -101,10 +101,15 @@ export default function MultiAssetTradingView({
   useEffect(() => {
     if (!chartContainerRef.current || !isPremium || isLoading) return
 
-    // Clear existing chart
+    // Clear existing chart with proper cleanup
     if (chartRef.current) {
-      chartRef.current.remove()
-      chartRef.current = null
+      try {
+        chartRef.current.remove()
+      } catch (error) {
+        console.warn('Chart cleanup warning:', error)
+      } finally {
+        chartRef.current = null
+      }
     }
 
     const chart = createChart(chartContainerRef.current, {
@@ -186,6 +191,21 @@ export default function MultiAssetTradingView({
     const filteredAssets = assetsData.filter(asset => 
       selectedAssets.includes(asset.asset_id)
     )
+
+    // If no assets are selected, add an empty line to prevent chart crash
+    if (filteredAssets.length === 0 && chartType === 'percentage') {
+      const emptySeries = chart.addSeries(LineSeries, {
+        color: 'transparent',
+        lineWidth: 0,
+        title: '',
+        visible: false,
+        priceFormat: {
+          type: 'percent',
+        },
+      })
+      // Add minimal data to prevent crash
+      emptySeries.setData([])
+    }
 
     filteredAssets.forEach((asset, index) => {
       const color = ASSET_COLORS[index % ASSET_COLORS.length] || '#2563eb'
@@ -274,8 +294,11 @@ export default function MultiAssetTradingView({
       chartRef.current.timeScale().fitContent()
       
       // Set visible range to prevent excessive zoom out
-      if (assetsData.length > 0 && assetsData[0]?.daily_values?.length) {
-        const firstAsset = assetsData[0]
+      // Use filtered assets for range calculation, or fallback to all assets
+      const assetsForRange = filteredAssets.length > 0 ? filteredAssets : assetsData
+      
+      if (assetsForRange.length > 0 && assetsForRange[0]?.daily_values?.length) {
+        const firstAsset = assetsForRange[0]
         const firstDate = firstAsset.daily_values?.[0]?.date
         const lastDate = firstAsset.daily_values?.[firstAsset.daily_values.length - 1]?.date
         
@@ -292,11 +315,16 @@ export default function MultiAssetTradingView({
       }
     }
 
-    // Cleanup
+    // Cleanup function to prevent memory leaks and tab switching issues
     return () => {
       if (chartRef.current) {
-        chartRef.current.remove()
-        chartRef.current = null
+        try {
+          chartRef.current.remove()
+        } catch (error) {
+          console.warn('Chart cleanup during unmount warning:', error)
+        } finally {
+          chartRef.current = null
+        }
       }
     }
   }, [assetsData, selectedAssets, chartType, showPortfolio, portfolioData, isPremium, isLoading, isDark])
@@ -315,12 +343,38 @@ export default function MultiAssetTradingView({
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // Component unmount cleanup - essential for tab switching
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        try {
+          chartRef.current.remove()
+        } catch (error) {
+          console.warn('Component unmount chart cleanup warning:', error)
+        } finally {
+          chartRef.current = null
+        }
+      }
+    }
+  }, [])
+
   const toggleAsset = (assetId: string) => {
-    setSelectedAssets(prev => 
-      prev.includes(assetId) 
-        ? prev.filter(id => id !== assetId)
-        : [...prev, assetId]
-    )
+    setSelectedAssets(prev => {
+      const isCurrentlySelected = prev.includes(assetId)
+      
+      if (isCurrentlySelected) {
+        // Prevent deselecting if it's the last selected asset
+        const newSelection = prev.filter(id => id !== assetId)
+        if (newSelection.length === 0) {
+          // Don't allow deselecting the last asset to prevent crash
+          return prev
+        }
+        return newSelection
+      } else {
+        // Add asset to selection
+        return [...prev, assetId]
+      }
+    })
   }
 
   if (!isPremium) {
@@ -429,6 +483,17 @@ export default function MultiAssetTradingView({
                   {selectedAssets.length} / {chartType === 'candles' ? '5' : '10'}
                 </Badge>
               </div>
+              
+              {/* Warning for last asset */}
+              {selectedAssets.length === 1 && (
+                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-2 mb-3">
+                  <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-200">
+                    <span className="text-xs">
+                      💡 Pelo menos um ativo deve permanecer selecionado para manter o gráfico funcionando
+                    </span>
+                  </div>
+                </div>
+              )}
               <Stagger staggerDelay={0.05} className="flex flex-wrap gap-2">
                 {assetsData.slice(0, 20).map((asset) => {
                   const isSelected = selectedAssets.includes(asset.asset_id)

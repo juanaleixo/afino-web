@@ -32,6 +32,7 @@ interface AdvancedPortfolioChartProps {
     value: number
     percentage: number
   }> | null
+  benchmarkData?: Array<{ date: string; value: number; symbol: string }> | null
   isLoading?: boolean
   granularity: 'daily' | 'monthly'
 }
@@ -39,6 +40,7 @@ interface AdvancedPortfolioChartProps {
 interface ChartDatum {
   date: string
   total_value: number
+  benchmark?: number
   [assetKey: string]: number | string
 }
 
@@ -70,6 +72,7 @@ export default function AdvancedPortfolioChart({
   monthlyData, 
   dailyData, 
   assetBreakdown,
+  benchmarkData,
   isLoading = false,
   granularity = 'monthly'
 }: AdvancedPortfolioChartProps) {

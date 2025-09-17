@@ -41,42 +41,23 @@ export class BenchmarkService {
         }))
       }
 
-      console.warn('Dados CDI não encontrados no banco, usando API do Banco Central como fallback')
+      console.log('Dados CDI não encontrados no banco, buscando via Edge Function')
       
-      // Fallback: API do Banco Central do Brasil (BCB)
-      // Série 4389 = Taxa CDI
-      const bcbUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados?formato=json&dataInicial=${from.replace(/-/g, '/')}&dataFinal=${to.replace(/-/g, '/')}`
+      // Usar Edge Function do Supabase com query parameters
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('benchmarks', {
+        body: JSON.stringify({ benchmark: 'cdi', from, to }),
+        method: 'POST'
+      })
       
-      try {
-        const response = await fetch(bcbUrl)
-        if (!response.ok) {
-          console.warn('API do BCB indisponível, usando dados simulados para CDI')
-          return this.getSimulatedCDI(from, to)
-        }
+      console.log('Edge Function CDI response:', { functionData, functionError })
       
-      const bcbData = await response.json()
-      
-      if (Array.isArray(bcbData) && bcbData.length > 0) {
-        let cumulativeReturn = 1.0
-        return bcbData.map((item: any) => {
-          const dailyRate = parseFloat(item.valor) / 100 / 252 // Taxa anual para diária
-          cumulativeReturn *= (1 + dailyRate)
-          return {
-            date: item.data.split('/').reverse().join('-'), // DD/MM/YYYY para YYYY-MM-DD
-            value: (cumulativeReturn - 1) * 100, // Retorno acumulado
-            symbol: 'CDI'
-          }
-        })
+      if (!functionError && functionData) {
+        console.log('Retornando dados CDI da Edge Function:', functionData.length, 'pontos')
+        return functionData
       }
 
-      // Se chegou aqui, não foi possível obter dados da API
-      console.warn('API do BCB indisponível, usando dados simulados para CDI')
+      console.warn('Edge Function indisponível, usando dados simulados para CDI')
       return this.getSimulatedCDI(from, to)
-      
-      } catch (fetchError) {
-        console.warn('Erro ao conectar com BCB (CORS/Network), usando dados simulados para CDI')
-        return this.getSimulatedCDI(from, to)
-      }
       
     } catch (error) {
       console.error('Erro ao carregar dados CDI:', error)
@@ -91,14 +72,15 @@ export class BenchmarkService {
     const data: BenchmarkData[] = []
     
     const currentDate = new Date(fromDate)
-    let cumulativeReturn = 1.0
-    const dailyRate = 0.105 / 365 // ~10.5% ao ano
+    let cumulativeReturn = 0 // Começar com 0% de retorno
+    const dailyRate = 0.105 / 365 // ~10.5% ao ano, dividido por dias úteis
     
     while (currentDate <= toDate) {
-      cumulativeReturn *= (1 + dailyRate)
+      // CDI é mais estável, crescimento linear aproximado
+      cumulativeReturn += dailyRate
       data.push({
         date: currentDate.toISOString().split('T')[0]!,
-        value: (cumulativeReturn - 1) * 100,
+        value: cumulativeReturn * 100, // Convertendo para porcentagem
         symbol: 'CDI'
       })
       
@@ -128,40 +110,20 @@ export class BenchmarkService {
         }))
       }
 
-      console.warn('Dados IBOVESPA não encontrados no banco, usando Yahoo Finance como fallback')
+      console.log('Dados IBOVESPA não encontrados no banco, buscando via Edge Function')
       
-      // Fallback: Yahoo Finance API para IBOVESPA (^BVSP)
-      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EBVSP?period1=${Math.floor(new Date(from).getTime() / 1000)}&period2=${Math.floor(new Date(to).getTime() / 1000)}&interval=1d`
+      // Usar Edge Function do Supabase com query parameters
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('benchmarks', {
+        body: JSON.stringify({ benchmark: 'ibov', from, to }),
+        method: 'POST'
+      })
       
-      try {
-        const response = await fetch(yahooUrl)
-        if (!response.ok) {
-          console.warn('Yahoo Finance indisponível, usando dados simulados para IBOVESPA')
-          return this.getSimulatedIBOV(from, to)
-        }
-        
-        const yahooData = await response.json()
-        const chartData = yahooData?.chart?.result?.[0]
-      
-      if (chartData?.timestamp && chartData?.indicators?.quote?.[0]?.close) {
-        const timestamps = chartData.timestamp
-        const closes = chartData.indicators.quote[0].close
-        
-        return timestamps.map((timestamp: number, index: number) => ({
-          date: new Date(timestamp * 1000).toISOString().split('T')[0],
-          value: closes[index] || 0,
-          symbol: 'IBOV'
-        })).filter((item: BenchmarkData) => item.value > 0)
+      if (!functionError && functionData) {
+        return functionData
       }
 
-      // Se chegou aqui, não foi possível obter dados da API
-      console.warn('Yahoo Finance indisponível, usando dados simulados para IBOVESPA')
+      console.warn('Edge Function indisponível, usando dados simulados para IBOVESPA')
       return this.getSimulatedIBOV(from, to)
-      
-      } catch (fetchError) {
-        console.warn('Erro ao conectar com Yahoo Finance (CORS/Network), usando dados simulados para IBOVESPA')
-        return this.getSimulatedIBOV(from, to)
-      }
       
     } catch (error) {
       console.error('Erro ao carregar dados IBOVESPA:', error)
@@ -215,40 +177,20 @@ export class BenchmarkService {
         }))
       }
 
-      console.warn('Dados S&P 500 não encontrados no banco, usando Yahoo Finance como fallback')
+      console.log('Dados S&P 500 não encontrados no banco, buscando via Edge Function')
       
-      // Fallback: Yahoo Finance API para S&P 500 (^GSPC)
-      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=${Math.floor(new Date(from).getTime() / 1000)}&period2=${Math.floor(new Date(to).getTime() / 1000)}&interval=1d`
+      // Usar Edge Function do Supabase com query parameters
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('benchmarks', {
+        body: JSON.stringify({ benchmark: 'sp500', from, to }),
+        method: 'POST'
+      })
       
-      try {
-        const response = await fetch(yahooUrl)
-        if (!response.ok) {
-          console.warn('Yahoo Finance indisponível, usando dados simulados para S&P 500')
-          return this.getSimulatedSP500(from, to)
-        }
-      
-      const yahooData = await response.json()
-      const chartData = yahooData?.chart?.result?.[0]
-      
-      if (chartData?.timestamp && chartData?.indicators?.quote?.[0]?.close) {
-        const timestamps = chartData.timestamp
-        const closes = chartData.indicators.quote[0].close
-        
-        return timestamps.map((timestamp: number, index: number) => ({
-          date: new Date(timestamp * 1000).toISOString().split('T')[0],
-          value: closes[index] || 0,
-          symbol: 'SPX'
-        })).filter((item: BenchmarkData) => item.value > 0)
+      if (!functionError && functionData) {
+        return functionData
       }
 
-      // Se chegou aqui, não foi possível obter dados da API
-      console.warn('Yahoo Finance indisponível, usando dados simulados para S&P 500')
+      console.warn('Edge Function indisponível, usando dados simulados para S&P 500')
       return this.getSimulatedSP500(from, to)
-      
-      } catch (fetchError) {
-        console.warn('Erro ao conectar com Yahoo Finance (CORS/Network), usando dados simulados para S&P 500')
-        return this.getSimulatedSP500(from, to)
-      }
       
     } catch (error) {
       console.error('Erro ao carregar dados S&P 500:', error)
@@ -302,38 +244,20 @@ export class BenchmarkService {
         }))
       }
 
-      console.warn('Dados Bitcoin não encontrados no banco, usando CoinGecko como fallback')
+      console.log('Dados Bitcoin não encontrados no banco, buscando via Edge Function')
       
-      // Fallback: CoinGecko API para Bitcoin
-      const fromTimestamp = Math.floor(new Date(from).getTime() / 1000)
-      const toTimestamp = Math.floor(new Date(to).getTime() / 1000)
-      const geckoUrl = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${fromTimestamp}&to=${toTimestamp}`
+      // Usar Edge Function do Supabase com query parameters
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('benchmarks', {
+        body: JSON.stringify({ benchmark: 'bitcoin', from, to }),
+        method: 'POST'
+      })
       
-      try {
-        const response = await fetch(geckoUrl)
-        if (!response.ok) {
-          console.warn('CoinGecko indisponível, usando dados simulados para Bitcoin')
-          return this.getSimulatedBitcoin(from, to)
-        }
-      
-      const geckoData = await response.json()
-      
-      if (geckoData?.prices && Array.isArray(geckoData.prices)) {
-        return geckoData.prices.map((price: [number, number]) => ({
-          date: new Date(price[0]).toISOString().split('T')[0],
-          value: price[1],
-          symbol: 'BTC'
-        }))
+      if (!functionError && functionData) {
+        return functionData
       }
 
-      // Se chegou aqui, não foi possível obter dados da API
-      console.warn('CoinGecko indisponível, usando dados simulados para Bitcoin')
+      console.warn('Edge Function indisponível, usando dados simulados para Bitcoin')
       return this.getSimulatedBitcoin(from, to)
-      
-      } catch (fetchError) {
-        console.warn('Erro ao conectar com CoinGecko (CORS/Network), usando dados simulados para Bitcoin')
-        return this.getSimulatedBitcoin(from, to)
-      }
       
     } catch (error) {
       console.error('Erro ao carregar dados Bitcoin:', error)

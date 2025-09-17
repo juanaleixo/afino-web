@@ -97,12 +97,14 @@ export function TimelineChart({
         
         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
           <span>Granularidade: {filters.granularity === 'daily' ? 'Diária' : 'Mensal'}</span>
+          {/* Benchmark desabilitado
           {filters.benchmark && (
             <>
               <span>•</span>
               <span>Benchmark: {getBenchmarkLabel(filters.benchmark)}</span>
             </>
           )}
+          */}
         </div>
       </div>
 
@@ -123,6 +125,7 @@ export function TimelineChart({
               monthlyData={monthlySeries}
               dailyData={dailySeries}
               assetBreakdown={assetBreakdownData}
+              benchmarkData={benchmarkData}
               isLoading={loading}
               granularity={filters.granularity}
             />
@@ -131,6 +134,7 @@ export function TimelineChart({
           <PortfolioChart
             monthlyData={monthlySeries}
             dailyData={dailySeries}
+            benchmarkData={benchmarkData}
             isLoading={loading}
           />
         )}

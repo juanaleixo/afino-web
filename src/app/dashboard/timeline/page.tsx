@@ -28,14 +28,15 @@ export default function TimelinePage() {
   const isPremium = userContext.is_premium
   const [view, setView] = useState<'overview' | 'assets' | 'details'>('overview')
   const [benchmarkData, setBenchmarkData] = useState<any>(null)
+  const [benchmarkCache, setBenchmarkCache] = useState<Map<string, any>>(new Map())
   const [performanceAnalysis, setPerformanceAnalysis] = useState<any[]>([])
   const [normalizedPerformance, setNormalizedPerformance] = useState<any[]>([])
   const [refreshing, setRefreshing] = useState(false)
   
   const [filters, setFilters] = useState<TimelineFiltersType>({
     period: '1Y',
-    granularity: 'monthly',
-    benchmark: undefined
+    granularity: 'monthly'
+    // benchmark: undefined // DESABILITADO - estava causando problemas
   })
 
   // Usar o novo hook usePortfolioData
@@ -90,25 +91,55 @@ export default function TimelinePage() {
     return { from, to: filters.period === 'CUSTOM' ? (filters.customTo || to) : to }
   }, [filters])
 
-  // Carregar benchmark quando selecionado (Premium)
+  // Carregar benchmark quando selecionado (Premium) - DESABILITADO
+  /*
   useEffect(() => {
     const loadBenchmark = async () => {
       if (isPremium && filters.benchmark) {
+        console.log('Carregando benchmark:', filters.benchmark)
         try {
           const { from, to } = getDateRange()
+          console.log('Range de datas:', { from, to })
+          
+          // Criar chave de cache
+          const cacheKey = `${filters.benchmark}-${from}-${to}`
+          
+          // Verificar cache primeiro
+          if (benchmarkCache.has(cacheKey)) {
+            console.log('Usando benchmark do cache:', cacheKey)
+            setBenchmarkData(benchmarkCache.get(cacheKey))
+            return
+          }
+          
           const benchmarkResult = await benchmarkService.getBenchmarkData(filters.benchmark, from, to)
+          console.log('Resultado do benchmark:', benchmarkResult?.length, 'pontos de dados')
+          
+          // Salvar no cache
+          setBenchmarkCache(prev => {
+            const newCache = new Map(prev)
+            newCache.set(cacheKey, benchmarkResult)
+            return newCache
+          })
+          
           setBenchmarkData(benchmarkResult)
         } catch (error) {
           console.error('Erro ao carregar benchmark:', error)
           setBenchmarkData(null)
         }
       } else {
+        console.log('Limpando benchmark data - isPremium:', isPremium, 'benchmark:', filters.benchmark)
         setBenchmarkData(null)
       }
     }
 
     loadBenchmark()
-  }, [isPremium, filters.benchmark, getDateRange])
+  }, [isPremium, filters.benchmark, filters.period, filters.customFrom, filters.customTo])
+  */
+
+  // Garantir que benchmarkData seja null (benchmark desabilitado)
+  useEffect(() => {
+    setBenchmarkData(null)
+  }, [])
 
   // Carregar análise de performance quando Premium + Diário
   useEffect(() => {
@@ -143,7 +174,7 @@ export default function TimelinePage() {
     }
 
     loadPerformanceAnalysis()
-  }, [user?.id, isPremium, filters.granularity, getDateRange])
+  }, [user?.id, isPremium, filters.granularity, filters.period, filters.customFrom, filters.customTo])
 
   const handleFiltersChange = (newFilters: Partial<TimelineFiltersType>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))

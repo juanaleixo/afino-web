@@ -21,12 +21,14 @@ import { useTheme } from "@/hooks/use-theme"
 interface PortfolioChartProps {
   monthlyData: Array<{ month_eom: string; total_value: number }>
   dailyData?: Array<{ date: string; total_value: number }> | null
+  benchmarkData?: Array<{ date: string; value: number; symbol: string }> | null
   isLoading?: boolean
 }
 
 interface ChartDatum {
   date: string
   value: number
+  benchmark?: number
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -35,7 +37,7 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 0,
 })
 
-export default function PortfolioChart({ monthlyData, dailyData, isLoading = false }: PortfolioChartProps) {
+export default function PortfolioChart({ monthlyData, dailyData, benchmarkData, isLoading = false }: PortfolioChartProps) {
   const [refAreaLeft, setRefAreaLeft] = useState<string>('')
   const [refAreaRight, setRefAreaRight] = useState<string>('')
   const [isDragging, setIsDragging] = useState(false)
@@ -53,11 +55,40 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
     const base = dailyData && dailyData.length > 0 ? dailyData : monthlyData
     if (!base || base.length === 0) return []
     
-    return base.map((d) => ({
+    const portfolioData = base.map((d) => ({
       date: 'date' in d ? d.date : d.month_eom,
       value: d.total_value,
     }))
-  }, [monthlyData, dailyData])
+
+    // Se há dados de benchmark, combinar com dados do portfólio
+    if (benchmarkData && benchmarkData.length > 0) {
+      const startValue = portfolioData[0]?.value || 0
+      console.log('Processando benchmark data no PortfolioChart:', {
+        benchmarkLength: benchmarkData.length,
+        startValue,
+        firstBenchmarkItem: benchmarkData[0],
+        portfolioLength: portfolioData.length
+      })
+      
+      return portfolioData.map((d) => {
+        const benchmarkItem = benchmarkData.find(b => b.date === d.date)
+        let benchmarkValue = undefined
+        
+        if (benchmarkItem && startValue > 0) {
+          // Normalizar benchmark para a mesma base inicial do portfólio
+          const benchmarkReturn = benchmarkItem.value / 100 // valor já é retorno em %
+          benchmarkValue = startValue * (1 + benchmarkReturn)
+        }
+        
+        return {
+          ...d,
+          benchmark: benchmarkValue
+        }
+      })
+    }
+    
+    return portfolioData
+  }, [monthlyData, dailyData, benchmarkData])
 
   const latestValue = chartData.at(-1)?.value ?? 0
 
@@ -264,7 +295,12 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
                       />
                       
                       <Tooltip
-                        formatter={(value: number) => [currencyFormatter.format(value), 'Patrimônio']}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'benchmark') {
+                            return [currencyFormatter.format(value), benchmarkData?.[0]?.symbol || 'Benchmark']
+                          }
+                          return [currencyFormatter.format(value), 'Patrimônio']
+                        }}
                         labelFormatter={(label: string) => new Date(label).toLocaleDateString('pt-BR')}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--popover))', 
@@ -304,6 +340,26 @@ export default function PortfolioChart({ monthlyData, dailyData, isLoading = fal
                         connectNulls={false}
                         isAnimationActive={false}
                       />
+                      
+                      {/* Linha de benchmark se disponível */}
+                      {benchmarkData && benchmarkData.length > 0 && (
+                        <Line
+                          type="monotone"
+                          dataKey="benchmark"
+                          stroke="hsl(var(--muted-foreground))"
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={false}
+                          activeDot={{ 
+                            r: 4, 
+                            stroke: 'hsl(var(--muted-foreground))', 
+                            strokeWidth: 2,
+                            fill: 'hsl(var(--background))'
+                          }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

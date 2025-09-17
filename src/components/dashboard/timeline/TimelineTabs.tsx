@@ -100,8 +100,9 @@ export function TimelineTabs({
       </TabsList>
       
       {/* ABA 1: VISÃO GERAL - Gráfico principal */}
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="overview" className="space-y-6" key="overview-tab">
         <TimelineChart
+          key={`timeline-chart-${filters.period}-${filters.granularity}`}
           portfolioData={portfolioData}
           assetBreakdownData={assetBreakdownData}
           benchmarkData={benchmarkData}
@@ -114,11 +115,11 @@ export function TimelineTabs({
 
       {/* ABA 2: POR ATIVOS - Análise multi-ativos (Premium) */}
       {isPremium && (
-        <TabsContent value="assets" className="space-y-6">
+        <TabsContent value="assets" className="space-y-6" key="assets-tab">
           {filters.granularity === 'daily' ? (
-            <FadeIn className="space-y-6">
+            <FadeIn className="space-y-6" key="daily-assets-view">
               {/* Multi-Asset Chart */}
-              <div className="select-none">
+              <div className="select-none" key="multi-asset-chart">
                 <Suspense fallback={
                   <Card className="card-hover">
                     <CardContent className="flex items-center justify-center h-64">
@@ -130,6 +131,7 @@ export function TimelineTabs({
                   </Card>
                 }>
                   <MultiAssetTradingView
+                    key={`multi-asset-${filters.period}-${filters.granularity}`}
                     assetsData={normalizedAssetData}
                     portfolioData={portfolioData}
                     isPremium={isPremium}
@@ -139,7 +141,7 @@ export function TimelineTabs({
               </div>
               
               {/* Performance Analysis */}
-              <FadeIn delay={300}>
+              <FadeIn delay={300} key="performance-analysis">
                 <Suspense fallback={
                   <Card className="card-hover">
                     <CardContent className="flex items-center justify-center h-64">
@@ -151,6 +153,7 @@ export function TimelineTabs({
                   </Card>
                 }>
                   <PremiumAnalytics
+                    key={`premium-analytics-${filters.period}`}
                     performanceData={performanceAnalysis}
                     benchmarkData={benchmarkData}
                     isLoading={loading}
@@ -190,8 +193,8 @@ export function TimelineTabs({
       )}
 
       {/* ABA 3: DETALHES - Tabela de dados */}
-      <TabsContent value="details" className="space-y-4">
-        <FadeIn>
+      <TabsContent value="details" className="space-y-4" key="details-tab">
+        <FadeIn key="details-content">
           <Card className="card-hover">
             <CardHeader>
               <CardTitle>Dados Históricos</CardTitle>

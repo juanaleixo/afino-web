@@ -2,11 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, TrendingDown, Target, Activity, BarChart3, Eye, Crown, Loader2, PieChart, LineChart, Filter } from 'lucide-react'
+import { TrendingUp, TrendingDown, Target, Activity, BarChart3, Crown, Loader2, PieChart } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPie, Pie, Cell, BarChart as RechartsBar, Bar } from 'recharts'
 
@@ -26,7 +25,6 @@ interface AssetAnalysis {
 
 interface PremiumAnalyticsProps {
   performanceData: AssetAnalysis[]
-  benchmarkData?: any
   isLoading: boolean
   period: { from: string; to: string }
 }
@@ -35,11 +33,10 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 
 export default function PremiumAnalytics({ 
   performanceData, 
-  benchmarkData, 
   isLoading, 
   period 
 }: PremiumAnalyticsProps) {
-  const [selectedView, setSelectedView] = useState<'overview' | 'performance' | 'risk' | 'comparison'>('overview')
+  const [selectedView, setSelectedView] = useState<'overview' | 'performance' | 'risk'>('overview')
   const [selectedAsset, setSelectedAsset] = useState<string>('')
 
   // Auto-select first asset when performance data is available
@@ -246,11 +243,10 @@ export default function PremiumAnalytics({
 
       {/* Tabs de Análise */}
       <Tabs value={selectedView} onValueChange={(value) => setSelectedView(value as any)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="risk">Análise de Risco</TabsTrigger>
-          <TabsTrigger value="comparison">Comparativo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -545,19 +541,6 @@ export default function PremiumAnalytics({
           </div>
         </TabsContent>
 
-        <TabsContent value="comparison" className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <Crown className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-                <h3 className="font-semibold mb-2">Comparação com Benchmarks</h3>
-                <p className="text-muted-foreground">
-                  Comparação com CDI, IBOVESPA, S&P 500 e outros índices será implementada aqui
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )
