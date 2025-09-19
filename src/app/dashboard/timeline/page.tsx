@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAuth } from "@/lib/auth"
 import { usePortfolioData } from "@/lib/hooks"
+// TODO: Migrar para useTimelineOptimized após ajustar interfaces
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Crown } from "lucide-react"
@@ -39,7 +40,7 @@ export default function TimelinePage() {
     // benchmark: undefined // DESABILITADO - estava causando problemas
   })
 
-  // Usar o novo hook usePortfolioData
+  // Usar hook atual (será migrado para useTimelineOptimized)
   const {
     data: portfolioData,
     loading,

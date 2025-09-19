@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
-import { useDashboardBundle } from "@/lib/hooks/useDashboardBundle"
+import { useDashboard } from "@/lib/hooks/useDashboardOptimized"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { LoadingState } from "@/components/ui/loading-state"
+import { DashboardSkeleton, StatsSkeleton, ChartSkeleton } from "@/components/ui/dashboard-skeleton"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { AssetBadge } from "@/components/ui/asset-badge"
 import {
@@ -40,13 +40,29 @@ import { formatBRL } from "@/lib/utils/formatters"
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
-  const { data: dashboardData, isLoading, timelineLoading, error, refresh } = useDashboardBundle()
+  const {
+    data: dashboardData,
+    dashboardData: fullData,
+    isLoading,
+    isLoadingEssential,
+    isLoadingDetailed,
+    timelineLoading,
+    error,
+    refresh,
+    refreshTimeline,
+    loadingState,
+    isPremium: dashboardIsPremium,
+    hasData
+  } = useDashboard()
   const [refreshing, setRefreshing] = useState(false)
+  const [refreshingTimeline, setRefreshingTimeline] = useState(false)
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timelineRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Extract data from consolidated bundle (with fallbacks for loading state)
+  // Extract data from critical dashboard (with optimized fallbacks)
   const userContext = dashboardData?.user_context || { is_premium: false, last_event_timestamp: null }
-  const isPremium = userContext.is_premium
-  const portfolioStats = dashboardData?.portfolio_stats || { total_value: 0, total_assets: 0 }
+  const isPremium = dashboardIsPremium || userContext.is_premium
+  const portfolioStats = dashboardData?.portfolio_stats || { total_value: 0, total_assets: 0, performance_6m: null, largest_holding: null, diversification: null }
   const holdingsData = dashboardData?.holdings || []
   const monthlyData = dashboardData?.monthly_series || []
   const dailyData = dashboardData?.daily_series || []
@@ -58,95 +74,70 @@ export default function DashboardPage() {
   }
 
   const handleRefresh = async () => {
-    if (refreshing) return
+    // Evitar múltiplos cliques e debounce
+    if (refreshing || isLoading) return
+
+    // Limpar timeout anterior se existir
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current)
+    }
 
     setRefreshing(true)
     try {
-      await refresh(true) // Force refresh to clear cache
-      toast.success('Dados atualizados com sucesso')
+      await refresh() // Refresh completo de todas as camadas
+      toast.success('🔄 Dados atualizados com sucesso')
     } catch (error) {
-      toast.error('Erro ao atualizar dados')
       console.error('Refresh error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar dados'
+      toast.error(`⚠️ ${errorMessage}`)
     } finally {
-      setRefreshing(false)
+      // Debounce para evitar estado instável
+      refreshTimeoutRef.current = setTimeout(() => {
+        setRefreshing(false)
+        refreshTimeoutRef.current = null
+      }, 200)
     }
   }
 
-  const calculate6MonthPerformance = () => {
-    // Use consolidated data from bundle
-    const timelineData = isPremium ? dailyData : monthlyData
-    if (timelineData.length < 2) return { percentage: 0, isPositive: true }
-    
-    const firstValue = timelineData[0]?.total_value || 0
-    const lastValue = timelineData[timelineData.length - 1]?.total_value || 0
-    
-    if (firstValue === 0) return { percentage: 0, isPositive: true }
-    
-    const percentage = ((lastValue - firstValue) / firstValue) * 100
-    return { percentage, isPositive: percentage >= 0 }
-  }
+  const handleTimelineRefresh = async () => {
+    // Evitar múltiplos cliques e debounce
+    if (refreshingTimeline || timelineLoading) return
 
-  const getLargestHolding = () => {
-    if (!holdingsData?.length) return { symbol: 'N/A', percentage: 0, loading: false }
-    
-    const totalValue = holdingsData.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
-    
-    if (totalValue === 0) return { symbol: 'N/A', percentage: 0, loading: false }
-    
-    const largest = holdingsData.reduce((max: any, current: any) => 
-      (current.value || 0) > (max.value || 0) ? current : max
-    )
-    
-    const percentage = ((largest.value || 0) / totalValue) * 100
-    
-    // Use symbol directly from api_holdings_with_assets data
-    const symbol = largest.symbol || largest.asset_id || 'N/A'
-    
-    return { 
-      symbol, 
-      percentage: isNaN(percentage) ? 0 : percentage,
-      loading: false
+    // Limpar timeout anterior se existir
+    if (timelineRefreshTimeoutRef.current) {
+      clearTimeout(timelineRefreshTimeoutRef.current)
     }
-  }
 
-  const getDiversificationScore = () => {
-    if (!holdingsData?.length) return { score: 0, label: 'Sem dados' }
-    
-    const totalValue = holdingsData.reduce((sum: number, h: any) => sum + (h.value || 0), 0)
-
-    if (totalValue === 0 || holdingsData.length === 0) return { score: 0, label: 'Sem dados' }
-
-    // Calculate Herfindahl-Hirschman Index (HHI) for diversification
-    const hhi = holdingsData.reduce((sum: number, holding: any) => {
-      const weight = (holding.value || 0) / totalValue
-      if (isNaN(weight)) return sum
-      return sum + (weight * weight)
-    }, 0)
-
-    // Convert HHI to diversification score (0-100, higher = more diversified)
-    const diversificationScore = Math.max(0, 100 - (hhi * 100))
-
-    if (isNaN(diversificationScore)) return { score: 0, label: 'Sem dados' }
-
-    let label = 'Baixa'
-    if (diversificationScore > 70) label = 'Alta'
-    else if (diversificationScore > 40) label = 'Média'
-
-    return { score: diversificationScore, label }
+    setRefreshingTimeline(true)
+    try {
+      await refreshTimeline() // Refresh apenas da timeline
+      toast.success('📈 Gráficos atualizados')
+    } catch (error) {
+      console.error('Timeline refresh error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar gráficos'
+      toast.error(`⚠️ ${errorMessage}`)
+    } finally {
+      // Debounce para evitar estado instável
+      timelineRefreshTimeoutRef.current = setTimeout(() => {
+        setRefreshingTimeline(false)
+        timelineRefreshTimeoutRef.current = null
+      }, 200)
+    }
   }
 
   const getAssetClassDistribution = () => {
     if (!holdingsData?.length) {
-      return { diversityLabel: 'Sem dados' }
+      // Durante carregamento, mostrar baseado no patrimônio total
+      return { diversityLabel: fullData?.essential?.total_value > 0 ? 'Carregando...' : 'Sem dados' }
     }
-    
+
     const numAssets = holdingsData.length
-    
+
     // Simple diversity calculation based on number of assets
     let diversityLabel = 'Concentrado'
     if (numAssets >= 5) diversityLabel = 'Diversificado'
     else if (numAssets >= 3) diversityLabel = 'Balanceado'
-    
+
     return { diversityLabel }
   }
   
@@ -194,10 +185,11 @@ export default function DashboardPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleRefresh}
-                  disabled={refreshing}
+                  disabled={refreshing || isLoading}
+                  className={refreshing ? 'opacity-75' : ''}
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  Recarregar
+                  {refreshing ? 'Atualizando...' : 'Recarregar'}
                 </Button>
                 <Button
                   variant="outline"
@@ -225,18 +217,23 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <LoadingState variant="inline" size="sm" message="Carregando..." />
+                {isLoading || refreshing || !hasData ? (
+                  <StatsSkeleton />
                 ) : (
                   <>
                     <div className="text-2xl font-bold text-foreground">
-                      {portfolioStats ? formatBRL(portfolioStats.total_value || 0) : 'R$ 0,00'}
+                      {formatBRL(fullData?.essential?.total_value || 0)}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      {(isPremium ? dailyData : monthlyData).length > 0 && calculate6MonthPerformance().percentage !== 0 ? (
-                        <StatusBadge variant={calculate6MonthPerformance().isPositive ? "success" : "error"} size="sm">
-                          {calculate6MonthPerformance().isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                          {calculate6MonthPerformance().isPositive ? '+' : ''}{calculate6MonthPerformance().percentage.toFixed(1)}%
+                      {timelineLoading || !portfolioStats.performance_6m ? (
+                        <StatusBadge variant="neutral" size="sm">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Carregando...
+                        </StatusBadge>
+                      ) : portfolioStats.performance_6m.percentage !== 0 ? (
+                        <StatusBadge variant={portfolioStats.performance_6m.is_positive ? "success" : "error"} size="sm">
+                          {portfolioStats.performance_6m.is_positive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                          {portfolioStats.performance_6m.is_positive ? '+' : ''}{portfolioStats.performance_6m.percentage.toFixed(1)}%
                         </StatusBadge>
                       ) : (
                         <StatusBadge variant="neutral" size="sm">
@@ -244,7 +241,9 @@ export default function DashboardPage() {
                         </StatusBadge>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        {holdingsData?.length ? `${holdingsData.length} posições` : 'Sem dados'}
+                        {isLoadingDetailed || !holdingsData?.length ?
+                          (fullData?.essential?.total_value > 0 ? 'Carregando posições...' : 'Sem dados')
+                          : `${holdingsData.length} posições`}
                       </span>
                     </div>
                   </>
@@ -260,8 +259,15 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <LoadingState variant="inline" size="sm" message="Carregando..." />
+                {isLoadingDetailed ? (
+                  <StatsSkeleton />
+                ) : !holdingsData?.length ? (
+                  <div className="text-center py-4">
+                    <div className="text-2xl font-bold text-muted-foreground">—</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {fullData?.essential?.total_value > 0 ? 'Sem posições' : 'Sem dados'}
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
@@ -288,16 +294,23 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <LoadingState variant="inline" size="sm" message="Carregando..." />
+                {isLoadingDetailed ? (
+                  <StatsSkeleton />
+                ) : !portfolioStats.largest_holding ? (
+                  <div className="text-center py-4">
+                    <div className="text-2xl font-bold text-muted-foreground">—</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {fullData?.essential?.total_value > 0 ? 'Sem posições' : 'Sem dados'}
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {getLargestHolding().symbol}
+                      {portfolioStats.largest_holding?.symbol || 'N/A'}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <StatusBadge variant="info" size="sm">
-                        {getLargestHolding().percentage.toFixed(1)}%
+                        {portfolioStats.largest_holding?.percentage?.toFixed(1) || 0}%
                       </StatusBadge>
                       <span className="text-xs text-muted-foreground">
                         do portfólio
@@ -316,19 +329,26 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <LoadingState variant="inline" size="sm" message="Carregando..." />
+                {isLoadingDetailed ? (
+                  <StatsSkeleton />
+                ) : !portfolioStats.diversification ? (
+                  <div className="text-center py-4">
+                    <div className="text-2xl font-bold text-muted-foreground">—</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {fullData?.essential?.total_value > 0 ? 'Sem posições' : 'Sem dados'}
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="text-2xl font-bold">
-                      {getDiversificationScore().score.toFixed(0)}
+                      {portfolioStats.diversification?.score?.toFixed(0) || 0}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <StatusBadge 
-                        variant={getDiversificationScore().score > 70 ? "success" : getDiversificationScore().score > 40 ? "warning" : "neutral"} 
+                      <StatusBadge
+                        variant={(portfolioStats.diversification?.score ?? 0) > 70 ? "success" : (portfolioStats.diversification?.score ?? 0) > 40 ? "warning" : "neutral"}
                         size="sm"
                       >
-                        {getDiversificationScore().label}
+                        {portfolioStats.diversification?.label || 'N/A'}
                       </StatusBadge>
                       <span className="text-xs text-muted-foreground">
                         diversificação
@@ -347,25 +367,35 @@ export default function DashboardPage() {
               <div>
                 <h2 className="text-2xl font-bold">Evolução Temporal</h2>
                 <p className="text-muted-foreground">
-                  {isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses'} • 
+                  {isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses'} •
                   Visualização {isPremium ? 'diária' : 'mensal'}
                 </p>
               </div>
-              <Link href="/dashboard/timeline">
-                <Button className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Análise Detalhada
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTimelineRefresh}
+                  disabled={refreshingTimeline || timelineLoading}
+                  className={refreshingTimeline ? 'opacity-75' : ''}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshingTimeline ? 'animate-spin' : ''}`} />
+                  {refreshingTimeline ? 'Atualizando...' : 'Atualizar'}
                 </Button>
-              </Link>
+                <Link href="/dashboard/timeline">
+                  <Button className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Análise Detalhada
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Main Timeline Chart */}
             <Card className="card-hover animate-fade-in-up delay-300">
               <CardContent className="pt-6">
-                {timelineLoading ? (
-                  <div className="h-64 flex items-center justify-center">
-                    <LoadingState message="Carregando gráficos..." />
-                  </div>
+                {timelineLoading || refreshing || !hasData ? (
+                  <ChartSkeleton />
                 ) : (isPremium ? dailyData : monthlyData).length > 0 ? (
                   <PortfolioChart
                     monthlyData={isPremium ? [] : monthlyData}

@@ -1,65 +1,66 @@
--- Function: api_dashboard_timeline()
--- Description: Returns timeline data as separate table functions for lighter queries
--- Frontend processes the tabular data instead of json_agg
+-- API simplificada para dados brutos de timeline - sem processamento
 
-CREATE OR REPLACE FUNCTION public.api_dashboard_timeline(
-  p_date date DEFAULT CURRENT_DATE,
-  p_is_premium boolean DEFAULT false
-)
-RETURNS JSON
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-SET statement_timeout TO '3s'
-AS $$
+CREATE OR REPLACE FUNCTION api_dashboard_timeline()
+RETURNS jsonb AS $$
 DECLARE
-  result JSON;
-  current_user_id UUID := app_current_user();
-  monthly_count INTEGER := 0;
-  daily_count INTEGER := 0;
+  v_user_id uuid := auth.uid();
+  v_is_premium boolean;
+  v_result jsonb;
 BEGIN
-  IF current_user_id IS NULL THEN
-    RETURN json_build_object(
-      'monthly_count', 0,
-      'daily_count', 0,
-      'has_data', false,
-      'timestamp', EXTRACT(EPOCH FROM NOW())::bigint
-    );
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'Unauthorized');
   END IF;
 
-  -- Get counts only (not actual data)
-  SELECT COUNT(*) INTO monthly_count
-  FROM portfolio_value_monthly pvm
-  WHERE pvm.user_id = current_user_id
-    AND pvm.month >= (p_date - INTERVAL '12 months')::date
-    AND pvm.month <= p_date;
+  -- Check if premium (simple)
+  SELECT COALESCE(
+    (SELECT up.subscription_status = 'active' AND
+            (up.premium_expires_at IS NULL OR up.premium_expires_at > now())
+     FROM user_profiles up
+     WHERE up.user_id = v_user_id
+     LIMIT 1),
+    false
+  ) INTO v_is_premium;
 
-  -- Get daily count only if premium
-  IF p_is_premium THEN
-    SELECT COUNT(*) INTO daily_count
-    FROM portfolio_value_daily pvd
-    WHERE pvd.user_id = current_user_id
-      AND pvd.date >= (p_date - INTERVAL '6 months')::date
-      AND pvd.date <= p_date;
-  END IF;
+  -- Raw timeline data - no processing
+  SELECT jsonb_build_object(
+    'monthly_data', (
+      SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+          'month', m.month,
+          'value', m.month_value
+        )
+        ORDER BY m.month DESC
+      ), '[]'::jsonb)
+      FROM portfolio_value_monthly m
+      WHERE m.user_id = v_user_id
+        AND m.month >= (current_date - interval '12 months')
+      LIMIT 12
+    ),
+    'daily_data', (
+      SELECT CASE WHEN v_is_premium THEN
+        COALESCE(jsonb_agg(
+          jsonb_build_object(
+            'date', d.date,
+            'value', d.total_value
+          )
+          ORDER BY d.date DESC
+        ), '[]'::jsonb)
+      ELSE '[]'::jsonb END
+      FROM portfolio_value_daily d
+      WHERE d.user_id = v_user_id
+        AND d.date >= (current_date - interval '6 months')
+        AND v_is_premium
+      LIMIT 180
+    ),
+    'is_premium', v_is_premium,
+    'timestamp', extract(epoch FROM now()) * 1000
+  ) INTO v_result;
 
-  -- Return lightweight response
-  SELECT json_build_object(
-    'monthly_count', monthly_count,
-    'daily_count', daily_count,
-    'has_data', (monthly_count > 0 OR daily_count > 0),
-    'timestamp', EXTRACT(EPOCH FROM NOW())::bigint
-  )
-  INTO result;
-
-  RETURN result;
+  RETURN v_result;
 END;
-$$;
+$$ LANGUAGE plpgsql VOLATILE
+SECURITY DEFINER
+SET search_path = public, extensions
+SET statement_timeout = '5s';
 
-ALTER FUNCTION public.api_dashboard_timeline(p_date date, p_is_premium boolean) OWNER TO postgres;
-
-GRANT ALL ON FUNCTION public.api_dashboard_timeline(p_date date, p_is_premium boolean) TO anon;
-GRANT ALL ON FUNCTION public.api_dashboard_timeline(p_date date, p_is_premium boolean) TO authenticated;
-GRANT ALL ON FUNCTION public.api_dashboard_timeline(p_date date, p_is_premium boolean) TO service_role;
-GRANT ALL ON FUNCTION public.api_dashboard_timeline(p_date date, p_is_premium boolean) TO supabase_admin;
+GRANT EXECUTE ON FUNCTION api_dashboard_timeline() TO authenticated;
