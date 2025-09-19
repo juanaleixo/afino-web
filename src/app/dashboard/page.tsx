@@ -48,16 +48,13 @@ export default function DashboardPage() {
     isLoadingDetailed,
     timelineLoading,
     error,
+    holdingsError,
     refresh,
     refreshTimeline,
     loadingState,
     isPremium: dashboardIsPremium,
     hasData
   } = useDashboard()
-  const [refreshing, setRefreshing] = useState(false)
-  const [refreshingTimeline, setRefreshingTimeline] = useState(false)
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const timelineRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Extract data from critical dashboard (with optimized fallbacks)
   const userContext = dashboardData?.user_context || { is_premium: false, last_event_timestamp: null }
@@ -74,41 +71,23 @@ export default function DashboardPage() {
   }
 
   const handleRefresh = async () => {
-    // Evitar múltiplos cliques e debounce
-    if (refreshing || isLoading) return
+    // Evitar múltiplos cliques durante carregamento
+    if (isLoading || isLoadingEssential) return
 
-    // Limpar timeout anterior se existir
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current)
-    }
-
-    setRefreshing(true)
     try {
       await refresh() // Refresh completo de todas as camadas
-      toast.success('🔄 Dados atualizados com sucesso')
+      toast.success('Dados atualizados com sucesso')
     } catch (error) {
       console.error('Refresh error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar dados'
       toast.error(`⚠️ ${errorMessage}`)
-    } finally {
-      // Debounce para evitar estado instável
-      refreshTimeoutRef.current = setTimeout(() => {
-        setRefreshing(false)
-        refreshTimeoutRef.current = null
-      }, 200)
     }
   }
 
   const handleTimelineRefresh = async () => {
-    // Evitar múltiplos cliques e debounce
-    if (refreshingTimeline || timelineLoading) return
+    // Evitar múltiplos cliques durante carregamento
+    if (timelineLoading) return
 
-    // Limpar timeout anterior se existir
-    if (timelineRefreshTimeoutRef.current) {
-      clearTimeout(timelineRefreshTimeoutRef.current)
-    }
-
-    setRefreshingTimeline(true)
     try {
       await refreshTimeline() // Refresh apenas da timeline
       toast.success('📈 Gráficos atualizados')
@@ -116,12 +95,6 @@ export default function DashboardPage() {
       console.error('Timeline refresh error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar gráficos'
       toast.error(`⚠️ ${errorMessage}`)
-    } finally {
-      // Debounce para evitar estado instável
-      timelineRefreshTimeoutRef.current = setTimeout(() => {
-        setRefreshingTimeline(false)
-        timelineRefreshTimeoutRef.current = null
-      }, 200)
     }
   }
 
@@ -185,11 +158,11 @@ export default function DashboardPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleRefresh}
-                  disabled={refreshing || isLoading}
-                  className={refreshing ? 'opacity-75' : ''}
+                  disabled={isLoading || isLoadingEssential}
+                  className={isLoading ? 'opacity-75' : ''}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Atualizando...' : 'Recarregar'}
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? 'Atualizando...' : 'Recarregar'}
                 </Button>
                 <Button
                   variant="outline"
@@ -207,6 +180,34 @@ export default function DashboardPage() {
         {/* Main Content */}
         <main className="dashboard-page">
 
+          {/* Holdings Error Banner */}
+          {holdingsError && (
+            <div className="mb-6">
+              <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20">
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                    <div className="flex-1">
+                      <p className="text-sm text-orange-800 dark:text-orange-200">
+                        <strong>Aviso:</strong> {holdingsError}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRefresh}
+                      disabled={isLoading}
+                      className="text-orange-700 border-orange-300 hover:bg-orange-100 dark:text-orange-300 dark:border-orange-600 dark:hover:bg-orange-800"
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Tentar Novamente
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Enhanced Quick Stats */}
           <div className="stats-grid animate-fade-in-up delay-150">
             <Card className="card-hover">
@@ -217,7 +218,7 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading || refreshing || !hasData ? (
+                {isLoadingEssential || !hasData ? (
                   <StatsSkeleton />
                 ) : (
                   <>
@@ -376,11 +377,11 @@ export default function DashboardPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleTimelineRefresh}
-                  disabled={refreshingTimeline || timelineLoading}
-                  className={refreshingTimeline ? 'opacity-75' : ''}
+                  disabled={timelineLoading}
+                  className={timelineLoading ? 'opacity-75' : ''}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshingTimeline ? 'animate-spin' : ''}`} />
-                  {refreshingTimeline ? 'Atualizando...' : 'Atualizar'}
+                  <RefreshCw className={`h-4 w-4 mr-2 ${timelineLoading ? 'animate-spin' : ''}`} />
+                  {timelineLoading ? 'Atualizando...' : 'Atualizar'}
                 </Button>
                 <Link href="/dashboard/timeline">
                   <Button className="flex items-center gap-2">
@@ -394,13 +395,13 @@ export default function DashboardPage() {
             {/* Main Timeline Chart */}
             <Card className="card-hover animate-fade-in-up delay-300">
               <CardContent className="pt-6">
-                {timelineLoading || refreshing || !hasData ? (
+                {timelineLoading || !hasData ? (
                   <ChartSkeleton />
                 ) : (isPremium ? dailyData : monthlyData).length > 0 ? (
                   <PortfolioChart
                     monthlyData={isPremium ? [] : monthlyData}
                     dailyData={isPremium ? dailyData : []}
-                    isLoading={false}
+                    isLoading={timelineLoading}
                   />
                 ) : (
                   <div className="h-64 flex items-center justify-center">

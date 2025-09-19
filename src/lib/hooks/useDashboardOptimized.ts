@@ -86,6 +86,7 @@ export function useDashboard() {
 
   const abortController = useRef<AbortController | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [holdingsError, setHoldingsError] = useState<string | null>(null)
 
   // ====== CAMADA 1: ESSENCIAL (<50ms) ======
   const loadEssential = useCallback(async () => {
@@ -151,41 +152,98 @@ export function useDashboard() {
       return
     }
 
-    try {
-      console.log('📊 DETAILED: Loading from DB')
+    // Retry logic para statement timeout
+    const maxRetries = 2
+    let retryCount = 0
 
-      const { data: result, error: rpcError } = await supabase.rpc('api_dashboard_holdings')
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`📊 DETAILED: Loading from DB (attempt ${retryCount + 1}/${maxRetries + 1})`)
+        setHoldingsError(null) // Clear previous errors
 
-      if (rpcError) throw rpcError
+        // Criar AbortController para timeout manual
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
 
-      // Process raw holdings data on frontend
-      const processedHoldings = processHoldings(
-        result?.holdings || [],
-        result?.assets_metadata || {},
-        result?.custom_assets || {}
-      )
+        const { data: result, error: rpcError } = await supabase.rpc('api_dashboard_holdings')
 
-      const detailed = {
-        holdings: processedHoldings,
-        portfolio_stats: {
-          largest_holding: processedHoldings.length > 0 ? {
-            symbol: processedHoldings[0]!.symbol,
-            percentage: processedHoldings[0]!.percentage
-          } : null,
-          diversification: calculatePortfolioStats(processedHoldings).diversification,
-          performance_6m: null // Will be calculated with timeline data
+        clearTimeout(timeoutId)
+
+        if (rpcError) {
+          // Se for timeout, tenta novamente
+          if (rpcError.message?.includes('timeout') || rpcError.message?.includes('statement_timeout')) {
+            console.warn(`📊 DETAILED: Timeout on attempt ${retryCount + 1}, retrying...`)
+            setHoldingsError(`Carregando holdings... (tentativa ${retryCount + 1}/${maxRetries + 1})`)
+            retryCount++
+            if (retryCount <= maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Backoff
+              continue
+            }
+          }
+          throw rpcError
+        }
+
+        // Process raw holdings data on frontend
+        const processedHoldings = processHoldings(
+          result?.holdings || [],
+          result?.assets_metadata || {},
+          result?.custom_assets || {}
+        )
+
+        const detailed = {
+          holdings: processedHoldings,
+          portfolio_stats: {
+            largest_holding: processedHoldings.length > 0 ? {
+              symbol: processedHoldings[0]!.symbol,
+              percentage: processedHoldings[0]!.percentage
+            } : null,
+            diversification: calculatePortfolioStats(processedHoldings).diversification,
+            performance_6m: null // Will be calculated with timeline data
+          }
+        }
+
+        setData(prev => ({
+          ...prev,
+          detailed,
+          loadingState: prev.essential.user_id && prev.timeline ? 'complete' : prev.loadingState
+        }))
+        CacheService.set(cacheKey, detailed, { ttl: DETAILED_TTL })
+
+        console.log('📊 DETAILED: Success')
+        return // Success, exit retry loop
+
+      } catch (err) {
+        console.error(`📊 DETAILED ERROR (attempt ${retryCount + 1}):`, err)
+        retryCount++
+
+        if (retryCount > maxRetries) {
+          // Último retry falhou, usar fallback
+          console.warn('📊 DETAILED: All retries failed, using fallback')
+          setHoldingsError('Holdings temporariamente indisponíveis. Tente recarregar em alguns minutos.')
+
+          // Fallback: mostrar dados básicos sem holdings detalhados
+          const fallbackDetailed = {
+            holdings: [],
+            portfolio_stats: {
+              largest_holding: null,
+              diversification: null,
+              performance_6m: null
+            }
+          }
+
+          setData(prev => ({
+            ...prev,
+            detailed: fallbackDetailed,
+            loadingState: prev.essential.user_id && prev.timeline ? 'complete' : prev.loadingState
+          }))
+
+          // Não fazer cache do fallback
+          break
+        } else {
+          // Aguardar antes do próximo retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
         }
       }
-
-      setData(prev => ({
-        ...prev,
-        detailed,
-        loadingState: prev.essential.user_id && prev.timeline ? 'complete' : prev.loadingState
-      }))
-      CacheService.set(cacheKey, detailed, { ttl: DETAILED_TTL })
-    } catch (err) {
-      console.error('DETAILED ERROR:', err)
-      // Não bloqueia a UI, continua com dados essenciais
     }
   }, [user?.id])
 
@@ -281,28 +339,28 @@ export function useDashboard() {
           await loadTimeline()
         }
       } else {
-        // Refresh completo - sequencial e confiável
+        // Refresh completo - carregamento progressivo igual ao inicial
         CacheService.remove(getCacheKey('essential', user.id))
         CacheService.remove(getCacheKey('detailed', user.id))
         CacheService.remove(getCacheKey('timeline', user.id))
 
-        // Reset state
+        // Reset apenas o estado de loading, mantém dados existentes até novos chegarem
         setData(prev => ({
           ...prev,
-          detailed: null,
-          timeline: null,
           loadingState: 'instant'
         }))
 
-        // Sequência sequencial (evita race conditions)
-        await loadEssential()
+        // Limpar erros anteriores
+        setError(null)
+        setHoldingsError(null)
 
-        // Aguardar um pouco antes de carregar dados pesados
-        await new Promise(resolve => setTimeout(resolve, 50))
-        await loadDetailed()
-
-        await new Promise(resolve => setTimeout(resolve, 50))
-        await loadTimeline()
+        // Carregar todas as camadas em paralelo para máxima velocidade
+        // Cada camada atualiza o estado conforme completa
+        await Promise.all([
+          loadEssential(),
+          loadDetailed(),
+          loadTimeline()
+        ])
       }
     } catch (error) {
       console.error('Refresh error:', error)
@@ -374,6 +432,7 @@ export function useDashboard() {
     hasData,
     isPremium: data.essential.is_premium,
     error,
+    holdingsError,
 
     // Ações
     refresh,
