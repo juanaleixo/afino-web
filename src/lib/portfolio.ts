@@ -139,24 +139,63 @@ export class PortfolioService {
     }
   }
 
-  // Cached function for optimized holdings with assets
+  // Simplified cached function - API now reliable, no complex fallbacks needed
   private getHoldingsWithAssets = withCache(
     async (userId: string, date: string) => {
-      // Try new optimized function first, fallback to original on 404
-      try {
-        const { data, error } = await supabase.rpc('api_holdings_with_assets', { 
-          p_date: date
-        })
-        if (!error && Array.isArray(data)) return data
-      } catch {
-        // Function doesn't exist yet, ignore and fallback
+      // Direct table access - no API, reliable and fast
+      console.log('Using direct table access for holdings')
+
+      // Get latest date from recent data
+      const { data: latestRow } = await supabase
+        .from('daily_positions_acct')
+        .select('date')
+        .eq('user_id', userId)
+        .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .eq('is_final', true)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!latestRow) return []
+
+      const targetDate = latestRow.date
+
+      // Get holdings for that date
+      const { data: holdings, error } = await supabase
+        .from('daily_positions_acct')
+        .select('asset_id, units, value')
+        .eq('user_id', userId)
+        .eq('date', targetDate)
+        .eq('is_final', true)
+        .gt('value', 0.01)
+        .order('value', { ascending: false })
+        .limit(20)
+
+      if (error) {
+        console.error('Direct holdings query failed:', error)
+        return []
       }
-      
-      // No fallback needed - api_holdings_with_assets is the primary API
-      throw new Error('Failed to load holdings data: API call failed')
+
+      // Enrich with asset metadata using existing cached function
+      const assetIds = holdings?.map(h => h.asset_id) || []
+      const assetsData = await this.getAssetsBatch(assetIds)
+      const assetMap = new Map(assetsData.map(a => [a.symbol, a]))
+
+      // Merge holdings with asset metadata
+      return (holdings || []).map((holding: any) => {
+        const assetInfo = assetMap.get(holding.asset_id) || { symbol: '', class: '', label_ptbr: '' }
+        return {
+          asset_id: holding.asset_id,
+          symbol: assetInfo.symbol || holding.asset_id,
+          class: assetInfo.class || 'unknown',
+          label_ptbr: assetInfo.label_ptbr || holding.asset_id,
+          units: holding.units,
+          value: holding.value
+        }
+      })
     },
     (userId: string, date: string) => `holdings_with_assets:${userId}:${date}`,
-    { ttl: 2 * 60 * 1000 } // 2 minutes
+    { ttl: 5 * 60 * 1000 } // 5 minutes - can be longer since API is reliable
   )
 
   // Snapshot por ativo (free/premium) 
@@ -285,23 +324,38 @@ export class PortfolioService {
 
   // Carregar ativos únicos dos holdings (real)
   async getUniqueAssets(date: string) {
-    // Tentar primeiro a função detalhada
+    // Direct table access for unique assets
     try {
-      // Use api_holdings_with_assets como primary API
-      const { data, error } = await supabase.rpc('api_holdings_with_assets', {
-        p_date: date
-      })
+      const { data: recentHoldings, error } = await supabase
+        .from('daily_positions_acct')
+        .select('asset_id')
+        .eq('user_id', this.userId)
+        .eq('is_final', true)
+        .gt('value', 0.01)
+        .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('date', { ascending: false })
+        .limit(50) // Get more to ensure we have all unique assets
 
-      if (!error && data && data.length > 0) {
-        return data.map((holding: any) => ({
-          id: holding.asset_id,
-          symbol: holding.symbol,
-          class: holding.class,
-          label: holding.label_ptbr || holding.symbol
-        }))
+      if (!error && recentHoldings && recentHoldings.length > 0) {
+        // Get unique asset IDs
+        const assetIds = [...new Set(recentHoldings.map(h => h.asset_id as string))]
+
+        // Enrich with metadata
+        const assetsData = await this.getAssetsBatch(assetIds)
+        const assetMap = new Map(assetsData.map(a => [a.symbol, a]))
+
+        return assetIds.map((assetId: string) => {
+          const assetInfo = assetMap.get(assetId) || { symbol: '', class: '', label_ptbr: '' }
+          return {
+            id: assetId,
+            symbol: assetInfo.symbol || assetId,
+            class: assetInfo.class || 'unknown',
+            label: assetInfo.label_ptbr || assetInfo.symbol || assetId
+          }
+        })
       }
-    } catch {
-      console.warn('RPC api_holdings_with_assets falhou, usando fallback')
+    } catch (e) {
+      console.warn('Direct unique assets query failed:', e)
     }
 
     // Fallback 1: daily_positions_acct do dia

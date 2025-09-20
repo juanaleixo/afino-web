@@ -23,6 +23,7 @@ interface PortfolioChartProps {
   dailyData?: Array<{ date: string; total_value: number }> | null
   benchmarkData?: Array<{ date: string; value: number; symbol: string }> | null
   isLoading?: boolean
+  granularity?: 'daily' | 'monthly'
 }
 
 interface ChartDatum {
@@ -37,7 +38,7 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 0,
 })
 
-export default function PortfolioChart({ monthlyData, dailyData, benchmarkData, isLoading = false }: PortfolioChartProps) {
+export default function PortfolioChart({ monthlyData, dailyData, benchmarkData, isLoading = false, granularity = 'monthly' }: PortfolioChartProps) {
   const [refAreaLeft, setRefAreaLeft] = useState<string>('')
   const [refAreaRight, setRefAreaRight] = useState<string>('')
   const [isDragging, setIsDragging] = useState(false)
@@ -52,7 +53,10 @@ export default function PortfolioChart({ monthlyData, dailyData, benchmarkData, 
 
   // Normalizar dados para o gráfico
   const chartData: ChartDatum[] = useMemo(() => {
-    const base = dailyData && dailyData.length > 0 ? dailyData : monthlyData
+    // Select data based on granularity, not just availability
+    const base = granularity === 'daily' && dailyData && dailyData.length > 0
+      ? dailyData
+      : monthlyData
     if (!base || base.length === 0) return []
     
     const portfolioData = base.map((d) => ({
@@ -88,7 +92,7 @@ export default function PortfolioChart({ monthlyData, dailyData, benchmarkData, 
     }
     
     return portfolioData
-  }, [monthlyData, dailyData, benchmarkData])
+  }, [monthlyData, dailyData, benchmarkData, granularity])
 
   const latestValue = chartData.at(-1)?.value ?? 0
 

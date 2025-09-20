@@ -161,34 +161,30 @@ export function useDashboard() {
         console.log(`📊 DETAILED: Loading from DB (attempt ${retryCount + 1}/${maxRetries + 1})`)
         setHoldingsError(null) // Clear previous errors
 
-        // Criar AbortController para timeout manual
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
+        // Direct table access - reliable and fast
+        console.log('📊 DETAILED: Using direct table access (no API)')
 
-        const { data: result, error: rpcError } = await supabase.rpc('api_dashboard_holdings')
+        const { data: directHoldings, error: holdingsError } = await supabase
+          .from('daily_positions_acct')
+          .select('asset_id, date, units, value')
+          .eq('user_id', user.id)
+          .eq('is_final', true)
+          .gt('value', 0.01)
+          .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // Last 7 days
+          .order('date', { ascending: false })
+          .order('value', { ascending: false })
+          .limit(15)
 
-        clearTimeout(timeoutId)
+        if (holdingsError) throw holdingsError
 
-        if (rpcError) {
-          // Se for timeout, tenta novamente
-          if (rpcError.message?.includes('timeout') || rpcError.message?.includes('statement_timeout')) {
-            console.warn(`📊 DETAILED: Timeout on attempt ${retryCount + 1}, retrying...`)
-            setHoldingsError(`Carregando holdings... (tentativa ${retryCount + 1}/${maxRetries + 1})`)
-            retryCount++
-            if (retryCount <= maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Backoff
-              continue
-            }
-          }
-          throw rpcError
-        }
+        const rawHoldings = (directHoldings || []).map(h => ({
+          asset_id: h.asset_id,
+          date: h.date,
+          units: h.units,
+          value: h.value
+        }))
 
-        // Process raw holdings data on frontend
-        const processedHoldings = processHoldings(
-          result?.holdings || [],
-          result?.assets_metadata || {},
-          result?.custom_assets || {}
-        )
+        const processedHoldings = processHoldings(rawHoldings, {}, {})
 
         const detailed = {
           holdings: processedHoldings,
@@ -263,19 +259,86 @@ export function useDashboard() {
     try {
       console.log('📈 TIMELINE: Loading from DB')
 
-      const { data: result, error: rpcError } = await supabase.rpc('api_dashboard_timeline')
+      let timeline = { monthly_series: [], daily_series: [] }
 
-      if (rpcError) throw rpcError
+      try {
+        // Try fast API first
+        const { data: dailyTable, error: rpcError } = await supabase.rpc('api_dashboard_timeline')
 
-      // Process raw timeline data on frontend
-      const timelineData = processTimelineData(
-        result?.monthly_data || [],
-        result?.daily_data || []
-      )
+        if (!rpcError && dailyTable && dailyTable.length > 0) {
+          // Convert daily data to monthly aggregation for compatibility
+          const monthlyMap = new Map()
 
-      const timeline = {
-        monthly_series: timelineData.monthly_series,
-        daily_series: timelineData.daily_series
+          dailyTable.forEach((row: any) => {
+            const monthKey = new Date(row.date).toISOString().slice(0, 7) // YYYY-MM
+            const currentValue = Number(row.total_value)
+
+            // Keep the highest value for each month (latest date)
+            if (!monthlyMap.has(monthKey) || monthlyMap.get(monthKey) < currentValue) {
+              monthlyMap.set(monthKey, currentValue)
+            }
+          })
+
+          const monthly_series = Array.from(monthlyMap.entries()).map(([month, total]) => {
+            const date = new Date(month + '-01')
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+            return {
+              month_eom: monthEnd.toISOString().split('T')[0],
+              total_value: total
+            }
+          }).sort((a, b) => a.month_eom.localeCompare(b.month_eom)) // Chronological order
+
+          // Convert to daily series (already in chronological order from API)
+          const daily_series = dailyTable.map((row: any) => ({
+            date: row.date,
+            total_value: Number(row.total_value)
+          }))
+
+          timeline = {
+            monthly_series,
+            daily_series // Both available now
+          }
+        } else {
+          throw new Error('Timeline API failed')
+        }
+      } catch (apiError) {
+        console.warn('📈 TIMELINE: API failed, using direct fallback:', apiError)
+
+        // Direct table fallback - very minimal
+        const { data: directDaily } = await supabase
+          .from('daily_positions_acct')
+          .select('date, value')
+          .eq('user_id', user.id)
+          .eq('is_final', true)
+          .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // 1 month
+          .order('date', { ascending: false })
+          .limit(15)
+
+        // Aggregate to monthly
+        const monthlyMap = new Map()
+        directDaily?.forEach(row => {
+          const monthKey = new Date(row.date).toISOString().slice(0, 7) // YYYY-MM
+          const currentValue = Number(row.value)
+
+          // Keep the highest value for each month (latest date due to DESC order)
+          if (!monthlyMap.has(monthKey) || monthlyMap.get(monthKey) < currentValue) {
+            monthlyMap.set(monthKey, currentValue)
+          }
+        })
+
+        const monthly_series = Array.from(monthlyMap.entries()).map(([month, total]) => {
+          const date = new Date(month + '-01')
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+          return {
+            month_eom: monthEnd.toISOString().split('T')[0],
+            total_value: total
+          }
+        }).sort((a, b) => b.month_eom.localeCompare(a.month_eom))
+
+        timeline = {
+          monthly_series,
+          daily_series: []
+        }
       }
 
       setData(prev => ({

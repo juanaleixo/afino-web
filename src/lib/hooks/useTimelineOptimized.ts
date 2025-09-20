@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { CacheService } from '@/lib/services/cacheService'
-import { useDashboard } from './useDashboardOptimized'
+import { useDashboard } from './useDashboard'
 
 export interface TimelineFilters {
   period: '1M' | '3M' | '6M' | '1Y' | '2Y' | 'ALL' | 'CUSTOM'

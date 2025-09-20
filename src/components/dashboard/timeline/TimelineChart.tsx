@@ -58,11 +58,12 @@ export function TimelineChart({
     )
   }
 
-  // Sem dados disponíveis
-  const monthlySeries = portfolioData?.monthlySeries || portfolioData?.series || []
+  // Use the series already selected by usePortfolioData hook based on granularity
+  const selectedSeries = portfolioData?.series || []
+  const monthlySeries = portfolioData?.monthlySeries || []
   const dailySeries = portfolioData?.dailySeries || null
-  
-  if (monthlySeries.length === 0) {
+
+  if (selectedSeries.length === 0) {
     return (
       <FadeIn>
         <Card>
@@ -136,6 +137,7 @@ export function TimelineChart({
             dailyData={dailySeries}
             benchmarkData={benchmarkData}
             isLoading={loading}
+            granularity={filters.granularity}
           />
         )}
       </div>

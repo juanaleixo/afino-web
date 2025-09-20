@@ -55,16 +55,12 @@ export function TimelineTabs({
   getDateRange
 }: TimelineTabsProps) {
 
-  // Função para obter série ativa baseada na granularidade (memoizada)
+  // Use the series already selected by usePortfolioData hook based on granularity
   const activeSeries = useMemo(() => {
     if (!portfolioData) return []
-    const dailySeries = portfolioData.dailySeries || null
-    const monthlySeries = portfolioData.monthlySeries || portfolioData.series || []
-    
-    return (isPremium && filters.granularity === 'daily' && dailySeries)
-      ? dailySeries 
-      : monthlySeries
-  }, [portfolioData, isPremium, filters.granularity])
+    // The hook already selected the correct series based on granularity
+    return portfolioData.series || []
+  }, [portfolioData])
 
   // Mapear dados normalizados para performance (memoizado)
   const normalizedAssetData = useMemo(() => {

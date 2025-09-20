@@ -4,6 +4,7 @@
 CREATE FUNCTION public.api_portfolio_daily(p_from date, p_to date) RETURNS TABLE(date date, total_value numeric)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
+SET statement_timeout = '5s'
 AS $$
 SELECT d.date, d.total_value
 FROM public.portfolio_value_daily d

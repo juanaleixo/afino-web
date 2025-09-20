@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/lib/auth"
-import { useDashboard } from "@/lib/hooks/useDashboardOptimized"
+import { useDashboard } from "@/lib/hooks/useDashboard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -368,7 +368,7 @@ export default function DashboardPage() {
               <div>
                 <h2 className="text-2xl font-bold">Evolução Temporal</h2>
                 <p className="text-muted-foreground">
-                  {isPremium ? 'Últimos 6 meses' : 'Últimos 12 meses'} •
+                  Último mês •
                   Visualização {isPremium ? 'diária' : 'mensal'}
                 </p>
               </div>
@@ -399,8 +399,9 @@ export default function DashboardPage() {
                   <ChartSkeleton />
                 ) : (isPremium ? dailyData : monthlyData).length > 0 ? (
                   <PortfolioChart
-                    monthlyData={isPremium ? [] : monthlyData}
-                    dailyData={isPremium ? dailyData : []}
+                    monthlyData={monthlyData}
+                    dailyData={dailyData}
+                    granularity={isPremium ? 'daily' : 'monthly'}
                     isLoading={timelineLoading}
                   />
                 ) : (

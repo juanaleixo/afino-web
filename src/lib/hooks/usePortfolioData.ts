@@ -189,8 +189,10 @@ export function usePortfolioData(userId: string, options: PortfolioDataOptions =
       const performanceData = includePerformance ? results[3] : null
 
       // Use daily or monthly series based on granularity
-      const series = granularity === 'daily' && portfolioData.dailySeries 
-        ? portfolioData.dailySeries 
+      // For daily: only use dailySeries if it exists and granularity is 'daily'
+      // For monthly: always use monthlySeries (available for all users)
+      const series = granularity === 'daily' && portfolioData.dailySeries && portfolioData.dailySeries.length > 0
+        ? portfolioData.dailySeries
         : portfolioData.monthlySeries || []
 
       // Calculate performance metrics

@@ -11,6 +11,7 @@ RETURNS TABLE(
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
+SET statement_timeout = '5s'
 AS $$
     SELECT 
         pvdd.date,
